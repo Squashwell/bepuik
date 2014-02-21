@@ -2796,8 +2796,7 @@ static void rna_def_object(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "bepuik_dynamic_peripheral_stiffness", PROP_FLOAT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(prop, "Dynamic Peripheral Stiffness", "Angular joint rigidity applied to each peripheral bone during dynamic mode");
 	RNA_def_property_range(prop,0,FLT_MAX);
-	RNA_def_property_float_default(prop,BEPUIK_DYNAMIC_ORIENTATION_RIGIDITY_DEFAULT);
-	
+
 	prop = RNA_def_property(srna, "bepuik_dynamic_position_rigidity", PROP_FLOAT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(prop, "Dynamic Position Rigidity", "Rigidity used when tweaking position in dynamic mode");
 	RNA_def_property_range(prop,0,FLT_MAX);
@@ -2808,7 +2807,6 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_range(prop,0,FLT_MAX);
 	RNA_def_property_float_default(prop,BEPUIK_DYNAMIC_ORIENTATION_RIGIDITY_DEFAULT);
 
-	
 	RNA_api_object(srna);
 }
 
