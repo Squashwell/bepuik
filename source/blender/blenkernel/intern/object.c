@@ -1015,6 +1015,16 @@ Object *BKE_object_add_only_object(Main *bmain, int type, const char *name)
 	ob->fluidsimSettings = NULL;
 
 	BLI_listbase_clear(&ob->pc_ids);
+
+	ob->bepuik_solve_quality = BEPUIK_SOLVE_QUALITY_DEFAULT;
+	ob->bepuik_solve_length = BEPUIK_SOLVE_LENGTH_DEFAULT;
+	ob->bepuik_dynamic_solve_length = BEPUIK_DYNAMIC_SOLVE_LENGTH_DEFAULT;
+	ob->bepuik_fixer_iterations = BEPUIK_FIXER_ITERATIONS_DEFAULT;
+	ob->bepuik_velocity_subiterations = BEPUIK_VELOCITY_SUBITERATIONS_DEFAULT;
+	ob->bepuik_dynamic_peripheral_stiffness = BEPUIK_DYNAMIC_ORIENTATION_RIGIDITY_DEFAULT;
+	ob->bepuik_dynamic_position_rigidity = BEPUIK_DYNAMIC_POSITION_RIGIDITY_DEFAULT;
+	ob->bepuik_dynamic_orientation_rigidity = BEPUIK_DYNAMIC_ORIENTATION_RIGIDITY_DEFAULT;
+
 	
 	/* Animation Visualization defaults */
 	animviz_settings_init(&ob->avs);
@@ -2842,11 +2852,27 @@ bool BKE_object_parent_loop_check(const Object *par, const Object *ob)
 /* the main object update call, for object matrix, constraints, keys and displist (modifiers) */
 /* requires flags to be set! */
 /* Ideally we shouldn't have to pass the rigid body world, but need bigger restructuring to avoid id */
+static Object * obrel_armature_find(Object *ob);
+
 void BKE_object_handle_update_ex(EvaluationContext *eval_ctx,
                                  Scene *scene, Object *ob,
                                  RigidBodyWorld *rbw)
 {
-	if (ob->recalc & OB_RECALC_ALL) {
+    /* TODO:BEPUIK XXX hack ensures that BEPUik will be solved continuously during modal operators
+	where's a better place to put this? */
+	if(ob->pose && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC))
+    {
+        ob->recalc |= OB_RECALC_DATA;
+    }
+	else if(ob->type == OB_MESH)
+	{
+		Object * ob_arm = obrel_armature_find(ob);
+		if(ob_arm && ob_arm->pose->bepuikflag & POSE_BEPUIK_DYNAMIC)
+			ob->recalc |= OB_RECALC_DATA;
+	}
+	
+    if (ob->recalc & OB_RECALC_ALL) 
+    {
 		/* speed optimization for animation lookups */
 		if (ob->pose)
 			BKE_pose_channels_hash_make(ob->pose);

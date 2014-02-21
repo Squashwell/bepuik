@@ -515,7 +515,7 @@ int calc_manipulator_stats(const bContext *C)
 			}
 		}
 		else {
-			totsel = count_set_pose_transflags(&mode, 0, ob);
+			totsel = count_set_pose_transflags(&mode, 0, (scene->toolsettings->bepuikflag & SCE_BEPUIK_DYNAMIC) ? T_BEPUIK_DYNAMIC : 0, ob);
 
 			if (totsel) {
 				/* use channels to get stats */

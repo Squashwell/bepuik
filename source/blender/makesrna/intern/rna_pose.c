@@ -1098,6 +1098,84 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	RNA_def_property_ui_icon(prop, ICON_UNLOCKED, 1);
 	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
+    
+	/* BEPUik */
+	prop = RNA_def_property(srna, "use_bepuik", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BONE_BEPUIK);
+	RNA_def_property_ui_text(prop, "Enable BEPUik", "Enable BEPUik for this bone");
+	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
+	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
+	
+	prop = RNA_def_property(srna, "bepuik_will_be_solved", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BONE_BEPUIK_IN_SOLVING_PARTITION);
+	RNA_def_property_clear_flag(prop,PROP_EDITABLE);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	
+	prop = RNA_def_property(srna, "use_bepuik_always_solve",PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BONE_BEPUIK_ALWAYS_SOLVE);
+	RNA_def_property_ui_text(prop, "Always Solve", "Always solve this bone during hierarchy-aware solving");
+	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
+	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
+	
+    prop = RNA_def_property(srna,"bepuik_ball_socket_rigidity",PROP_FLOAT,PROP_NONE);
+    RNA_def_property_ui_text(prop,"Ball Socket Rigidity","The rigidity of the ball socket joint");
+    RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_DEFAULT);
+    RNA_def_property_range(prop,BEPUIK_RIGIDITY_MIN,BEPUIK_RIGIDITY_MAX);
+	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
+	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
+    
+	prop = RNA_def_property(srna,"bepuik_rotational_heaviness",PROP_FLOAT,PROP_NONE);
+    RNA_def_property_ui_text(prop,"Rotational Heaviness","Scales the intertia tensor of the bepuik bone, a higher value means more rotational heaviness");
+    RNA_def_property_float_default(prop,BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT);
+    RNA_def_property_range(prop,BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT,BEPUIK_RIGIDITY_MAX);
+	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
+	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
+	
+    /* BEPUik Solved information */ {
+    prop = RNA_def_property(srna,"bepuik_solved_orientation",PROP_FLOAT,PROP_QUATERNION);
+    RNA_def_property_ui_text(prop,"Solved Orientation","Solved orientation of the BEPUik bone");
+    RNA_def_property_float_array_default(prop,default_quat);
+    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+    
+    prop = RNA_def_property(srna,"bepuik_solved_head",PROP_FLOAT,PROP_TRANSLATION); 
+    RNA_def_property_ui_text(prop,"Solved Head Position",""); 
+    RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+    
+    prop = RNA_def_property(srna,"bepuik_solved_tail",PROP_FLOAT,PROP_TRANSLATION); 
+    RNA_def_property_ui_text(prop,"Solved Tail Position",""); 
+    RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+    
+    prop = RNA_def_property(srna,"bepuik_solved_position",PROP_FLOAT,PROP_TRANSLATION); 
+    RNA_def_property_ui_text(prop,"Solved Position",""); 
+    RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+    }
+	
+	/* BEPUik Transform Information */ {
+	prop = RNA_def_property(srna,"bepuik_transform_position",PROP_FLOAT,PROP_TRANSLATION); 
+	RNA_def_property_ui_text(prop,"Transform Position","Transform Position of the BEPUik Bone"); 
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	prop = RNA_def_property(srna,"bepuik_transform_orientation",PROP_FLOAT,PROP_QUATERNION); 
+	RNA_def_property_ui_text(prop,"Transform Orientation","Transform Orientation of the BEPUik Bone");
+	RNA_def_property_float_array_default(prop,default_quat);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);	
+		
+	prop = RNA_def_property(srna,"bepuik_transform_local_offset",PROP_FLOAT,PROP_TRANSLATION);
+	RNA_def_property_ui_text(prop,"Transform Local Offset","Local Offset of the BEPUik Bone");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	}
 
 	RNA_api_pose_channel(srna);
 }

@@ -72,6 +72,18 @@ extern StructRNA RNA_ArmatureModifier;
 extern StructRNA RNA_ArmatureSensor;
 extern StructRNA RNA_ArrayModifier;
 extern StructRNA RNA_BackgroundImage;
+extern StructRNA RNA_BEPUikAngularJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikBallSocketJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikDistanceJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikDistanceLimit; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikLinearAxisLimit; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikPointOnLineJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikPointOnPlaneJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikRevoluteJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikSwingLimit; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikSwivelHingeJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikTwistJoint; /* ifdef WITH_BEPUIK */
+extern StructRNA RNA_BEPUikTwistLimit; /* ifdef WITH_BEPUIK */
 extern StructRNA RNA_BevelModifier;
 extern StructRNA RNA_SplinePoint;
 extern StructRNA RNA_BezierSplinePoint;

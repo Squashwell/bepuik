@@ -41,6 +41,8 @@
 
 #include "armature_intern.h"
 
+#include "DNA_constraint_types.h"
+
 /* ************************** registration **********************************/
 
 /* Both operators ARMATURE_OT_xxx and POSE_OT_xxx here */
@@ -161,6 +163,9 @@ void ED_operatortypes_armature(void)
 	WM_operatortype_append(POSE_OT_push);
 	WM_operatortype_append(POSE_OT_relax);
 	WM_operatortype_append(POSE_OT_breakdown);
+	
+	/* BEPUik */
+	WM_operatortype_append(POSE_OT_bepuik_set_bone);
 }
 
 void ED_operatormacros_armature(void)
@@ -414,5 +419,25 @@ void ED_keymap_armature(wmKeyConfig *keyconf)
 
 	/* menus */
 	WM_keymap_add_menu(keymap, "VIEW3D_MT_pose_specials", WKEY, KM_PRESS, 0, 0);
+	
+	/* bepuik rigidity transform ops */
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_POSITION);
+	RNA_boolean_set(kmi->ptr,"only_top_target",1);
+	
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_ORIENTATION);
+	RNA_boolean_set(kmi->ptr,"only_top_target",1);
+	
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_CTRL | KM_ALT | KM_SHIFT, 0); 
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_ABSOLUTE);
+	RNA_boolean_set(kmi->ptr,"set",1);
+	RNA_float_set(kmi->ptr, "value", 1);
+	RNA_boolean_set(kmi->ptr,"only_top_target",1);
+	
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_ALT, 0); 
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_ABSOLUTE | BEPUIK_TARGET_ORIENTATION | BEPUIK_TARGET_POSITION);
+	RNA_boolean_set(kmi->ptr,"set",1);
+	RNA_float_set(kmi->ptr, "value", 0);
 }
 

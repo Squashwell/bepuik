@@ -2217,6 +2217,9 @@ int initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *even
 		case TFM_SEQ_SLIDE:
 			initSeqSlide(t);
 			break;
+		case TFM_BEPUIK_TARGET_RIGIDITY_MODIFY:
+			initBEPUikTargetRigidityModify(t);
+			break;
 	}
 
 	if (t->state == TRANS_CANCEL) {
@@ -2323,6 +2326,9 @@ int transformEnd(bContext *C, TransInfo *t)
 			if (t->mode == TFM_EDGE_SLIDE)
 				doEdgeSlide(t, 0.0f);
 			
+			if (t->bepuikflag & T_BEPUIK_DYNAMIC)
+				bepu_restore_pchans(t);
+						
 			exit_code = OPERATOR_CANCELLED;
 			restoreTransObjects(t); // calls recalcData()
 		}
@@ -7724,6 +7730,176 @@ bool checkUseAxisMatrix(TransInfo *t)
 	}
 
 	return false;
+}
+
+#define BEPU_COPY_UNDO_DATA(destination,source) \
+	copy_v3_v3(destination->loc,source->loc); \
+	copy_v3_v3(destination->size,source->size); \
+	\
+    copy_v3_v3(destination->eul,source->eul); \
+    copy_qt_qt(destination->quat,source->quat); \
+	copy_v3_v3(destination->rotAxis,source->rotAxis); \
+    destination->rotAngle = source->rotAngle; \
+	\
+    copy_m4_m4(destination->chan_mat,source->chan_mat); \
+	copy_m4_m4(destination->pose_mat,source->pose_mat); \
+	\
+    copy_v3_v3(destination->pose_head,source->pose_head); \
+    copy_v3_v3(destination->pose_tail,source->pose_tail); \
+	\
+	copy_m4_m4(destination->constinv,source->constinv);
+
+
+void bepu_store_pchans(TransInfo * t)
+{
+	bPoseChannel * pchan;
+	BEPUikUndoData * ud;
+	
+	if(t->customData) return;
+	if(!t->poseobj) return;
+	
+	t->customData = MEM_callocN(BLI_countlist(&t->poseobj->pose->chanbase)*sizeof(BEPUikUndoData), "BEPUik BEPUikUndoData");
+	ud = t->customData;
+	for (pchan = t->poseobj->pose->chanbase.first; pchan; pchan = pchan->next)
+	{
+		BEPU_COPY_UNDO_DATA(ud,pchan)
+		ud++;
+	}
+}
+
+void bepu_restore_pchans(TransInfo * t)
+{
+	bPoseChannel * pchan;
+	BEPUikUndoData * ud;
+	
+	if(!t->customData) return;
+	if(!t->poseobj) return;
+	
+	ud = t->customData;
+	for (pchan = t->poseobj->pose->chanbase.first; pchan; pchan = pchan->next)
+	{
+		BEPU_COPY_UNDO_DATA(pchan,ud)
+		ud++;
+	}
+}
+
+void bepu_transinfo_free(TransInfo * t)
+{
+	Object * ob = t->poseobj;
+	BEPUikUndoData *ud = t->customData;
+	G.bepuik_feedback = false;
+	
+	ob->pose->bepuikflag = 0;
+	
+	if (ud) {
+		MEM_freeN(ud);
+		t->customData = NULL;
+	}
+
+}
+
+void initBEPUikTargetRigidityModify(TransInfo *t)
+{
+	t->mode = TFM_BEPUIK_TARGET_RIGIDITY_MODIFY;
+	t->transform = BEPUikTargetRigidityModify;
+
+	initMouseInputMode(t, &t->mouse, INPUT_HORIZONTAL_ABSOLUTE);
+
+	t->idx_max = 0;
+	t->num.idx_max = 0;
+	t->snap[0] = 0.0f;
+	t->snap[1] = 0.1f;
+	t->snap[2] = t->snap[1] * 0.1f;
+
+	t->num.increment = t->snap[1];
+
+	t->flag |= T_NO_CONSTRAINT | T_NO_PROJECT;
+}
+
+int BEPUikTargetRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
+{
+	TransData *td = t->data;
+	float rigidity;
+	int i;
+	char str[MAX_INFO_LEN];
+
+
+	rigidity = t->values[0];
+	
+	snapGrid(t, &rigidity);
+	
+	applyNumInput(&t->num, &rigidity);
+	
+
+
+	/* header print for NumInput */
+	if (hasNumInput(&t->num)) {
+		char c[NUM_STR_REP_LEN];
+
+		outputNumInput(&(t->num), c);
+
+		if(rigidity >= 0.0f)
+		{
+			BLI_snprintf(str, MAX_INFO_LEN, IFACE_("Rigidity: +%s %s"), c, t->proptext);	
+		}
+		else
+		{
+			BLI_snprintf(str, MAX_INFO_LEN, IFACE_("Rigidity: %s %s"), c, t->proptext);
+		}
+		
+	}
+	else {
+		/* default header print */
+		if(rigidity >= 0.0f)
+		{
+			BLI_snprintf(str, MAX_INFO_LEN, IFACE_("Rigidity: +%.3f %s"), rigidity, t->proptext);
+		}
+		else
+		{
+			BLI_snprintf(str, MAX_INFO_LEN, IFACE_("Rigidity: %.3f %s"), rigidity, t->proptext);
+		}
+	}
+
+	for (i = 0; i < t->total; i++, td++) {
+		if (td->flag & TD_NOACTION)
+			break;
+
+		if (td->flag & TD_SKIP)
+			continue;
+
+		if (td->val) {
+			if(t->bepuikflag & T_BEPUIK_TARGET_SET)
+				*td->val = rigidity;
+			else
+				*td->val = td->ival + rigidity;
+
+			if (*td->val < 0.0f)
+				*td->val = 0.0f;
+		}
+		else if(td->flag & TD_INTVALUES) {
+			int *flag = td->extra;
+			if(t->bepuikflag & T_BEPUIK_TARGET_SET) {
+				if(rigidity >= FLT_EPSILON)
+					*flag |= BEPUIK_CONSTRAINT_ABSOLUTE;
+				else
+					*flag &= ~BEPUIK_CONSTRAINT_ABSOLUTE;
+			}
+			else
+			{
+				if(rigidity >= FLT_EPSILON)
+					*flag |= BEPUIK_CONSTRAINT_ABSOLUTE;
+				else if(rigidity < 0)
+					*flag &= ~BEPUIK_CONSTRAINT_ABSOLUTE;
+			}
+		}
+		
+	}
+
+	recalcData(t);
+
+	ED_area_headerprint(t->sa, str);
+
+	return 1;
 }
 
 #undef MAX_INFO_LEN

@@ -62,6 +62,7 @@
 
 #include "armature_intern.h"
 
+#include "DNA_constraint_types.h"
 
 /* ********************************************** */
 /* Pose Apply */
@@ -323,6 +324,43 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 	
 	/* continue? */
 	if (paste_ok) {
+		if((pchan->bepuikflag & BONE_BEPUIK) && (chan->bepuikflag & BONE_BEPUIK))
+		{
+			bConstraint * src = chan->constraints.first;
+			bConstraint * dst = pchan->constraints.first;
+			
+			for(src = chan->constraints.first; src; src = src->next)
+			{
+				if(src->type == CONSTRAINT_TYPE_BEPUIK_TARGET)
+				{
+					if (flip)
+						flip_side_name(name, src->name, 0);        /* 0 = don't strip off number extensions */
+					else
+						BLI_strncpy(name, src->name, sizeof(name));
+					
+					for(dst = pchan->constraints.first; dst; dst = dst->next)
+					{
+						if(dst->type == CONSTRAINT_TYPE_BEPUIK_TARGET)
+						{
+							if(strcmp(name,dst->name) == 0)
+							{
+								bBEPUikTarget * dst_bepuik_target = dst->data;
+								bBEPUikTarget * src_bepuik_target = src->data;
+								dst->bepuik_rigidity = src->bepuik_rigidity;
+								dst_bepuik_target->orientation_rigidity = src_bepuik_target->orientation_rigidity;
+								dst_bepuik_target->bepuikflag = src_bepuik_target->bepuikflag;
+							}
+						}
+					}
+					
+				}
+			}
+		}
+		
+		if(bepuik_targets_only)
+			return pchan;
+		
+		
 		/* only loc rot size 
 		 *	- only copies transform info for the pose 
 		 */
@@ -482,11 +520,23 @@ static int pose_paste_exec(bContext *C, wmOperator *op)
 			selOnly = 0;
 	}
 
+	BKE_bepuik_set_target_flags(ob,0,0,POSE_KEY);
+	
 	/* Safely merge all of the channels in the buffer pose into any existing pose */
 	for (chan = g_posebuf->chanbase.first; chan; chan = chan->next) {
 		if (chan->flag & POSE_KEY) {
 			/* try to perform paste on this bone */
-			bPoseChannel *pchan = pose_bone_do_paste(ob, chan, selOnly, flip);
+			bPoseChannel *pchan = pose_bone_do_paste(ob, chan, selOnly, flip, 0);
+			
+			if (pchan) {
+				/* keyframing tagging for successful paste */
+				ED_autokeyframe_pchan(C, scene, ob, pchan, ks);
+			}
+		}
+		else if(chan->bone->flag & BONE_TRANSFORM)
+		{
+			/* try to perform paste on this bone */
+			bPoseChannel *pchan = pose_bone_do_paste(ob, chan, selOnly, flip, 1);
 			
 			if (pchan) {
 				/* keyframing tagging for successful paste */
@@ -835,7 +885,7 @@ static int pose_clear_user_transforms_exec(bContext *C, wmOperator *op)
 		
 		/* copy back values, but on selected bones only  */
 		for (pchan = dummyPose->chanbase.first; pchan; pchan = pchan->next) {
-			pose_bone_do_paste(ob, pchan, only_select, 0);
+			pose_bone_do_paste(ob, pchan, only_select, 0, 0);
 		}
 		
 		/* free temp data - free manually as was copied without constraints */

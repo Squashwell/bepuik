@@ -97,7 +97,7 @@ typedef struct bArmature {
 	int         flag;
 	int         drawtype;
 	int         gevertdeformer;         /* how vertex deformation is handled in the ge */
-	int         pad;
+	int         bepuikflag;
 	short       deformflag;
 	short       pathflag;
 
@@ -132,6 +132,12 @@ typedef enum eArmature_Flag {
 	ARM_DS_EXPAND       = (1<<13),  /* dopesheet channel is expanded */
 	ARM_HAS_VIZ_DEPS    = (1<<14),  /* other objects are used for visualizing various states (hack for efficient updates) */
 } eArmature_Flag;
+
+/* armature->flag */
+typedef enum eArmature_BEPUik_Flag {
+	ARM_BEPUIK_DRAWTARGETS = (1<<0),
+	ARM_BEPUIK_DRAWPREPOSE = (1<<1)
+} eArmature_BEPUik_Flag;
 
 /* armature->drawtype */
 typedef enum eArmature_Drawtype {

@@ -72,6 +72,10 @@
 #include "BIK_api.h"
 #include "BKE_sketch.h"
 
+#ifdef WITH_BEPUIK
+#include "bepu.h"
+#endif
+
 /* **************** Generic Functions, data level *************** */
 
 bArmature *BKE_armature_add(Main *bmain, const char *name)
@@ -2235,7 +2239,8 @@ void BKE_pchan_to_mat4(bPoseChannel *pchan, float chan_mat[4][4])
 
 	/* prevent action channels breaking chains */
 	/* need to check for bone here, CONSTRAINT_TYPE_ACTION uses this call */
-	if ((pchan->bone == NULL) || !(pchan->bone->flag & BONE_CONNECTED)) {
+
+	if ((pchan->bone == NULL) || !(pchan->bone->flag & BONE_CONNECTED) || (pchan->bepuikflag & BONE_BEPUIK)) {
 		copy_v3_v3(chan_mat[3], pchan->loc);
 	}
 }
@@ -2459,6 +2464,11 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 	float imat[4][4];
 	float ctime;
 
+	bConstraint * con;
+#ifdef WITH_BEPUIK
+	bool has_bepuik_bones = false;
+#endif
+	
 	if (ob->type != OB_ARMATURE)
 		return;
 	arm = ob->data;
@@ -2487,8 +2497,29 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 		/* 1. clear flags */
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 			pchan->flag &= ~(POSE_DONE | POSE_CHAIN | POSE_IKTREE | POSE_IKSPLINE);
-		}
 
+			pchan->bepuikflag &= ~(BONE_BEPUIK_IN_SOLVING_PARTITION | BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET | BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET | BONE_BEPUIK_FEEDBACK | BONE_BEPUIK_HAS_PREPOSE );
+			
+#ifdef WITH_BEPUIK
+			if(pchan->bepuikflag & BONE_BEPUIK)
+				has_bepuik_bones = true;
+#endif
+			
+			for(con = pchan->constraints.first; con; con = con->next) {
+				con->flag &= ~CONSTRAINT_BEPUIK_DRAWABLE;
+			}
+		}
+        
+#ifdef WITH_BEPUIK
+		if(has_bepuik_bones)
+		{
+			bepu_solve(scene,ob,ctime);
+		}
+#endif
+
+       
+		
+		
 		/* 2a. construct the IK tree (standard IK) */
 		BIK_initialize_tree(scene, ob, ctime);
 
@@ -2517,6 +2548,11 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 		BIK_release_tree(scene, ob, ctime);
 	}
 
+#ifdef WITH_BEPUIK
+	if(has_bepuik_bones)
+		bepu_end(scene,ob,ctime);
+#endif
+	
 	/* calculating deform matrices */
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 		if (pchan->bone) {
@@ -2575,4 +2611,69 @@ BoundBox *BKE_armature_boundbox_get(Object *ob)
 	boundbox_armature(ob, NULL, NULL);
 
 	return ob->bb;
+}
+
+static int pchan_meets_flag_requirements(Object * ob, bPoseChannel * pchan, int require_selected_visible, int required_pchan_flags)
+{
+	bArmature * arm = ob->data;
+	Bone * bone = pchan->bone;
+	if(require_selected_visible && !(PBONE_VISIBLE(arm, bone) && (bone->flag & BONE_SELECTED)))
+		return 0;
+	
+	if(required_pchan_flags && !(required_pchan_flags & pchan->flag))
+		return 0;
+	
+	return 1;
+}
+
+/* This translates the current pchan context into an implicit "selection"
+ * of bepuik_target constraints.  Affected bepuik target constraints have their 
+ * CONSTRAINT_BEPUIK_TRANSFORM flag set.
+ *
+ * Any bone that holds an affected bepuik target has its BONE_TRANSFORM flag set */
+void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_selected_visible, int required_pchan_flags)
+{
+	bPoseChannel * pchan;
+	bConstraint * con;
+	
+	/* first clear the flags */
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+		pchan->bone->flag &= ~BONE_TRANSFORM;
+		for(con = pchan->constraints.first; con; con = con->next)
+			con->flag &= ~CONSTRAINT_BEPUIK_TRANSFORM;
+	}
+	
+	/* walk thru all the bepuik targets in the object */
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {	
+		short flagged_first_bepuik_target = 0;
+		
+		for(con = pchan->constraints.first; con; con = con->next) {
+			if(con->type == CONSTRAINT_TYPE_BEPUIK_TARGET) {
+				bBEPUikTarget * bepuik_target_constraint = con->data;
+				bPoseChannel * pchan_target = BKE_pose_channel_find_name(ob->pose,bepuik_target_constraint->connection_subtarget);
+				
+				/* does the target pchan meet the requirements ? */
+				if(pchan_target && pchan_meets_flag_requirements(ob,pchan_target,require_selected_visible,required_pchan_flags)) {
+					con->flag |= CONSTRAINT_BEPUIK_TRANSFORM;
+					pchan->bone->flag |= BONE_TRANSFORM;
+				}
+				
+				/* what about the owner pchan? */
+				if(pchan_meets_flag_requirements(ob,pchan,require_selected_visible,required_pchan_flags)) {
+					if(top_targets_only) {
+						/* sometimes we want to affect ONLY the top target on the selected owner pchan */
+						if(!flagged_first_bepuik_target) {
+							flagged_first_bepuik_target = 1;
+							con->flag |= CONSTRAINT_BEPUIK_TRANSFORM;
+							pchan->bone->flag |= BONE_TRANSFORM;
+						}
+					}
+					else {
+						con->flag |= CONSTRAINT_BEPUIK_TRANSFORM;
+						pchan->bone->flag |= BONE_TRANSFORM;
+					}
+				}
+			}				
+		}
+	}	
 }

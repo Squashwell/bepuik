@@ -287,6 +287,13 @@ if(WITH_BULLET)
 	add_definitions(-DWITH_BULLET)
 endif()
 
+if(WITH_BEPUIK)
+    list(APPEND INC
+                ../../../intern/bepuik
+    )
+    add_definitions(-DWITH_BEPUIK)
+endif()
+
 #if(WITH_MOD_CLOTH_ELTOPO)
 #	list(APPEND INC
 #		../../../extern/eltopo

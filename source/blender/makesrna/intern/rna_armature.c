@@ -1030,6 +1030,19 @@ static void rna_def_armature(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Draw Bone Group Colors", "Draw bone group colors");
 	RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
 	
+	prop = RNA_def_property(srna, "show_bepuik_targets", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", ARM_BEPUIK_DRAWTARGETS);
+	RNA_def_property_ui_text(prop, "Draw BEPUik Targets", "Draw BEPUik target constraints");
+	RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
+	RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
+	
+	prop = RNA_def_property(srna, "show_bepuik_prepose", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", ARM_BEPUIK_DRAWPREPOSE);
+	RNA_def_property_ui_text(prop, "Draw BEPUik Prepose", "Draw BEPUik's prepose");
+	RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
+	RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
+	
+	
 /* XXX deprecated ....... old animviz for armatures only */
 	prop = RNA_def_property(srna, "show_only_ghost_selected", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", ARM_GHOST_ONLYSEL);

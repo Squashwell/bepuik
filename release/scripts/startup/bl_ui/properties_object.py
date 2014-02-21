@@ -309,6 +309,41 @@ class OBJECT_PT_relations_extras(ObjectButtonsPanel, Panel):
         layout.prop(ob, "use_extra_recalc_data")
 
 
+
+class OBJECT_PT_bepuik(ObjectButtonsPanel, bpy.types.Panel):
+    bl_label = "BEPUik"
+
+    def draw(self, context):
+        layout = self.layout
+        ob = context.object
+
+        layout.active = ob.type == 'ARMATURE'
+        
+        layout.prop(ob,'use_bepuik_parented_peripheral_bones')
+        
+        col = layout.column()
+        col.prop(ob,'bepuik_solve_length')
+        col.active = not context.tool_settings.use_bepuik_dynamic
+        
+        layout.prop(ob,'bepuik_solve_quality')
+        layout.prop(ob,"bepuik_fixer_iterations")
+        layout.prop(ob,"bepuik_velocity_subiterations")
+        
+        layout.separator()
+        
+        box = layout.box()
+        box.active = context.tool_settings.use_bepuik_dynamic
+        box.label("Dynamic Solving Only Settings")
+        box.prop(ob,'bepuik_dynamic_solve_length')
+        
+        col = box.column()
+        col.active = not ob.use_bepuik_parented_peripheral_bones
+        col.prop(ob,"bepuik_dynamic_peripheral_stiffness")
+        
+        box.prop(ob,"bepuik_dynamic_position_rigidity")
+        box.prop(ob,"bepuik_dynamic_orientation_rigidity")
+        
+
 from bl_ui.properties_animviz import (MotionPathButtonsPanel,
                                       OnionSkinButtonsPanel)
 

@@ -378,6 +378,13 @@ class BUILTIN_KSI_WholeCharacter(KeyingSetInfo):
 
     # generator - all unlocked bone transforms + custom properties
     def generate(ksi, context, ks, bone):
+        if bone.use_bepuik:
+            for con in bone.constraints:
+                if con.type == 'BEPUIK_TARGET':
+                    ksi.addProp(ks,con,'bepuik_rigidity')
+                    ksi.addProp(ks,con,'orientation_rigidity')
+                    ksi.addProp(ks,con,'use_bepuik_absolute_target')
+        
         # loc, rot, scale - only include unlocked ones
         ksi.doLoc(ks, bone)
 

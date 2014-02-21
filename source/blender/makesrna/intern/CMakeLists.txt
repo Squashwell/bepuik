@@ -157,6 +157,17 @@ if(WITH_CYCLES)
 	add_definitions(-DWITH_CYCLES)
 endif()
 
+if(WITH_BEPUIK)
+	add_definitions(-DWITH_BEPUIK)
+	list(APPEND INC
+		../../../../intern/bepuik
+	)
+
+        list(APPEND SYS_INC 
+            ${BOOST_INCLUDE_DIR}
+        )
+endif()
+
 if(WITH_PYTHON)
 	add_definitions(-DWITH_PYTHON)
 	list(APPEND INC

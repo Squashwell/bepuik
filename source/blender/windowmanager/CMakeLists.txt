@@ -138,4 +138,8 @@ if(WITH_COMPOSITOR)
 	add_definitions(-DWITH_COMPOSITOR)
 endif()
 
+if(WITH_BEPUIK)
+        add_definitions(-DWITH_BEPUIK)
+endif()
+
 blender_add_lib_nolist(bf_windowmanager "${SRC}" "${INC}" "${INC_SYS}")

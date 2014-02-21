@@ -32,6 +32,7 @@ add_subdirectory(opencolorio)
 add_subdirectory(mikktspace)
 add_subdirectory(raskter)
 
+
 if(WITH_AUDASPACE)
 	add_subdirectory(audaspace)
 endif()
@@ -54,6 +55,10 @@ endif()
 
 if(WITH_IK_ITASC)
 	add_subdirectory(itasc)
+endif()
+
+if(WITH_BEPUIK)
+    add_subdirectory(bepuik)
 endif()
 
 if(WITH_IK_SOLVER OR WITH_GAMEENGINE OR WITH_MOD_BOOLEAN)

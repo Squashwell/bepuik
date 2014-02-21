@@ -136,6 +136,8 @@ void POSE_OT_quaternions_flip(struct wmOperatorType *ot);
 void POSE_OT_armature_layers(struct wmOperatorType *ot);
 void POSE_OT_bone_layers(struct wmOperatorType *ot);
 
+void POSE_OT_bepuik_set_bone(struct wmOperatorType *ot);
+
 /* ******************************************************* */
 /* Etch-A-Ton (Skeleton Sketching) Operators */
 

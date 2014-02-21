@@ -250,6 +250,48 @@ typedef struct VertSlideData {
 	int curr_sv_index;
 } VertSlideData;
 
+typedef struct BEPUikUndoData
+{
+	float loc[3];
+	float size[3];
+
+	/* rotations - written in by actions or transform (but only one representation gets used at any time) */
+	float eul[3];                       /* euler rotation */
+	float quat[4];                      /* quaternion rotation */
+	float rotAxis[3], rotAngle;         /* axis-angle rotation */
+	
+	float chan_mat[4][4];           /* matrix result of loc/quat/size, and where we put deform in, see next line */
+	float pose_mat[4][4];           /* constraints accumulate here. in the end, pose_mat = bone->arm_mat * chan_mat
+	                                 * this matrix is object space */
+	float constinv[4][4];           /* inverse result of constraints.
+	                                 * doesn't include effect of restposition, parent, and local transform*/
+	
+	float pose_head[3];             /* actually pose_mat[3] */
+	float pose_tail[3];             /* also used for drawing help lines... */
+    
+    /* ifdef WITH_BEPUIK tweak values */
+    float bepuik_orientation[4];
+    float bepuik_length;
+    float bepuik_radius;
+    float bepuik_position[3];
+    
+	float bepuik_angular_rigidity;
+    float bepuik_angular_orientation[4];
+    float bepuik_stiffness_pose_mat[4][4];
+	float bepuik_stiffness_pose_tail[3];
+
+	float bepuik_target_rigidity;
+	float bepuik_target_orientation_rigidity;
+	float bepuik_target_tail_rigidity;
+    float bepuik_target_orientation[4];
+    float bepuik_target_position[3];
+    
+    float bepuik_solved_orientation[4];
+    float bepuik_solved_head[3];
+    float bepuik_solved_tail[3];
+    float bepuik_solved_position[3];
+}BEPUikUndoData;
+
 typedef struct TransData {
 	float  dist;         /* Distance needed to affect element (for Proportionnal Editing)                  */
 	float  rdist;        /* Distance to the nearest element (for Proportionnal Editing)                    */
@@ -287,6 +329,8 @@ typedef struct TransInfo {
 	int         mode;           /* current mode                         */
 	int	        flag;           /* generic flags for special behaviors  */
 	int			modifiers;		/* special modifiers, by function, not key */
+	int			bepuikflag;		/* ifdef WITH_BEPUIK flags */
+	float       bepuik_drag_target_pos[3];
 	short		state;			/* current state (running, canceled,...)*/
 	int         options;        /* current context/options for transform                      */
 	float       val;            /* init value for some transformations (and rotation angle)  */
@@ -425,6 +469,16 @@ typedef struct TransInfo {
 	/* alternative transformation. used to add offset to tracking markers */
 #define T_ALT_TRANSFORM		(1 << 24)
 
+/* TransInfo->bepuikflag */
+#define T_BEPUIK_TARGET_POSITION (1 << 0)
+#define T_BEPUIK_TARGET_ORIENTATION (1 << 1)
+#define T_BEPUIK_TARGET_ABSOLUTE (1 << 2)
+#define T_BEPUIK_TARGET_SET (1 << 3)
+#define T_BEPUIK			(1 << 4)
+#define T_BEPUIK_DRAG       (1 << 5)
+#define T_BEPUIK_TOP_TARGET (1 << 6)
+#define T_BEPUIK_DYNAMIC	(1 << 7)
+
 /* TransInfo->modifiers */
 #define	MOD_CONSTRAINT_SELECT	0x01
 #define	MOD_PRECISION			0x02
@@ -504,6 +558,11 @@ void drawPropCircle(const struct bContext *C, TransInfo *t);
 
 struct wmKeyMap *transform_modal_keymap(struct wmKeyConfig *keyconf);
 
+void initBEPUikTargetRigidityModify(TransInfo *t);
+int BEPUikTargetRigidityModify(TransInfo *t, const int mval[2]);
+void bepu_restore_pchans(TransInfo *t);
+void bepu_store_pchans(TransInfo *t);
+void bepu_transinfo_free(TransInfo *t);
 
 /*********************** transform_conversions.c ********** */
 struct ListBase;
@@ -532,7 +591,7 @@ int  special_transform_moving(TransInfo *t);
 
 void transform_autoik_update(TransInfo *t, short mode);
 
-int count_set_pose_transflags(int *out_mode, short around, struct Object *ob);
+int count_set_pose_transflags(int *out_mode, short around, int tbepuikflags, struct Object *ob);
 
 /* auto-keying stuff used by special_aftertrans_update */
 void autokeyframe_ob_cb_func(struct bContext *C, struct Scene *scene, struct View3D *v3d, struct Object *ob, int tmode);

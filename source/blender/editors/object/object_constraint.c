@@ -472,8 +472,11 @@ static void test_constraints(Object *owner, bPoseChannel *pchan)
 								/* TODO: clear subtarget? */
 								curcon->flag |= CONSTRAINT_DISABLE;
 							}
-							else if (strcmp(pchan->name, ct->subtarget) == 0) {
-								/* cannot target self */
+							else if (strcmp(pchan->name, ct->subtarget) == 0 && !(ct->flag & CONSTRAINT_TAR_BEPUIK)) {
+								/* if this target provides information for a bepuik constraint, then it is OK if owner equals the target */
+								/* Example: a swing limit on Bone A has an axis paramter that references Bone A's Y Axis */
+									 
+								/* otherwise, cannot target self */
 								ct->subtarget[0] = '\0';
 								curcon->flag |= CONSTRAINT_DISABLE;
 							}
@@ -1645,6 +1648,11 @@ static int constraint_add_exec(bContext *C, wmOperator *op, Object *ob, ListBase
 	}
 	if ((type == CONSTRAINT_TYPE_SPLINEIK) && ((!pchan) || (list != &pchan->constraints))) {
 		BKE_report(op->reports, RPT_ERROR, "Spline IK constraint can only be added to bones");
+		return OPERATOR_CANCELLED;
+	}
+	/*TODO:BEPUIK maybe one day bepuik constraints will be able to go on objects too...*/
+	if ((BKE_constraint_type_is_bepuik_type(type)) && ((!pchan) || (list != &pchan->constraints))) {
+		BKE_report(op->reports, RPT_ERROR, "BEPUik constraint can only be added to bones");
 		return OPERATOR_CANCELLED;
 	}
 	

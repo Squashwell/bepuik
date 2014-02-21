@@ -4197,6 +4197,298 @@ static bConstraintTypeInfo CTI_OBJECTSOLVER = {
 	objectsolver_evaluate /* evaluate */
 };
 
+#define BEPUIK_CTI(func_id,enum_id,struct_name,name,new_data) \
+static bConstraintTypeInfo CTI_BEPUIK_##enum_id = { \
+	CONSTRAINT_TYPE_BEPUIK_##enum_id, /* type */ \
+	sizeof(struct_name), /* size */ \
+	#name, /* name */ \
+	#struct_name, /* struct name */ \
+	NULL, /* free data */ \
+	bepuik_##func_id##_id_looper, /* id looper */ \
+	NULL, /* copy data */ \
+	new_data, /* new data */ \
+	bepuik_##func_id##_get_tars, /* get constraint targets */ \
+	bepuik_##func_id##_flush_tars, /* flush constraint targets */ \
+	NULL, /* get target matrix */ \
+	NULL /* evaluate */	 \
+}; 
+
+
+
+#define BEPUIK_1_TARGET(func_id,enum_id,struct_name) \
+static int bepuik_##func_id##_get_tars(bConstraint *con, ListBase *list) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_GET_TARS(con,data->connection_target, data->connection_subtarget, ct, list); \
+		return 1; \
+	} \
+	return 0; \
+} \
+static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, short nocopy) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct = list->first; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_FLUSH_TARS(con,data->connection_target, data->connection_subtarget, ct, list, nocopy); \
+	} \
+} \
+static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
+{ \
+	struct_name *data = con->data; \
+	func(con, (ID **)&data->connection_target, FALSE, userdata); \
+} \
+	
+#define BEPUIK_2_TARGET(func_id,enum_id,struct_name,target_prefix1) \
+static int bepuik_##func_id##_get_tars(bConstraint *con, ListBase *list) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_GET_TARS(con,data->connection_target, data->connection_subtarget, ct, list); \
+		SINGLETARGET_GET_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		return 2; \
+	} \
+	return 0; \
+} \
+static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, short nocopy) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct = list->first; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_FLUSH_TARS(con,data->connection_target, data->connection_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list, nocopy); \
+	} \
+} \
+static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
+{ \
+	struct_name *data = con->data; \
+	func(con, (ID **)&data->connection_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
+}
+
+#define BEPUIK_3_TARGET(func_id,enum_id,struct_name,target_prefix1,target_prefix2) \
+static int bepuik_##func_id##_get_tars(bConstraint *con, ListBase *list) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_GET_TARS(con,data->connection_target, data->connection_subtarget, ct, list); \
+		SINGLETARGET_GET_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		SINGLETARGET_GET_TARS(con, data->target_prefix2##_target, data->target_prefix2##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		return 2; \
+	} \
+	return 0; \
+} \
+static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, short nocopy) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct = list->first; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_FLUSH_TARS(con,data->connection_target, data->connection_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix2##_target, data->target_prefix2##_subtarget, ct, list, nocopy); \
+	} \
+} \
+static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
+{ \
+	struct_name *data = con->data; \
+	func(con, (ID **)&data->connection_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix2##_target, FALSE, userdata); \
+}
+
+#define BEPUIK_4_TARGET(func_id,enum_id,struct_name,target_prefix1,target_prefix2,target_prefix3) \
+static int bepuik_##func_id##_get_tars(bConstraint *con, ListBase *list) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_GET_TARS(con,data->connection_target, data->connection_subtarget, ct, list); \
+		SINGLETARGET_GET_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		SINGLETARGET_GET_TARS(con, data->target_prefix2##_target, data->target_prefix2##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		SINGLETARGET_GET_TARS(con, data->target_prefix3##_target, data->target_prefix3##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		return 4; \
+	} \
+	return 0; \
+} \
+static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, short nocopy) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct = list->first; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_FLUSH_TARS(con,data->connection_target, data->connection_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix2##_target, data->target_prefix2##_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix3##_target, data->target_prefix3##_subtarget, ct, list, nocopy); \
+	} \
+} \
+static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
+{ \
+	struct_name *data = con->data; \
+	func(con, (ID **)&data->connection_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix2##_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix3##_target, FALSE, userdata); \
+}
+
+#define BEPUIK_5_TARGET(func_id,enum_id,struct_name,target_prefix1,target_prefix2,target_prefix3,target_prefix4) \
+static int bepuik_##func_id##_get_tars(bConstraint *con, ListBase *list) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_GET_TARS(con,data->connection_target, data->connection_subtarget, ct, list); \
+		SINGLETARGET_GET_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		SINGLETARGET_GET_TARS(con, data->target_prefix2##_target, data->target_prefix2##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		SINGLETARGET_GET_TARS(con, data->target_prefix3##_target, data->target_prefix3##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		SINGLETARGET_GET_TARS(con, data->target_prefix4##_target, data->target_prefix4##_subtarget, ct, list); \
+		ct->flag |= CONSTRAINT_TAR_BEPUIK; /* flag that allows target to reference the owner. */ \
+		return 5; \
+	} \
+	return 0; \
+} \
+static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, short nocopy) \
+{ \
+	if (con && list) { \
+		struct_name *data = con->data; \
+		bConstraintTarget *ct = list->first; \
+		/* standard target-getting macro for single-target constraints */ \
+		SINGLETARGET_FLUSH_TARS(con,data->connection_target, data->connection_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix1##_target, data->target_prefix1##_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix2##_target, data->target_prefix2##_subtarget, ct, list, nocopy); \
+		SINGLETARGET_FLUSH_TARS(con, data->target_prefix3##_target, data->target_prefix3##_subtarget, ct, list, nocopy); \
+	    SINGLETARGET_FLUSH_TARS(con, data->target_prefix4##_target, data->target_prefix4##_subtarget, ct, list, nocopy); \
+	} \
+} \
+static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
+{ \
+	struct_name *data = con->data; \
+	func(con, (ID **)&data->connection_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix2##_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix3##_target, FALSE, userdata); \
+	func(con, (ID **)&data->target_prefix4##_target, FALSE, userdata); \
+}
+
+BEPUIK_1_TARGET(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint)
+BEPUIK_CTI(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint,BEPUik Angular Joint,NULL)
+
+BEPUIK_2_TARGET(ball_socket_joint,BALL_SOCKET_JOINT,bBEPUikBallSocketJoint,anchor)
+BEPUIK_CTI(ball_socket_joint,BALL_SOCKET_JOINT,bBEPUikBallSocketJoint,BEPUik Ball Socket Joint,NULL)
+
+BEPUIK_3_TARGET(distance_joint,DISTANCE_JOINT,bBEPUikDistanceJoint,anchor_a,anchor_b)
+BEPUIK_CTI(distance_joint,DISTANCE_JOINT,bBEPUikDistanceJoint,BEPUik Distance Joint,NULL)
+
+BEPUIK_3_TARGET(distance_limit,DISTANCE_LIMIT,bBEPUikDistanceLimit,anchor_a,anchor_b)
+BEPUIK_CTI(distance_limit,DISTANCE_LIMIT,bBEPUikDistanceLimit,BEPUik Distance Limit,NULL)
+
+BEPUIK_4_TARGET(linear_axis_limit,LINEAR_AXIS_LIMIT,bBEPUikLinearAxisLimit,line_anchor,line_direction,anchor_b)
+static void func_linear_axis_limit_new_data(void *cdata)
+{
+	bBEPUikLinearAxisLimit *data = (bBEPUikLinearAxisLimit *)cdata;
+	data->line_direction = TRACK_Y;
+	data->min_distance = 0;
+	data->max_distance = 1;
+} 	
+BEPUIK_CTI(linear_axis_limit,LINEAR_AXIS_LIMIT,bBEPUikLinearAxisLimit,BEPUik Linear Axis Limit,func_linear_axis_limit_new_data)
+
+BEPUIK_4_TARGET(point_on_line_joint,POINT_ON_LINE_JOINT,bBEPUikPointOnLineJoint,line_anchor,line_direction,anchor_b)
+static void func_point_on_line_joint_new_data(void *cdata)
+{
+	bBEPUikPointOnLineJoint *data = (bBEPUikPointOnLineJoint *)cdata;
+	data->line_direction = TRACK_Y;
+} 	
+BEPUIK_CTI(point_on_line_joint,POINT_ON_LINE_JOINT,bBEPUikPointOnLineJoint,BEPUik Point on Line Joint,func_point_on_line_joint_new_data)
+
+BEPUIK_4_TARGET(point_on_plane_joint,POINT_ON_PLANE_JOINT,bBEPUikPointOnPlaneJoint,plane_anchor,plane_normal,anchor_b)
+static void func_point_on_plane_joint_new_data(void *cdata)
+{
+	bBEPUikPointOnPlaneJoint *data = (bBEPUikPointOnPlaneJoint *)cdata;
+	data->plane_normal = TRACK_Y;
+}
+BEPUIK_CTI(point_on_plane_joint,POINT_ON_PLANE_JOINT,bBEPUikPointOnPlaneJoint,BEPUik Point on Plane Joint,func_point_on_plane_joint_new_data)
+
+BEPUIK_2_TARGET(revolute_joint,REVOLUTE_JOINT,bBEPUikRevoluteJoint,free_axis)
+static void func_revolute_joint_new_data(void *cdata)
+{
+	bBEPUikRevoluteJoint *data = (bBEPUikRevoluteJoint *)cdata;
+	data->free_axis = TRACK_Y;
+}
+BEPUIK_CTI(revolute_joint,REVOLUTE_JOINT,bBEPUikRevoluteJoint,BEPUik Revolute Joint,func_revolute_joint_new_data)
+
+BEPUIK_3_TARGET(swing_limit,SWING_LIMIT,bBEPUikSwingLimit,axis_a,axis_b)
+static void func_swing_limit_new_data(void *cdata)
+{
+	bBEPUikSwingLimit *data = (bBEPUikSwingLimit *)cdata;
+	data->axis_a = TRACK_Y;
+	data->axis_b = TRACK_Y;
+	data->max_swing = M_PI_2;
+}
+BEPUIK_CTI(swing_limit,SWING_LIMIT,bBEPUikSwingLimit,BEPUik Swing Limit,func_swing_limit_new_data)
+
+BEPUIK_3_TARGET(swivel_hinge_joint,SWIVEL_HINGE_JOINT,bBEPUikSwivelHingeJoint,hinge_axis,twist_axis)
+static void func_swivel_hinge_joint_new_data(void *cdata)
+{
+	bBEPUikSwivelHingeJoint *data = (bBEPUikSwivelHingeJoint *)cdata;
+	data->hinge_axis = TRACK_Y;
+	data->twist_axis = TRACK_Y;
+}
+BEPUIK_CTI(swivel_hinge_joint,SWIVEL_HINGE_JOINT,bBEPUikSwivelHingeJoint,BEPUik Swivel Hinge Joint,func_swivel_hinge_joint_new_data)
+
+BEPUIK_3_TARGET(twist_joint,TWIST_JOINT,bBEPUikTwistJoint,axis_a,axis_b)
+static void func_twist_joint_new_data(void *cdata)
+{
+	bBEPUikTwistJoint *data = (bBEPUikTwistJoint *)cdata;
+	data->axis_a = TRACK_Y;
+	data->axis_b = TRACK_Y;
+}
+BEPUIK_CTI(twist_joint,TWIST_JOINT,bBEPUikTwistJoint,BEPUik Twist Joint,func_twist_joint_new_data)
+
+
+BEPUIK_5_TARGET(twist_limit,TWIST_LIMIT,bBEPUikTwistLimit,axis_a,axis_b,measurement_axis_a,measurement_axis_b)
+static void func_twist_limit_new_data(void *cdata)
+{
+	bBEPUikTwistLimit *data = (bBEPUikTwistLimit *)cdata;
+	data->axis_a = TRACK_Y;
+	data->axis_b = TRACK_Y;
+	data->measurement_axis_a = TRACK_Y;
+	data->measurement_axis_b = TRACK_Y;
+	data->max_twist = M_PI_4;
+}
+BEPUIK_CTI(twist_limit,TWIST_LIMIT,bBEPUikTwistLimit,BEPUik Twist Limit,func_twist_limit_new_data)
+static void func_target_new_data(void * cdata)
+{
+	bBEPUikTarget *data = (bBEPUikTarget *)cdata;
+	data->orientation_rigidity = BEPUIK_RIGIDITY_TARGET_DEFAULT;
+	unit_m4(data->mat);
+	zero_v3(data->pulled_start_pose_space);
+	zero_v3(data->pulled_destination_pose_space);
+	zero_v3(data->pulled_point);
+}
+
+BEPUIK_1_TARGET(target,TARGET,bBEPUikTarget)
+BEPUIK_CTI(target,TARGET,bBEPUikTarget,BEPUik Target,func_target_new_data)
+
 /* ************************* Constraints Type-Info *************************** */
 /* All of the constraints api functions use bConstraintTypeInfo structs to carry out
  * and operations that involve constraint specific code.
@@ -4238,6 +4530,20 @@ static void constraints_init_typeinfo(void)
 	constraintsTypeInfo[26] = &CTI_FOLLOWTRACK;      /* Follow Track Constraint */
 	constraintsTypeInfo[27] = &CTI_CAMERASOLVER;     /* Camera Solver Constraint */
 	constraintsTypeInfo[28] = &CTI_OBJECTSOLVER;     /* Object Solver Constraint */
+	
+	constraintsTypeInfo[29] = &CTI_BEPUIK_ANGULAR_JOINT;
+	constraintsTypeInfo[30] = &CTI_BEPUIK_BALL_SOCKET_JOINT;			
+	constraintsTypeInfo[31] = &CTI_BEPUIK_DISTANCE_JOINT;			 
+	constraintsTypeInfo[32] = &CTI_BEPUIK_DISTANCE_LIMIT;			
+	constraintsTypeInfo[33] = &CTI_BEPUIK_LINEAR_AXIS_LIMIT;			
+	constraintsTypeInfo[34] = &CTI_BEPUIK_POINT_ON_LINE_JOINT;			 
+	constraintsTypeInfo[35] = &CTI_BEPUIK_POINT_ON_PLANE_JOINT;			 
+	constraintsTypeInfo[36] = &CTI_BEPUIK_REVOLUTE_JOINT;			
+	constraintsTypeInfo[37] = &CTI_BEPUIK_SWING_LIMIT;			
+	constraintsTypeInfo[38] = &CTI_BEPUIK_SWIVEL_HINGE_JOINT;			
+	constraintsTypeInfo[39] = &CTI_BEPUIK_TWIST_JOINT;			 
+	constraintsTypeInfo[40] = &CTI_BEPUIK_TWIST_LIMIT;
+	constraintsTypeInfo[41] = &CTI_BEPUIK_TARGET;
 }
 
 /* This function should be used for getting the appropriate type-info when only
@@ -4275,6 +4581,28 @@ bConstraintTypeInfo *BKE_constraint_get_typeinfo(bConstraint *con)
 		return BKE_get_constraint_typeinfo(con->type);
 	else
 		return NULL;
+}
+
+bool BKE_constraint_type_is_bepuik_type(int type)
+{
+	switch(type) {
+		case CONSTRAINT_TYPE_BEPUIK_ANGULAR_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_BALL_SOCKET_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_DISTANCE_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_DISTANCE_LIMIT:
+		case CONSTRAINT_TYPE_BEPUIK_LINEAR_AXIS_LIMIT:
+		case CONSTRAINT_TYPE_BEPUIK_POINT_ON_LINE_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_POINT_ON_PLANE_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_REVOLUTE_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_SWING_LIMIT:
+		case CONSTRAINT_TYPE_BEPUIK_SWIVEL_HINGE_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_TWIST_JOINT:
+		case CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT:
+		case CONSTRAINT_TYPE_BEPUIK_TARGET:
+			return true;
+	}
+	
+	return false;
 }
 
 /* ************************* General Constraints API ************************** */
@@ -4374,6 +4702,10 @@ static bConstraint *add_new_constraint_internal(const char *name, short type)
 	con->type = type;
 	con->flag |= CONSTRAINT_EXPAND;
 	con->enforce = 1.0f;
+	
+
+	con->bepuik_rigidity = BEPUIK_RIGIDITY_DEFAULT;
+
 
 	/* Determine a basic name, and info */
 	if (cti) {
@@ -4444,6 +4776,9 @@ static bConstraint *add_new_constraint(Object *ob, bPoseChannel *pchan, const ch
 			break;
 		}
 	}
+
+	if(BKE_constraint_type_is_bepuik_type(type))
+		con->flag |= CONSTRAINT_BEPUIK;
 	
 	return con;
 }

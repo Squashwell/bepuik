@@ -73,4 +73,9 @@ if(WITH_OPENNL)
 	)
 endif()
 
+if(WITH_BEPUIK)
+        add_definitions(-DWITH_BEPUIK)
+        set(INC ${INC} ../../../../intern/bepuik)
+endif()
+
 blender_add_lib(bf_editor_armature "${SRC}" "${INC}" "${INC_SYS}")

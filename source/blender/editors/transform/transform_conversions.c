@@ -511,6 +511,41 @@ static short apply_targetless_ik(Object *ob)
 	return apply;
 }
 
+static void setup_bepuik_pose_mtx_data(float datatoworldrot[3][3], TransData * td)
+{
+	copy_m3_m3(td->mtx, datatoworldrot);
+	pseudoinverse_m3_m3(td->smtx, td->mtx, PSEUDOINVERSE_EPSILON);
+	
+	copy_m3_m3(td->ext->r_mtx,datatoworldrot);
+	invert_m3_m3(td->ext->r_smtx, td->ext->r_mtx);	
+}
+
+static void setup_bepuik_pose_transrot_data(float datatoworld[3][3], TransData * td, float position[3], float orientation[4])
+{
+	float pmat[3][3];
+	float quat[4];
+	
+	/* store position */
+	td->loc = position;
+	copy_v3_v3(td->iloc,position);
+	
+	/* store orientation */
+	td->ext->quat = orientation;
+	copy_qt_qt(td->ext->iquat,orientation);
+	
+	/* axismat */
+	normalize_qt_qt(quat,orientation);
+	quat_to_mat3(pmat,quat);
+	mul_m3_m3m3(td->axismtx, datatoworld, pmat);
+	normalize_m3(td->axismtx);
+	
+	copy_v3_v3(td->center, position);
+	
+	td->ext->rotOrder = ROT_MODE_QUAT;
+	
+	setup_bepuik_pose_mtx_data(datatoworld,td);
+}
+
 static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, TransData *td)
 {
 	Bone *bone = pchan->bone;
@@ -621,6 +656,56 @@ static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, Tr
 	mul_m3_m3m3(td->axismtx, omat, pmat);
 	normalize_m3(td->axismtx);
 
+	if((t->bepuikflag & T_BEPUIK_DYNAMIC) && ELEM3(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
+	{
+		if(t->around == V3D_ACTIVE)
+		{
+			bArmature * arm = ob->data;
+			Bone * bone = arm->act_bone;
+			
+			if(bone != pchan->bone)
+			{
+				td->flag |= TD_NOCENTER;
+			}
+		}
+		
+		if(pchan->bepuikflag & BONE_BEPUIK)
+		{
+			float mat[4][4];
+			
+			/* base the temporary dynamic target transforms on the pre-constraint pose mats.
+			 * this only "kind of" works. */
+			mul_m4_m4m4(mat,pchan->constinv,pchan->pose_mat);
+			
+			if(t->bepuikflag & T_BEPUIK_DRAG)
+			{
+					float local_offset[3];
+
+					
+					copy_v3_v3(local_offset,t->bepuik_drag_target_pos);
+					
+					normalize_m4(mat);
+					invert_m4(mat);
+					mul_m4_v3(mat,local_offset);
+					
+					copy_v3_v3(pchan->bepuik_transform_local_offset,local_offset);
+					copy_v3_v3(pchan->bepuik_transform_position,t->bepuik_drag_target_pos);
+					
+					td->loc = pchan->bepuik_transform_position;
+					copy_v3_v3(td->iloc, pchan->bepuik_transform_position);
+					
+					setup_bepuik_pose_mtx_data(omat,td);
+			}
+			else
+			{
+				mat4_to_loc_quat(pchan->bepuik_transform_position,pchan->bepuik_transform_orientation,mat);
+				setup_bepuik_pose_transrot_data(omat,td,pchan->bepuik_transform_position,pchan->bepuik_transform_orientation);
+			}
+		}
+	}
+	else
+	{
+	
 	if (t->mode == TFM_BONESIZE) {
 		bArmature *arm = t->poseobj->data;
 
@@ -656,6 +741,8 @@ static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, Tr
 			pseudoinverse_m3_m3(td->smtx, td->mtx, PSEUDOINVERSE_EPSILON);
 		}
 	}
+	
+	}
 
 	/* store reference to first constraint */
 	td->con = pchan->constraints.first;
@@ -683,9 +770,202 @@ static void bone_children_clear_transflag(int mode, short around, ListBase *lb)
 	}
 }
 
+static bPoseChannel * get_best_bepuik_target(int transform_mode, bPoseChannel * pchan, int tbepuikflags)
+{
+	float zero3[3];
+	bConstraint * constraint;
+	bPoseChannel * pchan_target;
+	bBEPUikTarget * bepuik_target;
+	zero_v3(zero3);
+	
+	for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
+		if((constraint->type == CONSTRAINT_TYPE_BEPUIK_TARGET) && !(constraint->flag & (CONSTRAINT_OFF|CONSTRAINT_DISABLE))) {
+			bepuik_target = constraint->data;
+			
+			if(!bepuik_target->connection_target) continue;
+			if(!bepuik_target->connection_target->pose) continue;
+			pchan_target = BKE_pose_channel_find_name(bepuik_target->connection_target->pose,bepuik_target->connection_subtarget);
+			if(!pchan_target) continue;
+			
+			//always prefer the first found absolute target
+			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE) return pchan_target;
+			
+			if(transform_mode == TFM_TRANSLATION)
+			{
+				if(tbepuikflags & T_BEPUIK_DRAG)
+				{
+					if(bepuik_target->orientation_rigidity >= FLT_EPSILON)
+						return pchan_target;
+				}
+				else if(constraint->bepuik_rigidity >= FLT_EPSILON)
+				{
+					return pchan_target;
+				}
+			}
+			else if(ELEM(transform_mode,TFM_TRACKBALL,TFM_ROTATION))
+			{
+				if(bepuik_target->orientation_rigidity >= FLT_EPSILON)
+					return pchan_target;
+			}
+		}
+	}
+	
+	return NULL;
+}
+
+static void bepu_tweak_controls_get_depth_head_tail( Object * ob, float depth_head[3], float depth_center[3], float depth_tail[3])
+{
+	bPoseChannel * pchan;
+	bPose * pose = ob->pose;
+	float float_num_target_pchans;
+	int num_target_pchans = 0;
+	float mat[4][4];
+	float tail[3];
+	
+	depth_head[0] = 0;
+	depth_head[1] = 0;
+	depth_head[2] = 0;
+
+	depth_center[0] = 0;
+	depth_center[1] = 0;
+	depth_center[2] = 0;
+
+	depth_tail[0] = 0;
+	depth_tail[1] = 0;
+	depth_tail[2] = 0;
+
+	for (pchan = pose->chanbase.first; pchan; pchan = pchan->next)
+	{
+		if(pchan->bone->flag & BONE_TRANSFORM)
+		{
+			num_target_pchans ++;
+			
+			mul_m4_m4m4(mat,pchan->constinv,pchan->pose_mat);
+			
+			copy_v3_v3(tail, mat[1]);
+			mul_v3_fl(tail, pchan->bone->length);
+			add_v3_v3v3(tail, mat[3], tail);
+			
+			add_v3_v3v3(depth_head,depth_head,mat[3]);
+			add_v3_v3v3(depth_tail,depth_tail,tail);
+		}
+	}
+
+	num_target_pchans = num_target_pchans == 0 ? 1 : num_target_pchans;
+
+	float_num_target_pchans = (float)num_target_pchans;
+
+	depth_head[0]/=float_num_target_pchans;
+	depth_head[1]/=float_num_target_pchans;
+	depth_head[2]/=float_num_target_pchans;
+	depth_tail[0]/=float_num_target_pchans;
+	depth_tail[1]/=float_num_target_pchans;
+	depth_tail[2]/=float_num_target_pchans;
+
+	mid_v3_v3v3(depth_center,depth_head,depth_tail);
+ 
+	mul_m4_v3(ob->obmat,depth_head);
+	mul_m4_v3(ob->obmat,depth_center);
+	mul_m4_v3(ob->obmat,depth_tail);
+
+}
+
+static void bepu_transpose_data_setup(TransInfo *t)
+{
+	Object * ob  = t->poseobj;
+	bPose * pose = ob->pose;	
+
+	t->customFree = bepu_transinfo_free;
+	bepu_store_pchans(t);
+	
+	if(t->mode == TFM_TRANSLATION || t->mode == TFM_ROTATION || t->mode == TFM_TRACKBALL)
+	{ 
+		if(t->bepuikflag & T_BEPUIK_DYNAMIC)
+		{
+			pose->bepuikflag |= POSE_BEPUIK_DYNAMIC;
+			pose->bepuikflag |= POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT;
+			
+			G.bepuik_feedback = true;
+			
+			if (t->bepuikflag & T_BEPUIK_DRAG)
+			{
+				float selection_head[3];
+				float selection_center[3];
+				float selection_tail[3];
+				float view_origin[3];
+				float view_end[3];
+				int isect = 0;
+				float i1[2];
+				float i2[2];
+				float mval[2];
+		
+				float intersection[3];
+				View3D * v3d = CTX_wm_view3d(t->context);
+				bepu_tweak_controls_get_depth_head_tail(ob,selection_head,selection_center,selection_tail);
+				mval[0] = t->mval[0];
+				mval[1] = t->mval[1];
+				ED_view3d_win_to_segment(t->ar,v3d,mval,view_origin,view_end,true);
+		
+				isect = isect_line_line_v3(view_origin,view_end,selection_head,selection_tail,i1,i2);
+		
+						
+				if(isect==2)
+					copy_v3_v3(intersection,i2);
+				else if(isect==1)
+					copy_v3_v3(intersection,i1);
+				else
+					copy_v3_v3(intersection,selection_tail);
+		
+				ED_view3d_win_to_3d(t->ar,intersection,mval,t->bepuik_drag_target_pos);
+				
+				
+				invert_m4_m4(ob->imat, ob->obmat);
+				mul_m4_v3(ob->imat,t->bepuik_drag_target_pos); /* put target position back into pose space */
+				pose->bepuikflag |= POSE_BEPUIK_SELECTION_AS_DRAGCONTROL;
+			}
+			else
+			{
+				pose->bepuikflag |= POSE_BEPUIK_SELECTION_AS_STATECONTROL;
+				
+			}
+		}
+		
+		if(t->settings->bepuikflag & SCE_BEPUIK_INACTIVE_TARGETS_FOLLOW)
+			pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+	}
+}
+
+static int count_set_bepuik_target_constraints(Object * ob, int bepuikflags)
+{
+	int total = 0;
+	bPoseChannel * pchan;
+	bConstraint * constraint;
+	int rigidity_types_affected = 0;
+	if(bepuikflags & T_BEPUIK_TARGET_POSITION) rigidity_types_affected++;
+	if(bepuikflags & T_BEPUIK_TARGET_ORIENTATION) rigidity_types_affected++;
+	if(bepuikflags & T_BEPUIK_TARGET_ABSOLUTE) rigidity_types_affected++;
+	
+	BKE_bepuik_set_target_flags(ob,bepuikflags & T_BEPUIK_TOP_TARGET,1,0);
+	
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next)
+		for(constraint = pchan->constraints.first; constraint; constraint = constraint->next)
+			if(constraint->flag & CONSTRAINT_BEPUIK_TRANSFORM)
+				total++;
+	
+	return total * rigidity_types_affected;
+}
+
 /* sets transform flags in the bones
- * returns total number of bones with BONE_TRANSFORM */
-int count_set_pose_transflags(int *out_mode, short around, Object *ob)
+ * returns total number of bones with BONE_TRANSFORM
+ *
+ * tbepuikflags are the T_BEPUIK_XXX flags from transform.h
+ * Also, T_BEPUIK_DYNAMIC should be passed into the tbepuikflags parameter
+ * when (scene->toolsettings->bepuikflag & SCE_BEPUIK_DYNAMIC) != 0
+ *
+ * Example from transform_manipulator.c:
+ *   totsel = count_set_pose_transflags(&mode, 0, (scene->toolsettings->bepuikflag & SCE_BEPUIK_DYNAMIC) ? T_BEPUIK_DYNAMIC : 0, ob); 
+*/
+int count_set_pose_transflags(int *out_mode, short around, int tbepuikflags, Object *ob)
 {
 	bArmature *arm = ob->data;
 	bPoseChannel *pchan;
@@ -693,6 +973,10 @@ int count_set_pose_transflags(int *out_mode, short around, Object *ob)
 	int mode = *out_mode;
 	int hastranslation = 0;
 	int total = 0;
+	
+	if(mode == TFM_BEPUIK_TARGET_RIGIDITY_MODIFY) {
+		return count_set_bepuik_target_constraints(ob,tbepuikflags);
+	}
 
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 		bone = pchan->bone;
@@ -718,6 +1002,27 @@ int count_set_pose_transflags(int *out_mode, short around, Object *ob)
 				bone_children_clear_transflag(mode, around, &bone->childbase);
 		}
 	}
+	
+	if((tbepuikflags & T_BEPUIK_DYNAMIC) && ELEM3(mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
+	{
+		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next)
+		{
+			bone = pchan->bone;
+			if((bone->flag & BONE_SELECTED) && PBONE_VISIBLE(arm, bone) && (pchan->bepuikflag & BONE_BEPUIK))
+			{
+				/* Redirect the transform to its target bone, if it exists.*/
+				bPoseChannel * best_target = get_best_bepuik_target(mode,pchan,tbepuikflags);
+				if(best_target)
+				{
+					best_target->bone->flag |= BONE_TRANSFORM;
+					pchan->bone->flag &= ~BONE_TRANSFORM;
+				}
+				else
+					pchan->bone->flag |= BONE_TRANSFORM;
+			}
+		}
+	}
+	
 	/* now count, and check if we have autoIK or have to switch from translate to rotate */
 	hastranslation = 0;
 
@@ -727,16 +1032,21 @@ int count_set_pose_transflags(int *out_mode, short around, Object *ob)
 			total++;
 			
 			if (mode == TFM_TRANSLATION) {
-				if (has_targetless_ik(pchan) == NULL) {
-					if (pchan->parent && (pchan->bone->flag & BONE_CONNECTED)) {
-						if (pchan->bone->flag & BONE_HINGE_CHILD_TRANSFORM)
+				/* bepuik bones can always be translated in dynamic mode */
+				if((pchan->bepuikflag & BONE_BEPUIK) && (tbepuikflags & T_BEPUIK_DYNAMIC))
+					hastranslation = 1;
+				else {
+					if (has_targetless_ik(pchan) == NULL) {
+						if (pchan->parent && (pchan->bone->flag & BONE_CONNECTED)) {
+							if (pchan->bone->flag & BONE_HINGE_CHILD_TRANSFORM)
+								hastranslation = 1;
+						}
+						else if ((pchan->protectflag & OB_LOCK_LOC) != OB_LOCK_LOC)
 							hastranslation = 1;
 					}
-					else if ((pchan->protectflag & OB_LOCK_LOC) != OB_LOCK_LOC)
+					else
 						hastranslation = 1;
 				}
-				else
-					hastranslation = 1;
 			}
 		}
 	}
@@ -993,7 +1303,6 @@ static short pose_grab_with_ik(Object *ob)
 	return (tot_ik) ? 1 : 0;
 }
 
-
 /* only called with pose mode active object now */
 static void createTransPose(TransInfo *t, Object *ob)
 {
@@ -1017,24 +1326,32 @@ static void createTransPose(TransInfo *t, Object *ob)
 		}
 	}
 
+	if(t->settings->bepuikflag & SCE_BEPUIK_DYNAMIC)
+		t->bepuikflag |= T_BEPUIK_DYNAMIC;
+
 	/* do we need to add temporal IK chains? */
-	if ((arm->flag & ARM_AUTO_IK) && t->mode == TFM_TRANSLATION) {
+	else if ((arm->flag & ARM_AUTO_IK) && t->mode == TFM_TRANSLATION) {
 		ik_on = pose_grab_with_ik(ob);
 		if (ik_on) t->flag |= T_AUTOIK;
 	}
+	
 
+		
 	/* set flags and count total (warning, can change transform to rotate) */
-	t->total = count_set_pose_transflags(&t->mode, t->around, ob);
-
+	t->total = count_set_pose_transflags(&t->mode, t->around, t->bepuikflag, ob);	
+	
 	if (t->total == 0) return;
 
 	t->flag |= T_POSE;
 	t->poseobj = ob; /* we also allow non-active objects to be transformed, in weightpaint */
 
+	bepu_transpose_data_setup(t);
+	
 	/* disable PET, its not usable in pose mode yet [#32444] */
 	t->flag &= ~T_PROP_EDIT_ALL;
 
-	/* init trans data */
+	
+	/* init trans data */		
 	td = t->data = MEM_callocN(t->total * sizeof(TransData), "TransPoseBone");
 	tdx = t->ext = MEM_callocN(t->total * sizeof(TransDataExtension), "TransPoseBoneExt");
 	for (i = 0; i < t->total; i++, td++, tdx++) {
@@ -1042,14 +1359,61 @@ static void createTransPose(TransInfo *t, Object *ob)
 		td->val = NULL;
 	}
 
-	/* use pose channels to fill trans data */
 	td = t->data;
-	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-		if (pchan->bone->flag & BONE_TRANSFORM) {
-			add_pose_transdata(t, pchan, ob, td);
-			td++;
-		}
+
+	if(t->mode == TFM_BEPUIK_TARGET_RIGIDITY_MODIFY)
+	{
+		for(pchan = t->poseobj->pose->chanbase.first; pchan; pchan = pchan->next)
+		{
+			bConstraint * constraint;
+			for(constraint = pchan->constraints.first; constraint; constraint = constraint->next)
+			{
+				if(constraint->flag & CONSTRAINT_BEPUIK_TRANSFORM)
+				{
+					if(t->bepuikflag & T_BEPUIK_TARGET_POSITION)
+					{
+						td->val = &constraint->bepuik_rigidity;
+						td->ival = constraint->bepuik_rigidity;
+						td->flag = TD_SELECTED;
+						td++;
+					}
+					
+					if(t->bepuikflag & T_BEPUIK_TARGET_ORIENTATION)
+					{
+						bBEPUikTarget * bepuik_target = constraint->data;
+						td->val = &bepuik_target->orientation_rigidity;
+						td->ival = bepuik_target->orientation_rigidity;
+						td->flag = TD_SELECTED;
+						td++;
+					}
+					
+					if(t->bepuikflag & T_BEPUIK_TARGET_ABSOLUTE)
+					{
+						bBEPUikTarget * bepuik_target = constraint->data;
+						td->val = 0;
+						td->ival = 0;
+						td->extra = &bepuik_target->bepuikflag;
+						td->flag = (TD_SELECTED | TD_INTVALUES);
+						td++;
+					}
+					
+				}
+			}
+		}	
 	}
+	else
+	{
+
+		/* use pose channels to fill trans data */
+		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+			if (pchan->bone->flag & BONE_TRANSFORM) {            
+				add_pose_transdata(t, pchan, ob, td);
+				td++;
+			}
+		}
+
+	}
+
 
 	if (td != (t->data + t->total)) {
 		BKE_report(t->reports, RPT_DEBUG, "Bone selection count error");
@@ -5130,7 +5494,7 @@ void autokeyframe_ob_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *ob,
 			if (tmode == TFM_TRANSLATION) {
 				do_loc = TRUE;
 			}
-			else if (tmode == TFM_ROTATION) {
+			else if (tmode == TFM_ROTATION || tmode == TFM_TRACKBALL) {
 				if (v3d->around == V3D_ACTIVE) {
 					if (ob != OBACT)
 						do_loc = TRUE;
@@ -5224,89 +5588,115 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 		
 		if (targetless_ik) 
 			flag |= INSERTKEY_MATRIX;
+					
+		/* TODO: In the interface, the user can select both "available" and "needed", implying that
+		 * the combination of "Available Needed" is a valid option. However, insert available simply overrides
+		 * insert needed.... remember its also in the ob_cb_func too */
 		
-		for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-			if (pchan->bone->flag & BONE_TRANSFORM) {
-				ListBase dsources = {NULL, NULL};
-				
-				/* clear any 'unkeyed' flag it may have */
-				pchan->bone->flag &= ~BONE_UNKEYED;
-				
-				/* add datasource override for the camera object */
-				ANIM_relative_keyingset_add_source(&dsources, id, &RNA_PoseBone, pchan); 
-				
-				/* only insert into active keyingset? */
-				if (IS_AUTOKEY_FLAG(scene, ONLYKEYINGSET) && (active_ks)) {
-					/* run the active Keying Set on the current datasource */
-					ANIM_apply_keyingset(C, &dsources, NULL, active_ks, MODIFYKEY_MODE_INSERT, cfra);
-				}
-				/* only insert into available channels? */
-				else if (IS_AUTOKEY_FLAG(scene, INSERTAVAIL)) {
-					if (act) {
-						for (fcu = act->curves.first; fcu; fcu = fcu->next) {
-							/* only insert keyframes for this F-Curve if it affects the current bone */
-							if (strstr(fcu->rna_path, "bones")) {
-								char *pchanName = BLI_str_quoted_substrN(fcu->rna_path, "bones[");
-								
-								/* only if bone name matches too... 
-								 * NOTE: this will do constraints too, but those are ok to do here too?
-								 */
-								if (pchanName && strcmp(pchanName, pchan->name) == 0) 
-									insert_keyframe(reports, id, act, ((fcu->grp) ? (fcu->grp->name) : (NULL)), fcu->rna_path, fcu->array_index, cfra, flag);
+		/* only insert into active keyingset? should do this first so it calls its iterator from python...*/
+		if (IS_AUTOKEY_FLAG(scene, ONLYKEYINGSET) && (active_ks)) {
+			/* run the active Keying Set on the current datasource */
+			ANIM_apply_keyingset(C, NULL, NULL, active_ks, MODIFYKEY_MODE_INSERT, cfra);
+		}
+		else {
+			for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
+				if (pchan->bone->flag & BONE_TRANSFORM) {
+					ListBase dsources = {NULL, NULL};
+					
+					/* clear any 'unkeyed' flag it may have XXX BONE_UNKEYED is a useless flag now??*/
+					pchan->bone->flag &= ~BONE_UNKEYED;
+					
+					/* add datasource override for the temp pchan */
+					ANIM_relative_keyingset_add_source(&dsources, id, &RNA_PoseBone, pchan); 
+					
+					/* only insert into available channels? */
+					if (IS_AUTOKEY_FLAG(scene, INSERTAVAIL)) {
+						if (act) {
+							for (fcu = act->curves.first; fcu; fcu = fcu->next) {
+								/* only insert keyframes for this F-Curve if it affects the current bone */
+								if (strstr(fcu->rna_path, "bones")) {
+									char *pchanName = BLI_str_quoted_substrN(fcu->rna_path, "bones[");
 									
-								if (pchanName) MEM_freeN(pchanName);
+									/* only insert keyframe if the current rna path pchan is the transformed pchan 
+									 * NOTE: this will do constraints too, but those are ok to do here too?
+									 */
+									if (pchanName && strcmp(pchanName, pchan->name) == 0) 
+										insert_keyframe(reports, id, act, ((fcu->grp) ? (fcu->grp->name) : (NULL)), fcu->rna_path, fcu->array_index, cfra, flag);
+										
+									if (pchanName) MEM_freeN(pchanName);
+								}
 							}
 						}
 					}
-				}
-				/* only insert keyframe if needed? */
-				else if (IS_AUTOKEY_FLAG(scene, INSERTNEEDED)) {
-					short do_loc = FALSE, do_rot = FALSE, do_scale = FALSE;
-					
-					/* filter the conditions when this happens (assume that curarea->spacetype==SPACE_VIE3D) */
-					if (tmode == TFM_TRANSLATION) {
-						if (targetless_ik)
-							do_rot = TRUE;
+					else if (IS_AUTOKEY_FLAG(scene, INSERTNEEDED)) {
+						short do_loc = FALSE, do_rot = FALSE, do_scale = FALSE, do_bepuik_target = FALSE;
+						
+						/* filter the conditions when this happens (assume that curarea->spacetype==SPACE_VIE3D) */
+						if (tmode == TFM_TRANSLATION) {
+							if (targetless_ik)
+								do_rot = TRUE;
+							else
+								do_loc = TRUE;
+						}
+						else if (tmode == TFM_ROTATION || tmode == TFM_TRACKBALL) {
+							if (ELEM(v3d->around, V3D_CURSOR, V3D_ACTIVE))
+								do_loc = TRUE;
+								
+							if ((v3d->flag & V3D_ALIGN) == 0)
+								do_rot = TRUE;
+						}
+						else if (tmode == TFM_RESIZE) {
+							if (ELEM(v3d->around, V3D_CURSOR, V3D_ACTIVE))
+								do_loc = TRUE;
+								
+							if ((v3d->flag & V3D_ALIGN) == 0)
+								do_scale = TRUE;
+						}
+						else if(tmode==TFM_BEPUIK_TARGET_RIGIDITY_MODIFY)
+						{
+							do_bepuik_target = TRUE;
+						}
+						
+						
+						if (do_bepuik_target)
+						{
+							/* TODO:BEPUIK   this could use its own keying set that only includes absolute, positional and orientational rigidities */
+							KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_WHOLE_CHARACTER_ID);
+							ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+						}
 						else
-							do_loc = TRUE;
+						{
+							if (do_loc) {
+								KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOCATION_ID);
+								ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+							}
+							if (do_rot) {
+								KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_ROTATION_ID);
+								ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+							}
+							if (do_scale) {
+								KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_SCALING_ID);
+								ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+							}
+						}
+
 					}
-					else if (tmode == TFM_ROTATION) {
-						if (ELEM(v3d->around, V3D_CURSOR, V3D_ACTIVE))
-							do_loc = TRUE;
-							
-						if ((v3d->flag & V3D_ALIGN) == 0)
-							do_rot = TRUE;
+					else {
+						if(pchan->bepuikflag & BONE_BEPUIK){
+							KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_WHOLE_CHARACTER_ID);
+							ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+						}
+						else {
+							KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOC_ROT_SCALE_ID);
+							ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+						}
 					}
-					else if (tmode == TFM_RESIZE) {
-						if (ELEM(v3d->around, V3D_CURSOR, V3D_ACTIVE))
-							do_loc = TRUE;
-							
-						if ((v3d->flag & V3D_ALIGN) == 0)
-							do_scale = TRUE;
-					}
-					
-					if (do_loc) {
-						KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOCATION_ID);
-						ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-					}
-					if (do_rot) {
-						KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_ROTATION_ID);
-						ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-					}
-					if (do_scale) {
-						KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_SCALING_ID);
-						ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-					}
+
+					/* free temp info */
+					BLI_freelistN(&dsources);
 				}
-				/* insert keyframe in all (transform) channels */
-				else {
-					KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOC_ROT_SCALE_ID);
-					ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-				}
-				
-				/* free temp info */
-				BLI_freelistN(&dsources);
 			}
+
 		}
 		
 		/* do the bone paths 
@@ -5795,8 +6185,8 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
 
 		/* set BONE_TRANSFORM flags for autokey, manipulator draw might have changed them */
 		if (!canceled && (t->mode != TFM_DUMMY))
-			count_set_pose_transflags(&t->mode, t->around, ob);
-
+			count_set_pose_transflags(&t->mode, t->around, t->bepuikflag, ob);
+		
 		/* if target-less IK grabbing, we calculate the pchan transforms and clear flag */
 		if (!canceled && t->mode == TFM_TRANSLATION)
 			targetless_ik = apply_targetless_ik(ob);

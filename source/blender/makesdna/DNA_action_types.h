@@ -197,8 +197,9 @@ typedef struct bPoseChannel {
 	short protectflag;              /* protect channels from being transformed */
 	short agrp_index;               /* index of action-group this bone belongs to (0 = default/no group) */
 	char constflag;                 /* for quick detecting which constraints affect this channel */
-	char selectflag;                /* copy of bone flag, so you can work with library armatures, not for runtime use */
-	char pad0[6];
+	char selectflag;                /* copy of bone flag, so you can work with library armatures, not for runtime use */         
+	char pad[2];
+	int bepuikflag;                 /* ifdef WITH_BEPUIK */
 
 	struct Bone         *bone;      /* set on read file or rebuild pose */
 	struct bPoseChannel *parent;    /* set on read file or rebuild pose */
@@ -222,7 +223,7 @@ typedef struct bPoseChannel {
 	float quat[4];                      /* quaternion rotation */
 	float rotAxis[3], rotAngle;         /* axis-angle rotation */
 	short rotmode;                      /* eRotationModes - rotation representation to use */
-	short pad;
+	short pad2;
 	
 	float chan_mat[4][4];           /* matrix result of loc/quat/size, and where we put deform in, see next line */
 	float pose_mat[4][4];           /* constraints accumulate here. in the end, pose_mat = bone->arm_mat * chan_mat
@@ -240,6 +241,32 @@ typedef struct bPoseChannel {
 	float iklinweight;              /* weight of joint stretch constraint */
 
 	void        *temp;              /* use for outliner */
+
+	float bepuik_transform_position[3];
+	float bepuik_transform_local_offset[3];
+	float bepuik_transform_orientation[4];
+
+	float bepuik_ball_socket_rigidity;
+	float bepuik_rest_pose_size[3];
+	float bepuik_prev_pose_mat[4][4];
+
+	float bepuik_absolute_controlled_position[3];
+	float bepuik_absolute_controlled_orientation[4];
+
+	float bepuik_rest_pose_mat[4][4];
+	float bepuik_rest_tail[3];
+
+	float bepuik_solved_orientation[4];
+	float bepuik_solved_head[3];
+	float bepuik_solved_tail[3];
+	float bepuik_solved_position[3];
+
+	float bepuik_rotational_heaviness;
+
+	float bepuik_prepose_mat[4][4];
+	float bepuik_dynamic_stiffness_orientation[4];
+
+	void *bepuik;
 } bPoseChannel;
 
 
@@ -302,6 +329,18 @@ typedef enum ePchan_IkFlag {
 	BONE_IK_NO_ZDOF_TEMP = (1 << 12)
 } ePchan_IkFlag;
 
+/* ifdef WITH_BEPUIK PoseChannel->bepuikflag */ 
+typedef enum ePchan_BEPUikFlag {
+	BONE_BEPUIK = (1 << 0),
+	BONE_BEPUIK_IN_SOLVING_PARTITION = (1<<1),
+	BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET = (1<<2),
+	BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET = (1<<4),
+	BONE_BEPUIK_FEEDBACK = (1<<5),
+	BONE_BEPUIK_ALWAYS_SOLVE = (1<<6),
+	BONE_BEPUIK_HAS_PREPOSE = (1<<7)
+	
+} ePchan_BEPUikFlag;
+
 /* PoseChannel->rotmode and Object->rotmode */
 typedef enum eRotationModes {
 	/* quaternion rotations (default, and for older Blender versions) */
@@ -335,14 +374,14 @@ typedef struct bPose {
 	ListBase chanbase;          /* list of pose channels, PoseBones in RNA */
 	struct GHash *chanhash;     /* ghash for quicker string lookups */
 	
-	short flag, pad;
+	short flag;
+	short pad2;
+	int bepuikflag;			    /* ifdef WITH_BEPUIK bepuik flags are only used during transform operators */
 	unsigned int proxy_layer;   /* proxy layer: copy from armature, gets synced */
-	int pad1;
 	
 	float ctime;                /* local action time of this pose */
 	float stride_offset[3];     /* applied to object */
 	float cyclic_offset[3];     /* result of match and cycles, applied in BKE_pose_where_is() */
-	
 	
 	ListBase agroups;           /* list of bActionGroups */
 	
@@ -372,7 +411,18 @@ typedef enum ePose_Flags {
 	POSE_WAS_REBUILT = (1 << 5),
 	/* set by game_copy_pose to indicate that this pose is used in the game engine */
 	POSE_GAME_ENGINE = (1 << 6)
+    
+    
 } ePose_Flags;
+
+/* ifdef WITH_BEPUIK */
+typedef enum ePose_BEPUik_Flags{
+	POSE_BEPUIK_SELECTION_AS_DRAGCONTROL = (1 << 2),
+	POSE_BEPUIK_SELECTION_AS_STATECONTROL = (1 << 3),
+	POSE_BEPUIK_DYNAMIC = (1 << 4),
+	POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW = (1 << 5),
+	POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT = (1 << 6)
+}ePose_BEPUikFlags;
 
 /* IK Solvers ------------------------------------ */
 
@@ -696,5 +746,8 @@ typedef enum ACHAN_FLAG {
 	ACHAN_SHOWCONS  = (1 << 6),
 	ACHAN_MOVED     = (1 << 31)
 } ACHAN_FLAG; 
+
+
+#define BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT 2.5f
 
 #endif  /* __DNA_ACTION_TYPES_H__ */

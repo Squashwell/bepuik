@@ -153,6 +153,9 @@ void BKE_get_constraint_target_matrix(struct Scene *scene, struct bConstraint *c
 void BKE_get_constraint_targets_for_solving(struct bConstraint *con, struct bConstraintOb *ob, struct ListBase *targets, float ctime);
 void BKE_solve_constraints(struct ListBase *conlist, struct bConstraintOb *cob, float ctime);
 
+bool BKE_constraint_type_is_bepuik_type(int type);
+
+
 #ifdef __cplusplus
 }
 #endif

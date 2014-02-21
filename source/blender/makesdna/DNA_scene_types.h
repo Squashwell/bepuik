@@ -1082,12 +1082,14 @@ typedef struct ToolSettings {
 	short proportional, prop_mode;
 	char proportional_objects; /* proportional edit, object mode */
 	char proportional_mask; /* proportional edit, object mode */
+	char bepuikflag; /* ifdef WITH_BEPUIK */
+	char pad[7];
 
 	char auto_normalize; /*auto normalizing mode in wpaint*/
 	char multipaint; /* paint multiple bones in wpaint */
 	char weightuser;
 	char vgroupsubset; /* subset selection filter in wpaint */
-
+	
 	/* UV painting */
 	int use_uv_sculpt;
 	int uv_sculpt_settings;
@@ -1521,6 +1523,12 @@ enum {
 #define PROP_CONST             5
 #define PROP_RANDOM            6
 #define PROP_MODE_MAX          7
+
+/* ifdef WITH_BEPUIK toolsettings->bepuikflag */
+#define SCE_BEPUIK_STIFF_CHILDREN			(1<<0)
+#define SCE_BEPUIK_STIFF_INVISIBLE_BONES	(1<<1)
+#define SCE_BEPUIK_DYNAMIC					(1<<6)
+#define SCE_BEPUIK_INACTIVE_TARGETS_FOLLOW	(1<<7)
 
 /* toolsettings->proportional */
 #define PROP_EDIT_OFF			0

@@ -34,8 +34,8 @@ class ConstraintButtonsPanel():
         if box:
             # match enum type to our functions, avoids a lookup table.
             getattr(self, con.type)(context, box, con)
-
-            if con.type not in {'RIGID_BODY_JOINT', 'NULL'}:
+            
+            if con.type not in {'RIGID_BODY_JOINT', 'NULL'} and not con.is_bepuik:
                 box.prop(con, "influence")
 
     def space_template(self, layout, con, target=True, owner=True):
@@ -68,7 +68,56 @@ class ConstraintButtonsPanel():
                     row.prop(con, "head_tail", text="")
             elif con.target.type in {'MESH', 'LATTICE'}:
                 layout.prop_search(con, "subtarget", con.target, "vertex_groups", text="Vertex Group")
+    
+    def bepuik_template_connection(self, layout, con):
+        layout = layout.row(align=True)
+        layout = layout.split(.5)
+        target = con.connection_target
+        
+        layout.prop(con, "connection_target")  
 
+        if target:
+            if con.connection_target.type == 'ARMATURE':
+                layout.prop_search(con, "connection_subtarget", target.data, "bones",text="")
+
+            
+                
+    def bepuik_template_axis(self, layout, con, axis, subtargets=True):
+        target_id = '%s_target' % axis
+        subtarget_id = '%s_subtarget' % axis
+        target = getattr(con,target_id)
+        
+        layout = layout.row(align=True)
+        layout = layout.split(.5)
+        
+        layout.prop(con,target_id)
+        
+        if target and subtargets:
+            if target.type == 'ARMATURE':
+                layout = layout.split(.75)
+                layout.prop_search(con, subtarget_id, target.data, "bones",text="")
+                
+                
+            layout.prop(con, axis, text = "")
+                    
+    def bepuik_template_location(self, layout, con, location, subtargets=True):
+        target_id = '%s_target' % location
+        subtarget_id = '%s_subtarget' % location
+        head_tail_id = '%s_head_tail' % location
+        target = getattr(con,target_id)
+        
+        layout = layout.row(align = True)
+        layout = layout.split(.5)
+        layout.prop(con,target_id)
+        
+        if target and subtargets:
+            if target.type == 'ARMATURE':
+                layout = layout.split(.75)
+                layout.prop_search(con, subtarget_id, target.data, "bones",text="")
+                
+                if getattr(con,subtarget_id):
+                    layout.prop(con, head_tail_id, text="")
+                                
     def ik_template(self, layout, con):
         # only used for iTaSC
         layout.prop(con, "pole_target")
@@ -837,7 +886,139 @@ class ConstraintButtonsPanel():
         row.operator("constraint.objectsolver_clear_inverse")
 
         layout.operator("clip.constraint_to_fcurve")
+    
+    def connection_a_label(self,layout):
+        ob = bpy.context.object
+        obname = ""
+        pchanname = ""
+        if ob:
+            if hasattr(ob,"name"):
+                obname = ob.name
+                
+        if bpy.context.active_pose_bone:
+            pchanname = bpy.context.active_pose_bone.name
+        
+        layout.label("Target A:  %s : %s" % (obname,pchanname))
+         
+    def BEPUIK_ANGULAR_JOINT(self, context, layout, con):
+        self.bepuik_template_connection(layout, con)
+        layout.prop(con,'bepuik_rigidity')
+        
+    def BEPUIK_BALL_SOCKET_JOINT(self,context,layout,con):
+        self.connection_a_label(layout)
+        self.bepuik_template_location(layout, con, "anchor")
+        self.bepuik_template_connection(layout, con)
+        layout.prop(con,'bepuik_rigidity')
+        
+    def BEPUIK_DISTANCE_JOINT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_location(col, con, "anchor_a")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_location(col, con, "anchor_b")
+        layout.prop(con,'bepuik_rigidity')
+        
+    def BEPUIK_DISTANCE_LIMIT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_location(col, con, "anchor_a")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_location(col, con, "anchor_b")
+        layout.prop(con,"min_distance")
+        layout.prop(con,"max_distance")
+        layout.prop(con,'bepuik_rigidity')
 
+    def BEPUIK_LINEAR_AXIS_LIMIT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_location(col, con, "line_anchor")
+        self.bepuik_template_axis(col, con, "line_direction")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_location(col, con, "anchor_b")
+        layout.prop(con,"min_distance")
+        layout.prop(con,"max_distance")
+        layout.prop(con,'bepuik_rigidity')
+    
+    def BEPUIK_POINT_ON_LINE_JOINT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_location(col, con, "line_anchor")
+        self.bepuik_template_axis(col, con, "line_direction")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_location(col, con, "anchor_b")
+        layout.prop(con,'bepuik_rigidity')
+        
+    def BEPUIK_POINT_ON_PLANE_JOINT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_location(col, con, "plane_anchor")
+        self.bepuik_template_axis(col, con, "plane_normal")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_location(col, con, "anchor_b")
+        layout.prop(con,'bepuik_rigidity')
+
+    def BEPUIK_REVOLUTE_JOINT(self,context,layout,con):
+        self.connection_a_label(layout)
+        self.bepuik_template_connection(layout, con)
+        self.bepuik_template_axis(layout, con, "free_axis")
+        layout.prop(con,'bepuik_rigidity')
+
+    def BEPUIK_SWING_LIMIT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_axis(col, con, "axis_a")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_axis(col, con, "axis_b")
+        layout.prop(con,"max_swing")
+        layout.prop(con,'bepuik_rigidity')
+        
+    def BEPUIK_SWIVEL_HINGE_JOINT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_axis(col, con, "hinge_axis")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(con, con)
+        self.bepuik_template_axis(con, con, "twist_axis")        
+        layout.prop(con,'bepuik_rigidity')
+        
+    def BEPUIK_TWIST_JOINT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_axis(col, con, "axis_a")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_axis(col, con, "axis_b")
+        layout.prop(con,'bepuik_rigidity')
+        
+    def BEPUIK_TWIST_LIMIT(self,context,layout,con):
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_axis(col, con, "axis_a")
+        self.bepuik_template_axis(col, con, "measurement_axis_a")
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_connection(col, con)
+        self.bepuik_template_axis(col, con, "axis_b")
+        self.bepuik_template_axis(col, con, "measurement_axis_b")
+        layout.separator();col = layout.column(align=True)
+        layout.prop(con,"max_twist")
+        layout.prop(con,'bepuik_rigidity')
+        
+        
+    def BEPUIK_TARGET(self,context,layout,con):
+        self.bepuik_template_connection(layout,con)
+        layout.prop(con,"use_bepuik_absolute_target")
+        layout.prop(con,"bepuik_rigidity")
+        layout.prop(con,"orientation_rigidity")
+        layout.prop(con,"pulled_point")
+
+
+        
     def SCRIPT(self, context, layout, con):
         layout.label("Blender 2.6 doesn't support python constraints yet")
 

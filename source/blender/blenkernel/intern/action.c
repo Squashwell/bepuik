@@ -493,6 +493,10 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 	
 	chan->protectflag = OB_LOCK_ROT4D;  /* lock by components by default */
 	
+	chan->bepuik_ball_socket_rigidity = BEPUIK_RIGIDITY_DEFAULT;
+	unit_qt(chan->bepuik_solved_orientation);
+	chan->bepuik_rotational_heaviness = BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT;
+	
 	BLI_addtail(&pose->chanbase, chan);
 	BKE_pose_channels_hash_free(pose);
 	
@@ -841,6 +845,8 @@ void BKE_pose_channel_copy_data(bPoseChannel *pchan, const bPoseChannel *pchan_f
 	pchan->ikstretch = pchan_from->ikstretch;
 	pchan->ikrotweight = pchan_from->ikrotweight;
 	pchan->iklinweight = pchan_from->iklinweight;
+	
+	pchan->bepuikflag = pchan_from->bepuikflag;
 
 	/* constraints */
 	BKE_copy_constraints(&pchan->constraints, &pchan_from->constraints, TRUE);

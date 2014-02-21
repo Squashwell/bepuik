@@ -50,6 +50,7 @@
 #include "DNA_modifier_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_mask_types.h"
+#include "DNA_constraint_types.h"
 
 #include "BLI_math.h"
 #include "BLI_blenlib.h"
@@ -1183,6 +1184,20 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 				RNA_property_boolean_set(op->ptr, prop, t->settings->uvcalc_flag & UVCALC_TRANSFORM_CORRECT);
 			}
 		}
+        	
+		if (op && RNA_struct_find_property(op->ptr, "bepuik_drag")) {
+			if (RNA_struct_property_is_set(op->ptr, "bepuik_drag")) {
+				if (RNA_boolean_get(op->ptr, "bepuik_drag")) {
+					t->bepuikflag |= T_BEPUIK_DRAG;
+				}
+				else {
+					t->bepuikflag &= ~T_BEPUIK_DRAG;
+				}
+			}
+			else {
+				RNA_boolean_set(op->ptr, "bepuik_drag", t->bepuikflag & T_BEPUIK_DRAG);
+			}
+		}
 
 	}
 	else if (t->spacetype == SPACE_IMAGE) {
@@ -1231,6 +1246,45 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 			t->view = NULL;
 		}
 		t->around = V3D_CENTER;
+	}
+	
+	if(t->mode==TFM_BEPUIK_TARGET_RIGIDITY_MODIFY && op)
+	{
+		if ((prop = RNA_struct_find_property(op->ptr, "rigidity_types")) && RNA_property_is_set(op->ptr, prop)) {
+		
+			int flags = RNA_property_enum_get(op->ptr, prop);
+			
+			if(flags & BEPUIK_TARGET_ABSOLUTE)
+				t->bepuikflag |= T_BEPUIK_TARGET_ABSOLUTE;
+			
+			if(flags & BEPUIK_TARGET_ORIENTATION)
+				t->bepuikflag |= T_BEPUIK_TARGET_ORIENTATION;
+			
+			if(flags & BEPUIK_TARGET_POSITION)
+				t->bepuikflag |= T_BEPUIK_TARGET_POSITION;
+		}
+	
+		if ((prop = RNA_struct_find_property(op->ptr, "set"))) {
+			if(RNA_property_is_set(op->ptr, prop)) {
+				if(RNA_property_boolean_get(op->ptr, prop))
+					t->bepuikflag |= T_BEPUIK_TARGET_SET;
+				else
+					t->bepuikflag &= ~T_BEPUIK_TARGET_SET;
+			} else
+				RNA_boolean_set(op->ptr, "set", t->bepuikflag & T_BEPUIK_TARGET_SET);
+			
+		}
+		
+		if ((prop = RNA_struct_find_property(op->ptr, "only_top_target"))) {
+			if(RNA_property_is_set(op->ptr, prop)) {
+				if(RNA_property_boolean_get(op->ptr, prop))
+					t->bepuikflag |= T_BEPUIK_TOP_TARGET;
+				else
+					t->bepuikflag &= ~T_BEPUIK_TOP_TARGET;
+			} else
+				RNA_boolean_set(op->ptr, "only_top_target", t->bepuikflag & T_BEPUIK_TOP_TARGET);
+			
+		}
 	}
 	
 	if (op && ((prop = RNA_struct_find_property(op->ptr, "release_confirm")) &&
@@ -1599,7 +1653,7 @@ void calculateCenterMedian(TransInfo *t)
 			}
 		}
 	}
-	if (i)
+	if (total) 
 		mul_v3_fl(partial, 1.0f / total);
 	copy_v3_v3(t->center, partial);
 	

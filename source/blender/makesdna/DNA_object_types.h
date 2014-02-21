@@ -251,9 +251,21 @@ typedef struct Object {
 
 	char restrictflag;		/* for restricting view, select, render etc. accessible in outliner */
 	char recalc;			/* dependency flag */
+	char pad4[2];
 	short softflag;			/* softbody settings */
+	char pad2[2];
 	float anisotropicFriction[3];
-
+	unsigned int bepuik_solve_length;
+	unsigned int bepuik_solve_quality;
+	unsigned int bepuik_fixer_iterations;
+	unsigned int bepuik_velocity_subiterations;
+	
+	unsigned int bepuik_dynamic_solve_length;
+	float bepuik_dynamic_peripheral_stiffness;
+	float bepuik_dynamic_position_rigidity;
+	float bepuik_dynamic_orientation_rigidity;
+	int bepuikflag;
+	
 	ListBase constraints;		/* object constraints */
 	ListBase nlastrips  DNA_DEPRECATED;			// XXX deprecated... old animation system
 	ListBase hooks  DNA_DEPRECATED;				// XXX deprecated... old animation system
@@ -662,6 +674,30 @@ enum {
 	OB_LOCK_ROTW    = 1 << 9,
 	OB_LOCK_ROT4D   = 1 << 10,
 };
+
+#define OB_BEPUIK				  (1<<0)
+#define OB_BEPUIK_PARENTED_PERIPHERAL_BONES (1<<1)
+
+#define BEPUIK_VELOCITY_SUBITERATIONS_MAX 200
+#define BEPUIK_VELOCITY_SUBITERATIONS_DEFAULT 10
+#define BEPUIK_VELOCITY_SUBITERATIONS_MIN 1
+
+#define BEPUIK_FIXER_ITERATIONS_MAX 500
+#define BEPUIK_FIXER_ITERATIONS_DEFAULT 0
+#define BEPUIK_FIXER_ITERATIONS_MIN 0
+
+#define BEPUIK_DYNAMIC_POSITION_RIGIDITY_DEFAULT 0.6f
+#define BEPUIK_DYNAMIC_ORIENTATION_RIGIDITY_DEFAULT 0.03f
+
+#define BEPUIK_DYNAMIC_SOLVE_LENGTH_DEFAULT 10
+
+#define BEPUIK_SOLVE_QUALITY_MIN 1
+#define BEPUIK_SOLVE_QUALITY_DEFAULT 1
+#define BEPUIK_SOLVE_QUALITY_MAX 10
+
+#define BEPUIK_SOLVE_LENGTH_MIN 1
+#define BEPUIK_SOLVE_LENGTH_DEFAULT 60
+#define BEPUIK_SOLVE_LENGTH_MAX 2000
 
 /* ob->mode */
 typedef enum ObjectMode {

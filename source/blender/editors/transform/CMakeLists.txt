@@ -53,4 +53,9 @@ if(WITH_INTERNATIONAL)
 	add_definitions(-DWITH_INTERNATIONAL)
 endif()
 
+if(WITH_BEPUIK)
+        set(INC ${INC} ../../../../intern/bepuik)
+        add_definitions(-DWITH_BEPUIK)
+endif()
+
 blender_add_lib(bf_editor_transform "${SRC}" "${INC}" "${INC_SYS}")

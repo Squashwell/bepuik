@@ -2743,6 +2743,25 @@ class VIEW3D_PT_view3d_cursor(Panel):
         layout.column().prop(view, "cursor_location", text="Location")
 
 
+class VIEW3D_PT_view3d_bepuik(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "BEPUik"
+
+    @classmethod
+    def poll(cls,context):
+        return context.object and context.object.type == 'ARMATURE'
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        col.enabled = context.mode == 'POSE'
+        
+        col.prop(context.tool_settings,"use_bepuik_dynamic")
+        
+#        col1 = col.column()
+#        col.enabled = context.tool_settings.use_bepuik_dynamic        
+        col.prop(context.tool_settings,"use_bepuik_inactive_targets_follow")
+        
 class VIEW3D_PT_view3d_name(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'

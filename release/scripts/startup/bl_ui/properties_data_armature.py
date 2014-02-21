@@ -88,7 +88,12 @@ class DATA_PT_display(ArmatureButtonsPanel, Panel):
         col.prop(arm, "show_names", text="Names")
         col.prop(arm, "show_axes", text="Axes")
         col.prop(arm, "show_bone_custom_shapes", text="Shapes")
-
+        
+        col.label("BEPUik:")
+        col.prop(arm,"show_bepuik_targets",text="Target")
+        col.prop(arm,"show_bepuik_prepose",text="Prepose")
+        
+        
         col = split.column()
         col.prop(arm, "show_group_colors", text="Colors")
         if ob:

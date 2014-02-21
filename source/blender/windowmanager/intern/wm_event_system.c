@@ -2184,6 +2184,18 @@ void wm_event_do_handlers(bContext *C)
 		else {
 			Scene *scene = win->screen->scene;
 			
+            /* BEPUIK:TODO XXX hack to redraw all 3d view areas when bepuik is solving.... gross. */
+            if(G.bepuik_feedback)
+            {
+                ScrArea *sa;
+                ARegion *ar;
+                for (sa = win->screen->areabase.first; sa; sa = sa->next)
+                    if(sa->spacetype == SPACE_VIEW3D)
+                        for (ar = sa->regionbase.first; ar; ar = ar->next)
+                            if(ar->regiontype == RGN_TYPE_WINDOW)
+                                ED_region_tag_redraw(ar);
+            }
+            
 			if (scene) {
 				int is_playing_sound = sound_scene_playing(win->screen->scene);
 				

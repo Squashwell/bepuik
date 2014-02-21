@@ -723,6 +723,73 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
 
         self.layout.prop(arm, "use_auto_ik")
 
+class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
+    bl_context = "posemode"
+    bl_label = "BEPUik"
+    
+    def draw(self,context):
+        layout = self.layout
+        
+        
+        col = layout.column(align=True)
+        col.label("Set BEPUik state:")
+        op = col.operator("pose.bepuik_set_bone", text="Add BEPUik")
+        op.only_selected = True
+        op.use_bepuik = True 
+        
+        op = col.operator("pose.bepuik_set_bone", text="Remove BEPUik")
+        op.only_selected = True
+        op.use_bepuik = False 
+        
+        layout.separator()
+        
+        col = layout.column(align=True)
+        col.label("Set Target Rigidity:")
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="Soft Position")
+        op.value = .5
+        op.set = True
+        op.only_top_target = True
+        op.rigidity_types = {'POSITION'}
+        
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="Soft Orientation")
+        op.value = .02
+        op.set = True
+        op.only_top_target = True
+        op.rigidity_types = {'ORIENTATION'}
+        
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="Absolute")
+        op.value = 1
+        op.set = True
+        op.only_top_target = True
+        op.rigidity_types = {'ABSOLUTE'}
+        
+        col = layout.column(align=True)
+        col.label("Remove Target Rigidity:")
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="No Position")
+        op.value = 0
+        op.set = True
+        op.rigidity_types = {'POSITION'}
+        
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="No Orientation")
+        op.value = 0
+        op.set = True
+        op.rigidity_types = {'ORIENTATION'}
+        
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="No Absolute")
+        op.value = 0
+        op.set = True
+        op.rigidity_types = {'ABSOLUTE'}
+        
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="None")
+        op.value = 0
+        op.set = True
+        op.rigidity_types = {'ABSOLUTE','POSITION','ORIENTATION'}
+        
+
+        
+            
+            
+
 # ********** default tools for paint modes ****************
 
 

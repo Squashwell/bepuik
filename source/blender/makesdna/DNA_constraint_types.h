@@ -73,6 +73,11 @@ typedef struct bConstraint {
 	/* below are readonly fields that are set at runtime by the solver for use in the GE (only IK atm) */
 	float       lin_error;		/* residual error on constraint expressed in blender unit*/
 	float       rot_error;		/* residual error on constraint expressed in radiant */
+	
+	/* used in ifdef WITH_BEPUIK */
+	float		bepuik_rigidity;
+	float		pad2;
+	
 } bConstraint;
 
 
@@ -98,7 +103,8 @@ typedef struct bConstraintTarget {
 
 /* bConstraintTarget -> flag */
 typedef enum B_CONSTRAINT_TARGET_FLAG {
-	CONSTRAINT_TAR_TEMP = (1<<0)		/* temporary target-struct that needs to be freed after use */
+	CONSTRAINT_TAR_TEMP = (1<<0),		/* temporary target-struct that needs to be freed after use */
+	CONSTRAINT_TAR_BEPUIK = (1<<1)   /* ifdef WITH_BEPUIK indicates that this constraint is a bepuik target */
 } B_CONSTRAINT_TARGET_FLAG;
 
 /* bConstraintTarget/bConstraintOb -> type */
@@ -439,6 +445,228 @@ typedef struct bObjectSolverConstraint {
 	struct Object *camera;
 } bObjectSolverConstraint;
 
+/* ifdef WITH_BEPUIK Constraints */
+typedef struct bBEPUikAxis {
+    struct Object * tar;
+    char subtarget[64];
+    float vec[3];
+    short xyz;
+	short pad;
+}bBEPUikAxis;
+
+typedef struct bBEPUikLocation {
+	struct Object * tar;
+    char subtarget[64];
+    float vec[3];
+    float headtail;
+}bBEPUikLocation;
+
+typedef struct bBEPUikAngularJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+}bBEPUikAngularJoint;
+
+typedef struct bBEPUikBallSocketJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	struct Object * anchor_target;
+    char anchor_subtarget[64];
+    float anchor_head_tail;
+	char pad[4];
+}bBEPUikBallSocketJoint;
+
+typedef struct bBEPUikDistanceJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	struct Object * anchor_a_target;
+    char anchor_a_subtarget[64];
+	struct Object * anchor_b_target;
+    char anchor_b_subtarget[64];
+    float anchor_a_head_tail;
+    float anchor_b_head_tail;
+}bBEPUikDistanceJoint;
+    
+typedef struct bBEPUikDistanceLimit {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	struct Object * anchor_a_target;
+    char anchor_a_subtarget[64];
+	struct Object * anchor_b_target;
+    char anchor_b_subtarget[64];
+    float anchor_a_head_tail;
+    float anchor_b_head_tail;
+    float min_distance;
+    float max_distance;
+	
+}bBEPUikDistanceLimit;
+
+typedef struct bBEPUikLinearAxisLimit {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * line_anchor_target;
+	char line_anchor_subtarget[64];
+		
+	struct Object * line_direction_target;
+	char line_direction_subtarget[64];
+		
+	struct Object * anchor_b_target;
+	char anchor_b_subtarget[64];	
+		
+	float line_anchor_head_tail;
+	float anchor_b_head_tail;
+		
+	float min_distance;
+	float max_distance;
+		
+	short line_direction;
+	short pad[3];
+}bBEPUikLinearAxisLimit;
+
+typedef struct bBEPUikPointOnLineJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * line_anchor_target;
+	char line_anchor_subtarget[64];
+		
+	struct Object * line_direction_target;
+	char line_direction_subtarget[64];
+		
+	struct Object * anchor_b_target;
+	char anchor_b_subtarget[64];
+	
+	float line_anchor_head_tail;
+	float anchor_b_head_tail;
+	
+	short line_direction;
+	short pad[3];	
+}bBEPUikPointOnLineJoint;
+
+typedef struct bBEPUikPointOnPlaneJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * plane_anchor_target;
+	char plane_anchor_subtarget[64];
+		
+	struct Object * plane_normal_target;
+	char plane_normal_subtarget[64];
+		
+	struct Object * anchor_b_target;
+	char anchor_b_subtarget[64];
+	
+	float plane_anchor_head_tail;
+	float anchor_b_head_tail;
+	
+	short plane_normal;
+	short pad[3];
+}bBEPUikPointOnPlaneJoint;
+
+typedef struct bBEPUikRevoluteJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * free_axis_target;
+	char free_axis_subtarget[64];
+	
+	short free_axis;
+	short pad[3];
+}bBEPUikRevoluteJoint;
+
+typedef struct bBEPUikSwingLimit {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * axis_a_target;
+	char axis_a_subtarget[64];
+	
+	struct Object * axis_b_target;
+	char axis_b_subtarget[64];
+	
+	float max_swing;
+	short axis_a;
+	short axis_b;
+}bBEPUikSwingLimit;
+
+typedef struct bBEPUikSwivelHingeJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * hinge_axis_target;
+	char hinge_axis_subtarget[64];
+	
+	struct Object * twist_axis_target;
+	char twist_axis_subtarget[64];
+	
+	short hinge_axis;
+	short twist_axis;
+	short pad[2];
+}bBEPUikSwivelHingeJoint;
+
+typedef struct bBEPUikTwistJoint {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * axis_a_target;
+	char axis_a_subtarget[64];
+	
+	struct Object * axis_b_target;
+	char axis_b_subtarget[64];
+	
+	short axis_a;
+	short axis_b;
+	short pad[2];
+}bBEPUikTwistJoint;
+
+typedef struct bBEPUikTwistLimit {
+	struct Object * connection_target;
+    char connection_subtarget[64];
+	
+	struct Object * axis_a_target;
+	char axis_a_subtarget[64];
+	
+	struct Object * axis_b_target;
+	char axis_b_subtarget[64];
+	
+	struct Object * measurement_axis_a_target;
+	char measurement_axis_a_subtarget[64];
+	
+	struct Object * measurement_axis_b_target;
+	char measurement_axis_b_subtarget[64];
+	
+	float max_twist;
+	short axis_a;
+	short axis_b;
+	short measurement_axis_a;
+	short measurement_axis_b;
+	short pad[2];
+
+}bBEPUikTwistLimit;
+
+typedef struct bBEPUikTarget {
+	struct Object * connection_target;
+	char connection_subtarget[64];
+	
+	float orientation_rigidity;
+	int bepuikflag;
+	float mat[4][4];
+	float pulled_point[3];
+	float pulled_start_pose_space[3];
+	float pulled_destination_pose_space[3];
+	float pad[1];
+}bBEPUikTarget;
+
+typedef enum eBEPUikTargetRigidity_Types{
+	BEPUIK_TARGET_POSITION = (1 << 0),
+	BEPUIK_TARGET_ORIENTATION = (1 << 1),
+	BEPUIK_TARGET_ABSOLUTE = (1 << 2)
+} eBEPUikTargetRigidity_Flags;
+
+typedef enum eBEPUikConstraint_Flags{
+	BEPUIK_CONSTRAINT_ABSOLUTE =					(1<<0)
+} eBEPUikConstraint_Flags;
+
 /* ------------------------------------------ */
 
 /* bConstraint->type 
@@ -475,7 +703,20 @@ typedef enum eBConstraint_Types {
 	CONSTRAINT_TYPE_FOLLOWTRACK = 26,		/* Follow Track Constraint */
 	CONSTRAINT_TYPE_CAMERASOLVER = 27,		/* Camera Solver Constraint */
 	CONSTRAINT_TYPE_OBJECTSOLVER = 28,		/* Object Solver Constraint */
-	
+    CONSTRAINT_TYPE_BEPUIK_ANGULAR_JOINT = 29,
+    CONSTRAINT_TYPE_BEPUIK_BALL_SOCKET_JOINT = 30,
+    CONSTRAINT_TYPE_BEPUIK_DISTANCE_JOINT = 31,
+    CONSTRAINT_TYPE_BEPUIK_DISTANCE_LIMIT = 32,
+    CONSTRAINT_TYPE_BEPUIK_LINEAR_AXIS_LIMIT = 33, /* ifdef WITH_BEPUIK */
+    CONSTRAINT_TYPE_BEPUIK_POINT_ON_LINE_JOINT = 34,
+    CONSTRAINT_TYPE_BEPUIK_POINT_ON_PLANE_JOINT = 35,
+    CONSTRAINT_TYPE_BEPUIK_REVOLUTE_JOINT = 36,
+    CONSTRAINT_TYPE_BEPUIK_SWING_LIMIT = 37,
+    CONSTRAINT_TYPE_BEPUIK_SWIVEL_HINGE_JOINT = 38,
+    CONSTRAINT_TYPE_BEPUIK_TWIST_JOINT = 39,
+    CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT = 40,
+	CONSTRAINT_TYPE_BEPUIK_TARGET = 41,
+    
 	/* NOTE: no constraints are allowed to be added after this */
 	NUM_CONSTRAINT_TYPES
 } eBConstraint_Types; 
@@ -497,7 +738,13 @@ typedef enum eBConstraint_Flags {
 		/* indicates that constraint was added locally (i.e.  didn't come from the proxy-lib) */
 	CONSTRAINT_PROXY_LOCAL = (1<<8),
 		/* indicates that constraint is temporarily disabled (only used in GE) */
-	CONSTRAINT_OFF = (1<<9)
+	CONSTRAINT_OFF = (1<<9), 
+        /* ifdef WITH_BEPUIK indicates that this is a BEPUik constraint */
+    CONSTRAINT_BEPUIK = (1<<10),
+		/* ifdef WITH_BEPUIK indicates that this BEPUik constraint's rigidity is being transformed by an operator */
+	CONSTRAINT_BEPUIK_TRANSFORM = (1<<11),
+	/* ifdef WITH_BEPUIK indicates that this BEPUik constraint is drawable */
+	CONSTRAINT_BEPUIK_DRAWABLE = (1<<12)
 } eBConstraint_Flags;
 
 /* bConstraint->ownspace/tarspace */
@@ -809,5 +1056,10 @@ typedef enum eObjectSolver_Flags {
 #define 	CONSTRAINT_RB_CONETWIST 4
 #define 	CONSTRAINT_RB_VEHICLE	11
 #define 	CONSTRAINT_RB_GENERIC6DOF 12
+
+#define BEPUIK_RIGIDITY_MAX 2000
+#define BEPUIK_RIGIDITY_DEFAULT 16.0f
+#define BEPUIK_RIGIDITY_MIN 0
+#define BEPUIK_RIGIDITY_TARGET_DEFAULT 1.0f
 
 #endif

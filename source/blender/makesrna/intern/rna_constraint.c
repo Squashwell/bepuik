@@ -45,6 +45,13 @@
 
 #include "ED_object.h"
 
+EnumPropertyItem bepuik_target_rigidity_type_items[] = {
+		{BEPUIK_TARGET_POSITION, "POSITION", 0, "Position", "Set the position rigidity of the selected targets"},
+		{BEPUIK_TARGET_ORIENTATION, "ORIENTATION", 0, "Orientation", "Set the orientation rigidity of the selected targets"},
+		{BEPUIK_TARGET_ABSOLUTE, "ABSOLUTE", 0, "Absolute Target", "Set the state of the absolute target of the selected targets"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 /* please keep the names in sync with constraint.c */
 EnumPropertyItem constraint_type_items[] = {
 	{0, "", 0, N_("Motion Tracking"), ""},
@@ -104,6 +111,33 @@ EnumPropertyItem constraint_type_items[] = {
 	                             "Custom constraint(s) written in Python (Not yet implemented)"}, */
 	{CONSTRAINT_TYPE_SHRINKWRAP, "SHRINKWRAP", ICON_CONSTRAINT_DATA, "Shrinkwrap", 
 	                             "Restrict movements to surface of target mesh"},
+	{0, "", 0, N_("BEPUik"), ""},
+	{CONSTRAINT_TYPE_BEPUIK_ANGULAR_JOINT,		"BEPUIK_ANGULAR_JOINT", ICON_CONSTRAINT_DATA, "Angular Joint", 
+												"Constrain two bones at an angle"},
+	{CONSTRAINT_TYPE_BEPUIK_BALL_SOCKET_JOINT,	"BEPUIK_BALL_SOCKET_JOINT", ICON_CONSTRAINT_DATA, "Ball Socket Joint", 
+												"Constrain two bones around an anchor point"},
+	{CONSTRAINT_TYPE_BEPUIK_DISTANCE_JOINT,		"BEPUIK_DISTANCE_JOINT", ICON_CONSTRAINT_DATA, "Distance Joint", 
+												"Constraint two bones at a distance"},
+	{CONSTRAINT_TYPE_BEPUIK_DISTANCE_LIMIT,		"BEPUIK_DISTANCE_LIMIT", ICON_CONSTRAINT_DATA, "Distance Limit", 
+												"Constraint two bones within a range"},
+	{CONSTRAINT_TYPE_BEPUIK_LINEAR_AXIS_LIMIT,	"BEPUIK_LINEAR_AXIS_LIMIT", ICON_CONSTRAINT_DATA, "Linear Axis Limit", 
+												"Constrain two bones within a range along an axis"},
+	{CONSTRAINT_TYPE_BEPUIK_POINT_ON_LINE_JOINT,"BEPUIK_POINT_ON_LINE_JOINT", ICON_CONSTRAINT_DATA, "Point on Line Joint", 
+												"Constrain two bones along a line"},
+	{CONSTRAINT_TYPE_BEPUIK_POINT_ON_PLANE_JOINT,"BEPUIK_POINT_ON_PLANE_JOINT", ICON_CONSTRAINT_DATA, "Point on Plane Joint", 
+												 "Constrain two bones on a plane"},
+	{CONSTRAINT_TYPE_BEPUIK_REVOLUTE_JOINT,		"BEPUIK_REVOLUTE_JOINT", ICON_CONSTRAINT_DATA, "Revolute Joint", 
+												 "Constrain the rotation between two bones around a free axis"},
+	{CONSTRAINT_TYPE_BEPUIK_SWING_LIMIT,		"BEPUIK_SWING_LIMIT", ICON_CONSTRAINT_DATA, "Swing Limit", 
+												"Constrain the maximum angle between two bones"},
+	{CONSTRAINT_TYPE_BEPUIK_SWIVEL_HINGE_JOINT, "BEPUIK_SWIVEL_HINGE_JOINT", ICON_CONSTRAINT_DATA, "Swivel Hinge Joint", 
+												"Constrain rotation between two bones around a hinge axis and a twist axis"},
+	{CONSTRAINT_TYPE_BEPUIK_TWIST_JOINT,		"BEPUIK_TWIST_JOINT", ICON_CONSTRAINT_DATA, "Twist Joint", 
+												"Constrain any twist between two bones"},
+	{CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT,		"BEPUIK_TWIST_LIMIT", ICON_CONSTRAINT_DATA, "Twist Limit", 
+												"Constrain twist between two bones within an angle"},
+	{CONSTRAINT_TYPE_BEPUIK_TARGET,				"BEPUIK_TARGET", ICON_CONSTRAINT_DATA, "Target",
+												"Constrain to a target's location and rotation"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -214,6 +248,32 @@ static StructRNA *rna_ConstraintType_refine(struct PointerRNA *ptr)
 			return &RNA_CameraSolverConstraint;
 		case CONSTRAINT_TYPE_OBJECTSOLVER:
 			return &RNA_ObjectSolverConstraint;
+        case CONSTRAINT_TYPE_BEPUIK_ANGULAR_JOINT:
+            return &RNA_BEPUikAngularJoint;
+        case CONSTRAINT_TYPE_BEPUIK_BALL_SOCKET_JOINT:
+            return &RNA_BEPUikBallSocketJoint;
+        case CONSTRAINT_TYPE_BEPUIK_DISTANCE_JOINT:
+            return &RNA_BEPUikDistanceJoint; 
+        case CONSTRAINT_TYPE_BEPUIK_DISTANCE_LIMIT:
+            return &RNA_BEPUikDistanceLimit; 
+        case CONSTRAINT_TYPE_BEPUIK_LINEAR_AXIS_LIMIT:
+            return &RNA_BEPUikLinearAxisLimit; 
+        case CONSTRAINT_TYPE_BEPUIK_POINT_ON_LINE_JOINT:
+            return &RNA_BEPUikPointOnLineJoint; 
+        case CONSTRAINT_TYPE_BEPUIK_POINT_ON_PLANE_JOINT:
+            return &RNA_BEPUikPointOnPlaneJoint; 
+        case CONSTRAINT_TYPE_BEPUIK_REVOLUTE_JOINT:
+            return &RNA_BEPUikRevoluteJoint; 
+        case CONSTRAINT_TYPE_BEPUIK_SWING_LIMIT:
+            return &RNA_BEPUikSwingLimit; 
+        case CONSTRAINT_TYPE_BEPUIK_SWIVEL_HINGE_JOINT:
+            return &RNA_BEPUikSwivelHingeJoint; 
+        case CONSTRAINT_TYPE_BEPUIK_TWIST_JOINT:
+            return &RNA_BEPUikTwistJoint; 
+        case CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT:
+            return &RNA_BEPUikTwistLimit;
+		case CONSTRAINT_TYPE_BEPUIK_TARGET:
+			return &RNA_BEPUikTarget;
 		default:
 			return &RNA_UnknownType;
 	}
@@ -2368,6 +2428,283 @@ static void rna_def_constraint_object_solver(BlenderRNA *brna)
 	                               "rna_Constraint_cameraObject_poll");
 }
 
+
+static EnumPropertyItem axis_items[] = {
+	{TRACK_X, "X", 0, "X", ""},
+	{TRACK_Y, "Y", 0, "Y", ""},
+	{TRACK_Z, "Z", 0, "Z", ""},
+	{TRACK_nX, "NEGATIVE_X", 0, "-X", ""},
+	{TRACK_nY, "NEGATIVE_Y", 0, "-Y", ""},
+	{TRACK_nZ, "NEGATIVE_Z", 0, "-Z", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+
+#define BEPUIK_CONNECTION \
+	prop = RNA_def_property(srna, "connection_target", PROP_POINTER, PROP_NONE); \
+	RNA_def_property_pointer_sdna(prop, NULL, "connection_target"); \
+	RNA_def_property_ui_text(prop, "Target B", "Target Object, containing the bone to connect to"); \
+	RNA_def_property_flag(prop, PROP_EDITABLE); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_dependency_update"); \
+	\
+	prop = RNA_def_property(srna, "connection_subtarget", PROP_STRING, PROP_NONE); \
+	RNA_def_property_ui_text(prop, "Bone B", "The second bone the constraint affects"); \
+	RNA_def_property_flag(prop, PROP_EDITABLE); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_dependency_update"); 	
+
+
+
+#define BEPUIK_LOCATION(id,name,description) \
+	prop = RNA_def_property(srna, #id "_target", PROP_POINTER, PROP_NONE); \
+	RNA_def_property_pointer_sdna(prop, NULL, #id "_target"); \
+	RNA_def_property_ui_text(prop, #name, #name " Object"); \
+	RNA_def_property_flag(prop, PROP_EDITABLE); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); \
+	\
+	prop = RNA_def_property(srna, #id "_subtarget", PROP_STRING, PROP_NONE); \
+	RNA_def_property_ui_text(prop, #name " Sub-Target", #description); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); \
+	\
+	prop = RNA_def_property(srna, #id "_head_tail", PROP_FLOAT, PROP_FACTOR); \
+	RNA_def_property_ui_text(prop, #name " Head/Tail", "Target along length of bone: Head=0, Tail=1"); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); \
+
+#define BEPUIK_AXIS(id,name,description) \
+	prop = RNA_def_property(srna, #id "_target", PROP_POINTER, PROP_NONE); \
+	RNA_def_property_pointer_sdna(prop, NULL, #id "_target"); \
+	RNA_def_property_ui_text(prop, #name, #name " Object"); \
+	RNA_def_property_flag(prop, PROP_EDITABLE); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); \
+	\
+	prop = RNA_def_property(srna, #id "_subtarget", PROP_STRING, PROP_NONE); \
+	RNA_def_property_ui_text(prop, #name " Sub-Target", #description); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); \
+	\
+	prop = RNA_def_property(srna, #id, PROP_ENUM, PROP_NONE); \
+	RNA_def_property_enum_sdna(prop, NULL, #id); \
+	RNA_def_property_enum_items(prop, axis_items); \
+	RNA_def_property_enum_default(prop,TRACK_Y); \
+	RNA_def_property_ui_text(prop, "Axis", "Axis of the bone used for reference"); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); 
+
+	
+static void rna_def_constraint_bepuik_angular_joint(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "BEPUikAngularJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Angular Joint", "Constrain two bones at an angle");
+	RNA_def_struct_sdna_from(srna, "bBEPUikAngularJoint", "data");
+	
+	BEPUIK_CONNECTION
+
+}
+
+static void rna_def_constraint_bepuik_ball_socket_joint(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikBallSocketJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Ball Socket Joint", "Constrain two bones around an anchor point");
+	RNA_def_struct_sdna_from(srna, "bBEPUikBallSocketJoint", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_LOCATION(anchor,Anchor,Anchor point between the two bones)
+}
+
+static void rna_def_constraint_bepuik_distance_joint(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikDistanceJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Distance Joint", "Constrain two bones at a distance");
+	RNA_def_struct_sdna_from(srna, "bBEPUikDistanceJoint", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_LOCATION(anchor_a,Anchor A,Anchor point attached to Bone A)
+	BEPUIK_LOCATION(anchor_b,Anchor B,Anchor point attached to Bone B)
+}
+
+static void rna_def_constraint_bepuik_distance_limit(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikDistanceLimit", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Distance Limit", "Constrain two bones within a range");
+	RNA_def_struct_sdna_from(srna, "bBEPUikDistanceLimit", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_LOCATION(anchor_a,Anchor A,Anchor point attached to Bone A)
+	BEPUIK_LOCATION(anchor_b,Anchor B,Anchor point attached to Bone B)
+			
+	prop = RNA_def_property(srna,"min_distance", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Min Distance", "Minimum distance allowed between the two anchor points");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+	
+	prop = RNA_def_property(srna,"max_distance", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Max Distance", "Maximum distance allowed between the two anchor points");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+}
+
+static void rna_def_constraint_bepuik_linear_axis_limit(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikLinearAxisLimit", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Linear Axis Limit", "Constrain two bones within a range along an axis");
+	RNA_def_struct_sdna_from(srna, "bBEPUikLinearAxisLimit", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_LOCATION(line_anchor,Line Anchor,Anchor point of the line attached to Bone A)
+	BEPUIK_AXIS(line_direction,Line Direction,Line direction attached to Bone A)
+	BEPUIK_LOCATION(anchor_b,Anchor B,Anchor point attached to Bone B)
+			
+	prop = RNA_def_property(srna,"min_distance", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Min Distance", "Minimum distance allowed between the two anchor points");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+	
+	prop = RNA_def_property(srna,"max_distance", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Max Distance", "Maximum distance allowed between the two anchor points");
+	RNA_def_property_float_default(prop,1);
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+}
+
+static void rna_def_constraint_bepuik_point_on_line_joint(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikPointOnLineJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Point On Line Joint", "Constrain two bones along a line");
+	RNA_def_struct_sdna_from(srna, "bBEPUikPointOnLineJoint", "data");
+
+	BEPUIK_CONNECTION
+	BEPUIK_LOCATION(line_anchor,Line Anchor,Anchor point of the line attached to Bone A)
+	BEPUIK_AXIS(line_direction,Line Direction,Line direction attached to Bone A)
+	BEPUIK_LOCATION(anchor_b,Anchor B,Anchor point attached to Bone B)
+}
+static void rna_def_constraint_bepuik_point_on_plane_joint(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikPointOnPlaneJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Point On Plane Joint", "Constrain two bones along a plane");
+	RNA_def_struct_sdna_from(srna, "bBEPUikPointOnPlaneJoint", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_LOCATION(plane_anchor,Plane Anchor,Anchor point of the plane attached to Bone A)
+	BEPUIK_AXIS(plane_normal,Plane Normal,Plane normal attached to Bone A)
+	BEPUIK_LOCATION(anchor_b,Anchor B,Anchor point attached to Bone B)
+}
+static void rna_def_constraint_bepuik_revolute_joint(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikRevoluteJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Revolute Joint", "Constrain the rotation between two bones around a free axis");
+	RNA_def_struct_sdna_from(srna, "bBEPUikRevoluteJoint", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_AXIS(free_axis,Free Axis,Axis allowed to rotate freely)
+}
+static void rna_def_constraint_bepuik_swing_limit(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikSwingLimit", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Swing Limit", "Constrain the maximum angle between two bones");
+	RNA_def_struct_sdna_from(srna, "bBEPUikSwingLimit", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_AXIS(axis_a,Axis A,Axis attached to Bone A)
+    BEPUIK_AXIS(axis_b,Axis B,Axis attached to Bone B)
+			
+	prop = RNA_def_property(srna,"max_swing", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_ui_text(prop, "Max Swing", "Maximum swing angle allowed between the two axes");
+	RNA_def_property_range(prop,0,M_PI);
+	RNA_def_property_float_default(prop,M_PI_2);
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+}
+static void rna_def_constraint_bepuik_swivel_hinge_joint(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikSwivelHingeJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Swivel Hinge Joint", "Constrain rotation between two bones around a hinge axis and a twist axis");
+	RNA_def_struct_sdna_from(srna, "bBEPUikSwivelHingeJoint", "data");
+
+	BEPUIK_CONNECTION
+	BEPUIK_AXIS(hinge_axis,Hinge Axis,Hinge axis attached to Bone A)
+    BEPUIK_AXIS(twist_axis,Twist Axis,Twist axis attached to Bone B)
+}
+static void rna_def_constraint_bepuik_twist_joint(BlenderRNA *brna){
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikTwistJoint", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Twist Joint", "Constrain any twist between two bones");
+	RNA_def_struct_sdna_from(srna, "bBEPUikTwistJoint", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_AXIS(axis_a,Axis A,Axis attached to Bone A)
+	BEPUIK_AXIS(axis_b,Axis B,Axis attached to Bone B)
+}
+static void rna_def_constraint_bepuik_twist_limit(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "BEPUikTwistLimit", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Twist Limit", "Constrain twist between two bones within an angle");
+	RNA_def_struct_sdna_from(srna, "bBEPUikTwistLimit", "data");
+	
+	BEPUIK_CONNECTION
+	BEPUIK_AXIS(axis_a,Axis A,Twist axis attached to Bone A)
+	BEPUIK_AXIS(axis_b,Axis B,Twist axis attached to Bone B)
+	BEPUIK_AXIS(measurement_axis_a,Twist Measurement Axis A,Axis attached to Bone A from which the twist angle will be calculated)
+	BEPUIK_AXIS(measurement_axis_b,Twist Measurement Axis B,Axis attached to Bone B from which the twist angle will be calculated)
+			
+	prop = RNA_def_property(srna,"max_twist", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_ui_text(prop, "Max Twist", "Maximum twist angle allowed between the two axes");
+	RNA_def_property_range(prop,0,M_PI);
+	RNA_def_property_float_default(prop,M_PI_4);
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+}
+static void rna_def_constraint_bepuik_target(BlenderRNA * brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "BEPUikTarget", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Target", "Constrain to a target's location and rotation");
+	RNA_def_struct_sdna_from(srna, "bBEPUikTarget", "data");
+	
+	BEPUIK_CONNECTION
+	
+	prop = RNA_def_property(srna, "use_bepuik_absolute_target",PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BEPUIK_CONSTRAINT_ABSOLUTE);
+	RNA_def_property_ui_text(prop, "Absolute Target", "Solve target without any softness");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");	
+			
+	prop = RNA_def_property(srna,"orientation_rigidity", PROP_FLOAT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(prop, "Orientation Rigidity", "Rigidity of the orientation component of the target");
+	RNA_def_property_range(prop,0,BEPUIK_RIGIDITY_MAX);
+	RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_TARGET_DEFAULT);
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+
+	prop = RNA_def_property(srna,"pulled_point", PROP_FLOAT, PROP_TRANSLATION);
+	RNA_def_property_ui_text(prop, "Pulled Point", "Local space position of the pulled point of the bone");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");		
+}
+
 /* base struct for constraints */
 void RNA_def_constraint(BlenderRNA *brna)
 {
@@ -2416,6 +2753,13 @@ void RNA_def_constraint(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", CONSTRAINT_EXPAND);
 	RNA_def_property_ui_text(prop, "Expanded", "Constraint's panel is expanded in UI");
 	RNA_def_property_ui_icon(prop, ICON_TRIA_RIGHT, 1);
+	
+	prop = RNA_def_property(srna, "is_bepuik", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", CONSTRAINT_BEPUIK);
+	RNA_def_property_ui_text(prop, "Is BEPUik", "Constraint is a full body BEPUik constraint");
+	RNA_def_property_ui_icon(prop, ICON_TRIA_RIGHT, 1);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
 	/* XXX this is really an internal flag, but it may be useful for some tools to be able to access this... */
 	prop = RNA_def_property(srna, "is_valid", PROP_BOOLEAN, PROP_NONE);
@@ -2453,6 +2797,11 @@ void RNA_def_constraint(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Rot error",
 	                         "Amount of residual error in radians for constraints that work on orientation");
 
+	prop = RNA_def_property(srna, "bepuik_rigidity", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop,0,FLT_MAX);
+	RNA_def_property_ui_text(prop, "Rigidity","The rigidity of the constraint");
+	RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_DEFAULT);
+	
 	/* pointers */
 	rna_def_constrainttarget(brna);
 
@@ -2484,6 +2833,20 @@ void RNA_def_constraint(BlenderRNA *brna)
 	rna_def_constraint_follow_track(brna);
 	rna_def_constraint_camera_solver(brna);
 	rna_def_constraint_object_solver(brna);
+	rna_def_constraint_bepuik_angular_joint(brna);
+	rna_def_constraint_bepuik_ball_socket_joint(brna);
+	rna_def_constraint_bepuik_distance_joint(brna);
+	rna_def_constraint_bepuik_distance_limit(brna);
+	rna_def_constraint_bepuik_linear_axis_limit(brna);
+	rna_def_constraint_bepuik_point_on_line_joint(brna);
+	rna_def_constraint_bepuik_point_on_plane_joint(brna);
+	rna_def_constraint_bepuik_revolute_joint(brna);
+	rna_def_constraint_bepuik_swing_limit(brna);
+	rna_def_constraint_bepuik_swivel_hinge_joint(brna);
+	rna_def_constraint_bepuik_twist_joint(brna);
+	rna_def_constraint_bepuik_twist_limit(brna);
+	rna_def_constraint_bepuik_target(brna);
+
 }
 
 #endif

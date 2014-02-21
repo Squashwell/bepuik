@@ -2755,6 +2755,60 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Level of Detail Levels", "A collection of detail levels to automatically switch between");
 	RNA_def_property_update(prop, NC_OBJECT | ND_LOD, NULL);
 
+	/* BEPUik */
+	
+	prop = RNA_def_property(srna, "use_bepuik_parented_peripheral_bones", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", OB_BEPUIK_PARENTED_PERIPHERAL_BONES);
+	RNA_def_property_ui_text(prop, "Parented Peripheral Bones", "Parent peripheral bones, rather than solve them");
+	
+	prop = RNA_def_property(srna, "bepuik_solve_length", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(prop, "Solve Length", "Length of the BEPUik solve during non-dynamic mode");
+	RNA_def_property_update(prop,NC_OBJECT | ND_DRAW, "rna_Object_internal_update_data");
+	RNA_def_property_range(prop,BEPUIK_SOLVE_LENGTH_MIN,BEPUIK_SOLVE_LENGTH_MAX);
+	RNA_def_property_int_default(prop,BEPUIK_SOLVE_LENGTH_DEFAULT);
+	
+	prop = RNA_def_property(srna, "bepuik_dynamic_solve_length", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(prop, "Dynamic Solve Length", "Length of the BEPUik solve during dynamic mode");
+	RNA_def_property_update(prop,NC_OBJECT | ND_DRAW, "rna_Object_internal_update_data");
+	RNA_def_property_range(prop,BEPUIK_SOLVE_LENGTH_MIN,BEPUIK_SOLVE_LENGTH_MAX);
+	RNA_def_property_int_default(prop,BEPUIK_DYNAMIC_SOLVE_LENGTH_DEFAULT);
+	
+	prop = RNA_def_property(srna, "bepuik_solve_quality", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(prop, "Solve Quality", "Quality of the BEPUik solve");
+	RNA_def_property_update(prop,NC_OBJECT | ND_DRAW, "rna_Object_internal_update_data");
+	RNA_def_property_range(prop,BEPUIK_SOLVE_QUALITY_MIN,BEPUIK_SOLVE_QUALITY_MAX);
+	RNA_def_property_int_default(prop,BEPUIK_SOLVE_QUALITY_DEFAULT);
+	
+	prop = RNA_def_property(srna, "bepuik_fixer_iterations", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_int_sdna(prop, NULL, "bepuik_fixer_iterations");
+	RNA_def_property_ui_text(prop, "Fixer Iterations", "Number of iterations to fix joint error");
+	RNA_def_property_range(prop,BEPUIK_FIXER_ITERATIONS_MIN,BEPUIK_FIXER_ITERATIONS_MAX);
+	RNA_def_property_int_default(prop,BEPUIK_FIXER_ITERATIONS_DEFAULT);
+	RNA_def_property_update(prop,NC_OBJECT | ND_DRAW, "rna_Object_internal_update_data");
+	
+	prop = RNA_def_property(srna, "bepuik_velocity_subiterations", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_int_sdna(prop, NULL, "bepuik_velocity_subiterations");
+	RNA_def_property_ui_text(prop, "Velocity Subiterations", "Number of velocity subiterations");
+	RNA_def_property_range(prop,BEPUIK_VELOCITY_SUBITERATIONS_MIN,BEPUIK_VELOCITY_SUBITERATIONS_MAX);
+	RNA_def_property_int_default(prop,BEPUIK_VELOCITY_SUBITERATIONS_DEFAULT);
+	RNA_def_property_update(prop,NC_OBJECT | ND_DRAW, "rna_Object_internal_update_data");
+	
+	prop = RNA_def_property(srna, "bepuik_dynamic_peripheral_stiffness", PROP_FLOAT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(prop, "Dynamic Peripheral Stiffness", "Angular joint rigidity applied to each peripheral bone during dynamic mode");
+	RNA_def_property_range(prop,0,FLT_MAX);
+	RNA_def_property_float_default(prop,BEPUIK_DYNAMIC_ORIENTATION_RIGIDITY_DEFAULT);
+	
+	prop = RNA_def_property(srna, "bepuik_dynamic_position_rigidity", PROP_FLOAT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(prop, "Dynamic Position Rigidity", "Rigidity used when tweaking position in dynamic mode");
+	RNA_def_property_range(prop,0,FLT_MAX);
+	RNA_def_property_float_default(prop,BEPUIK_DYNAMIC_POSITION_RIGIDITY_DEFAULT);
+	
+	prop = RNA_def_property(srna, "bepuik_dynamic_orientation_rigidity", PROP_FLOAT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(prop, "Dynamic Orientation Rigidity", "Rigidity used when tweaking orientation in dynamic mode");
+	RNA_def_property_range(prop,0,FLT_MAX);
+	RNA_def_property_float_default(prop,BEPUIK_DYNAMIC_ORIENTATION_RIGIDITY_DEFAULT);
+
+	
 	RNA_api_object(srna);
 }
 

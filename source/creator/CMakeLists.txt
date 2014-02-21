@@ -1042,6 +1042,10 @@ endif()
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_itasc)
 	endif()
 
+        if(WITH_BEPUIK)
+                list(APPEND BLENDER_SORTED_LIBS bf_intern_bepuik)
+        endif()
+
 	if(WITH_CODEC_QUICKTIME)
 		list(APPEND BLENDER_SORTED_LIBS bf_quicktime)
 	endif()

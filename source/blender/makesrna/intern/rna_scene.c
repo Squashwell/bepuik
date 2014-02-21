@@ -1841,7 +1841,24 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Project to Self", "Snap onto itself (editmode)");
 	RNA_def_property_ui_icon(prop, ICON_ORTHO, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL); /* header redraw */
-
+	
+	/* BEPUik */
+	prop = RNA_def_property(srna, "use_bepuik_dynamic", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", SCE_BEPUIK_DYNAMIC);
+	RNA_def_property_ui_text(prop, "Dynamic", "Dynamically modify bone positions in a continuous feedback loop");
+	
+	prop = RNA_def_property(srna, "use_bepuik_inactive_targets_follow", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", SCE_BEPUIK_INACTIVE_TARGETS_FOLLOW);
+	RNA_def_property_ui_text(prop, "Inactive Targets Follow", "Targets with no rigidity follow the bones they control");
+	
+	prop = RNA_def_property(srna, "use_bepuik_stiff_children", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", SCE_BEPUIK_STIFF_CHILDREN);
+	RNA_def_property_ui_text(prop, "Stiff Children", "Stiffen children of selected bones during transform");
+	
+	prop = RNA_def_property(srna, "use_bepuik_stiff_invisible_bones", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", SCE_BEPUIK_STIFF_INVISIBLE_BONES);
+	RNA_def_property_ui_text(prop, "Stiff Invisible Bones", "Stiffen invisible bones during transform");
+	
 	/* Grease Pencil */
 	prop = RNA_def_property(srna, "use_grease_pencil_sessions", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_flags", GP_TOOL_FLAG_PAINTSESSIONS_ON);
