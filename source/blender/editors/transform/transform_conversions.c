@@ -930,7 +930,7 @@ static void bepu_transpose_data_setup(TransInfo *t)
 			}
 		}
 		
-		if(t->settings->bepuikflag & SCE_BEPUIK_INACTIVE_TARGETS_FOLLOW)
+		if(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW)
 			pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
 	}
 }
@@ -1326,7 +1326,7 @@ static void createTransPose(TransInfo *t, Object *ob)
 		}
 	}
 
-	if(t->settings->bepuikflag & SCE_BEPUIK_DYNAMIC)
+	if(ob->bepuikflag & OB_BEPUIK_DYNAMIC)
 		t->bepuikflag |= T_BEPUIK_DYNAMIC;
 
 	/* do we need to add temporal IK chains? */

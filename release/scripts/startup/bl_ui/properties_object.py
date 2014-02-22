@@ -317,32 +317,34 @@ class BEPUikSolverSettings():
         layout.active = ob.type == 'ARMATURE'
         
         col = layout.column()
-        
-        col.prop(context.tool_settings,"use_bepuik_dynamic")
-        col.prop(context.tool_settings,"use_bepuik_inactive_targets_follow")
-        col.prop(ob,'use_bepuik_parented_peripheral_bones')
+        col.prop(ob,"use_bepuik_dynamic")
+        col.prop(ob,"use_bepuik_inactive_targets_follow")
+        col.prop(ob,"use_bepuik_parented_peripheral_bones")
         
         col = layout.column()
-        col.prop(ob,'bepuik_solve_length')
-        col.active = not context.tool_settings.use_bepuik_dynamic
+        col.prop(ob,"bepuik_solve_length")
+        col.active = not ob.use_bepuik_dynamic
         
-        layout.prop(ob,'bepuik_solve_quality')
-        layout.prop(ob,"bepuik_fixer_iterations")
-        layout.prop(ob,"bepuik_velocity_subiterations")
+        col = layout.column()
+        col.prop(ob,'bepuik_solve_quality')
+        col.prop(ob,"bepuik_fixer_iterations")
+        col.prop(ob,"bepuik_velocity_subiterations")
         
         layout.separator()
         
         box = layout.box()
-        box.active = context.tool_settings.use_bepuik_dynamic
-        box.label("Dynamic Solving Only Settings")
-        box.prop(ob,'bepuik_dynamic_solve_length')
+        box.active = ob.use_bepuik_dynamic
+        box.label("Dynamic Solving")
+        box.prop(ob,"bepuik_dynamic_solve_length",text="Solve Length")
         
         col = box.column()
         col.active = not ob.use_bepuik_parented_peripheral_bones
-        col.prop(ob,"bepuik_dynamic_peripheral_stiffness")
+        col.prop(ob,"bepuik_dynamic_peripheral_stiffness",text="Peripheral Stiffness")
         
-        box.prop(ob,"bepuik_dynamic_position_rigidity")
-        box.prop(ob,"bepuik_dynamic_orientation_rigidity")
+        col = box.column()
+        col.label("Transform Rigidity:")
+        col.prop(ob,"bepuik_dynamic_position_rigidity",text="Position")
+        col.prop(ob,"bepuik_dynamic_orientation_rigidity",text="Orientation")
 
 class OBJECT_PT_bepuik(BEPUikSolverSettings, ObjectButtonsPanel, Panel):
     bl_label = "BEPUik Solver Settings"
