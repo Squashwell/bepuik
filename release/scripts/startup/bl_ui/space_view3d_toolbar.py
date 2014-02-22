@@ -724,12 +724,14 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
         self.layout.prop(arm, "use_auto_ik")
 
 class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
+    bl_category = "BEPUik"
     bl_context = "posemode"
-    bl_label = "BEPUik"
+    bl_label = "BEPUik Tools"
     
     def draw(self,context):
         layout = self.layout
         
+        col = self.layout.column(align=True)
         
         col = layout.column(align=True)
         col.label("Set BEPUik state:")
@@ -786,8 +788,11 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
         op.rigidity_types = {'ABSOLUTE','POSITION','ORIENTATION'}
         
 
-        
-            
+from bl_ui.properties_object import BEPUikSolverSettings
+class VIEW3D_PT_bepuik_solver_settings(View3DPanel, Panel, BEPUikSolverSettings):        
+    bl_category = "BEPUik"
+    bl_context = "posemode"
+    bl_label = "BEPUik Solver Settings"          
             
 
 # ********** default tools for paint modes ****************
