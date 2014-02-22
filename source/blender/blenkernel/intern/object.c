@@ -2855,25 +2855,10 @@ bool BKE_object_parent_loop_check(const Object *par, const Object *ob)
 /* the main object update call, for object matrix, constraints, keys and displist (modifiers) */
 /* requires flags to be set! */
 /* Ideally we shouldn't have to pass the rigid body world, but need bigger restructuring to avoid id */
-static Object * obrel_armature_find(Object *ob);
-
 void BKE_object_handle_update_ex(EvaluationContext *eval_ctx,
                                  Scene *scene, Object *ob,
                                  RigidBodyWorld *rbw)
-{
-    /* TODO:BEPUIK XXX hack ensures that BEPUik will be solved continuously during modal operators
-	where's a better place to put this? */
-	if(ob->pose && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC))
-    {
-        ob->recalc |= OB_RECALC_DATA;
-    }
-	else if(ob->type == OB_MESH)
-	{
-		Object * ob_arm = obrel_armature_find(ob);
-		if(ob_arm && ob_arm->pose->bepuikflag & POSE_BEPUIK_DYNAMIC)
-			ob->recalc |= OB_RECALC_DATA;
-	}
-	
+{	
     if (ob->recalc & OB_RECALC_ALL) 
     {
 		/* speed optimization for animation lookups */
