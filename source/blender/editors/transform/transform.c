@@ -7811,7 +7811,9 @@ void initBEPUikTargetRigidityModify(TransInfo *t)
 	t->snap[1] = 0.1f;
 	t->snap[2] = t->snap[1] * 0.1f;
 
-	t->num.increment = t->snap[1];
+	copy_v3_fl(t->num.val_inc, t->snap[1]);
+	t->num.unit_sys = t->scene->unit.system;
+	t->num.unit_type[0] = B_UNIT_NONE;
 
 	t->flag |= T_NO_CONSTRAINT | T_NO_PROJECT;
 }
@@ -7826,7 +7828,7 @@ int BEPUikTargetRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
 
 	rigidity = t->values[0];
 	
-	snapGrid(t, &rigidity);
+	snapGridIncrement(t, &rigidity);
 	
 	applyNumInput(&t->num, &rigidity);
 	

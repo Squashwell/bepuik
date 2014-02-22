@@ -299,7 +299,7 @@ static void set_pose_keys(Object *ob)
  *
  * > returns: whether the bone that we pasted to if we succeeded
  */
-static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bool selOnly, const bool flip)
+static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bool selOnly, const bool flip, bool bepuik_targets_only)
 {
 	bPoseChannel *pchan;
 	char name[MAXBONENAME];
@@ -334,7 +334,7 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 				if(src->type == CONSTRAINT_TYPE_BEPUIK_TARGET)
 				{
 					if (flip)
-						flip_side_name(name, src->name, 0);        /* 0 = don't strip off number extensions */
+						BKE_deform_flip_side_name(name, src->name, false);        /* 0 = don't strip off number extensions */
 					else
 						BLI_strncpy(name, src->name, sizeof(name));
 					

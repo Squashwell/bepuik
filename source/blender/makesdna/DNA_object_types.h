@@ -251,9 +251,9 @@ typedef struct Object {
 
 	char restrictflag;		/* for restricting view, select, render etc. accessible in outliner */
 	char recalc;			/* dependency flag */
-	char pad4[2];
+
 	short softflag;			/* softbody settings */
-	char pad2[2];
+
 	float anisotropicFriction[3];
 	unsigned int bepuik_solve_length;
 	unsigned int bepuik_solve_quality;
@@ -265,6 +265,7 @@ typedef struct Object {
 	float bepuik_dynamic_position_rigidity;
 	float bepuik_dynamic_orientation_rigidity;
 	int bepuikflag;
+	char pad1[4];
 	
 	ListBase constraints;		/* object constraints */
 	ListBase nlastrips  DNA_DEPRECATED;			// XXX deprecated... old animation system

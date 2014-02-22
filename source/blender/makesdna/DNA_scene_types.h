@@ -1083,7 +1083,7 @@ typedef struct ToolSettings {
 	char proportional_objects; /* proportional edit, object mode */
 	char proportional_mask; /* proportional edit, object mode */
 	char bepuikflag; /* ifdef WITH_BEPUIK */
-	char pad[7];
+	char pad2[7];
 
 	char auto_normalize; /*auto normalizing mode in wpaint*/
 	char multipaint; /* paint multiple bones in wpaint */
