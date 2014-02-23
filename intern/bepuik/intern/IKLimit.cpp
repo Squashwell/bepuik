@@ -31,6 +31,10 @@
 #include <cmath>
 using namespace BEPUmath;
 
+#ifdef DEBUG
+#include <assert.h>
+#endif
+
 namespace BEPUik
 {
 	IKLimit::IKLimit(IKBone* connectionA, IKBone* connectionB) : IKJoint(connectionA, connectionB)
@@ -39,6 +43,22 @@ namespace BEPUik
 
 	void IKLimit::SolveVelocityIteration()
 	{
+#ifdef DEBUG
+		assert(!connectionA->linearVelocity.IsNan());
+		assert(!linearJacobianA.IsNan());
+		assert(!connectionA->angularVelocity.IsNan());
+		assert(!angularJacobianA.IsNan());
+
+		assert(!connectionB->linearVelocity.IsNan());
+		assert(!linearJacobianB.IsNan());
+		assert(!connectionB->angularVelocity.IsNan());
+		assert(!angularJacobianB.IsNan());
+
+		assert(!velocityBias.IsNan());
+		assert(!accumulatedImpulse.IsNan());
+		assert(softness==softness);
+		assert(!effectiveMass.IsNan());
+#endif
 		//Compute the 'relative' linear and angular velocities. For single bone constraints, it's based entirely on the one bone's velocities!
 		//They have to be pulled into constraint space first to compute the necessary impulse, though.
 		Vector3 linearContributionA;

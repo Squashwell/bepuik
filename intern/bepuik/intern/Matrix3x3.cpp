@@ -1075,4 +1075,17 @@ namespace BEPUmath
 		result.M33 = 1;
 	}
 
+	bool Matrix3X3::IsNan()
+	{
+		return M11!=M11 ||
+				M12!=M12 ||
+				M13!=M13 ||
+				M21!=M21 ||
+				M22!=M22 ||
+				M23!=M23 ||
+				M31!=M31 ||
+				M32!=M32 ||
+				M33!=M33;
+	}
+
 }

@@ -1126,8 +1126,8 @@ static void rna_def_pose_channel(BlenderRNA *brna)
     
 	prop = RNA_def_property(srna,"bepuik_rotational_heaviness",PROP_FLOAT,PROP_NONE);
     RNA_def_property_ui_text(prop,"Rotational Heaviness","Scales the intertia tensor of the bepuik bone, a higher value means more rotational heaviness");
-    RNA_def_property_float_default(prop,BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT);
-    RNA_def_property_range(prop,BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT,BEPUIK_RIGIDITY_MAX);
+    RNA_def_property_float_default(prop,BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
+    RNA_def_property_range(prop,BEPUIK_INTERTIA_TENSOR_SCALING_MIN,BEPUIK_INTERTIA_TENSOR_SCALING_MAX);
 	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
 	

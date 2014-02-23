@@ -31,6 +31,10 @@
 #include <cmath>
 #include <algorithm>
 
+#ifdef DEBUG
+#include <assert.h>
+#endif
+
 namespace BEPUik
 {
 	/// <summary>
@@ -106,6 +110,13 @@ namespace BEPUik
 
 		if (!connectionA->Pinned)
 		{
+#ifdef DEBUG
+			assert(connectionA->InverseMass==connectionA->InverseMass);
+			assert(!linearJacobianA.IsNan());
+			assert(!angularJacobianA.IsNan());
+			assert(!connectionA->InertiaTensorInverse.IsNan());
+#endif
+
 			Matrix3X3::CreateScale(connectionA->InverseMass, linearW);
 			Matrix3X3::Multiply(linearJacobianA, linearW, linearA); //Compute J * M^-1 for linear component
 			Matrix3X3::MultiplyByTransposed( linearA,  linearJacobianA, linearA); //Compute (J * M^-1) * JT for linear component
@@ -122,6 +133,13 @@ namespace BEPUik
 
 		if (!connectionB->Pinned)
 		{
+#ifdef DEBUG
+			assert(connectionB->InverseMass==connectionB->InverseMass);
+			assert(!linearJacobianB.IsNan());
+			assert(!angularJacobianB.IsNan());
+			assert(!connectionB->InertiaTensorInverse.IsNan());
+#endif
+
 			Matrix3X3::CreateScale(connectionB->InverseMass, linearW);
 			Matrix3X3::Multiply(linearJacobianB, linearW, linearB); //Compute J * M^-1 for linear component
 			Matrix3X3::MultiplyByTransposed( linearB,  linearJacobianB,  linearB); //Compute (J * M^-1) * JT for linear component
@@ -160,10 +178,17 @@ namespace BEPUik
 		//Take the accumulated impulse and transform it into world space impulses using the jacobians by P = JT * lambda
 		//(where P is the impulse, JT is the transposed jacobian matrix, and lambda is the accumulated impulse).
 		//Recall the jacobian takes impulses from world space into constraint space, and transpose takes them from constraint space into world space.
+#ifdef DEBUG
+		assert(!accumulatedImpulse.IsNan());
+#endif
 
 		Vector3 impulse;
 		if (!connectionA->Pinned) //Treat pinned elements as if they have infinite inertia.
 		{
+#ifdef DEBUG
+			assert(!linearJacobianA.IsNan());
+			assert(!angularJacobianA.IsNan());
+#endif
 			//Compute and apply linear impulse for A.
 			Matrix3X3::Transform(accumulatedImpulse, linearJacobianA, impulse);
 			connectionA->ApplyLinearImpulse( impulse);
@@ -173,8 +198,13 @@ namespace BEPUik
 			connectionA->ApplyAngularImpulse(impulse);
 		}
 
+
 		if (!connectionB->Pinned) //Treat pinned elements as if they have infinite inertia.
 		{
+#ifdef DEBUG
+			assert(!linearJacobianB.IsNan());
+			assert(!angularJacobianB.IsNan());
+#endif
 			//Compute and apply linear impulse for B.
 			Matrix3X3::Transform(accumulatedImpulse, linearJacobianB, impulse);
 			connectionB->ApplyLinearImpulse( impulse);

@@ -495,7 +495,7 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 	
 	chan->bepuik_ball_socket_rigidity = BEPUIK_RIGIDITY_DEFAULT;
 	unit_qt(chan->bepuik_solved_orientation);
-	chan->bepuik_rotational_heaviness = BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT;
+	chan->bepuik_rotational_heaviness = BEPUIK_INTERTIA_TENSOR_SCALING_MIN;
 	
 	BLI_addtail(&pose->chanbase, chan);
 	BKE_pose_channels_hash_free(pose);

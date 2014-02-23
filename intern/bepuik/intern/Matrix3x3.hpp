@@ -346,5 +346,7 @@ namespace BEPUmath
 		/// </summary>
 		/// <param name="result">Reference to store the identity matrix in.</param>
 		static void GetIdentity(Matrix3X3 &result);
+
+		bool IsNan();
 	};
 }

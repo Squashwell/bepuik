@@ -554,7 +554,7 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 			
 			if(effective_orientation_rigidity >= FLT_EPSILON)
 			{
-				ikbone->InertiaTensorScaling = BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT;
+				ikbone->SetInertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
 			}
 			
 			if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
@@ -606,7 +606,7 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 			
 			if(effective_orientation_rigidity >= FLT_EPSILON)
 			{
-				ikbone->InertiaTensorScaling = BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT;
+				ikbone->SetInertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
 			}
 			
 			if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
@@ -652,7 +652,7 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 		
 		if(effective_orientation_rigidity >= FLT_EPSILON)
 		{
-			ikbone->InertiaTensorScaling = BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT;
+			ikbone->SetInertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
 		}
 		
 		if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
@@ -700,7 +700,10 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 			ikbones.push_back(ikbone);
 			pchan_bepuik->ikbone = ikbone;
 			ikbone->pchan = pchan;
-			ikbone->InertiaTensorScaling = pchan->bepuik_rotational_heaviness;
+
+			float effective_rotational_heaviness = pchan->bepuik_rotational_heaviness;
+			CLAMP(effective_rotational_heaviness,BEPUIK_INTERTIA_TENSOR_SCALING_MIN,BEPUIK_INTERTIA_TENSOR_SCALING_MAX);
+			ikbone->SetInertiaTensorScaling(effective_rotational_heaviness);
 			
 			// matches an ikbone's position, orientation and length to that of a pchan.
 			// Note that a pchan's y axis length, including scale, will influence the length
@@ -910,7 +913,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 				dragControl->SetTargetBone(ikbone);
 				dragControl->GetLinearMotor()->SetRigidity(ob->bepuik_dynamic_position_rigidity);
 				
-				ikbone->InertiaTensorScaling = BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT;
+				ikbone->SetInertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
 				
 				//compensate for bepuik internal offset
 				float local_offset[3];
@@ -929,7 +932,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 				statecontrol->GetLinearMotor()->SetRigidity(ob->bepuik_dynamic_position_rigidity);
 				statecontrol->GetAngularMotor()->SetRigidity(ob->bepuik_dynamic_orientation_rigidity);
 				
-				ikbone->InertiaTensorScaling = BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT;
+				ikbone->SetInertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
 				
 				float quat[4];
 				

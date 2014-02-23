@@ -30,6 +30,11 @@
 #include "ActiveSet.hpp"
 #include <stdio.h>
 #include "float.h"
+
+#ifdef DEBUG
+#include <assert.h>
+#endif
+
 namespace BEPUik
 {
 
@@ -500,12 +505,22 @@ namespace BEPUik
 				lowestInverseMass = Bones[i]->InverseMass;
 		}
 		
+#ifdef DEBUG
+			assert(AutomassTarget==AutomassTarget);
+			assert(lowestInverseMass==lowestInverseMass);
+#endif
 		float inverseMassScale = 1 / (AutomassTarget * lowestInverseMass);
 		
 		for (unsigned int i = 0; i < Bones.size(); ++i)
 		{
 			IKBone * bone = Bones[i];
 			
+#ifdef DEBUG
+			assert(bone->InverseMass==bone->InverseMass);
+			assert(bone->InverseMass!=0.0f);
+			assert(inverseMassScale==inverseMassScale);
+			assert(inverseMassScale!=0.0f);
+#endif
 			//Normalize the mass to the AutomassTarget.
 			bone->InverseMass *= inverseMassScale;
 			

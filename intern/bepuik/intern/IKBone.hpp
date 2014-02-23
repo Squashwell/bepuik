@@ -80,7 +80,7 @@ namespace BEPUik
 		void SetMass(float newMass);
 
 
-
+		void SetInertiaTensorScaling(float newInertiaTensorScaling);
 
 
 		/// <summary>
@@ -127,17 +127,6 @@ namespace BEPUik
 		void ApplyLinearImpulse(Vector3 &impulse);
 
 		void ApplyAngularImpulse(Vector3 &impulse);
-
-		void GetHeadPosition(Vector3 &head);
-		void GetTailPosition(Vector3 &tail);
-		void GetHeadMatrix(Matrix &headMatrix);
-		void GetTailMatrix(Matrix &tailMatrix);
-        void GetMatrix(Matrix &matrix);
-        
-		/// <summary>
-		/// An arbitrary scaling factor is applied to the inertia tensor. This tends to improve stability.
-		/// </summary>
-		float InertiaTensorScaling;
 
 		vector<IKJoint*> Joints;
 
@@ -209,7 +198,17 @@ namespace BEPUik
 		bPoseChannel * pchan;
 
 	private:
+		/// <summary>
+		/// An arbitrary scaling factor is applied to the inertia tensor. This tends to improve stability.
+		/// </summary>
+		float inertiaTensorScaling;
+
 		float radius;
 		float halfLength;
+
+		bool setMassCalled;
+		bool setLengthCalled;
+		bool setRadiusCalled;
+		bool setInertiaTensorScalingCalled;
 	};
 }

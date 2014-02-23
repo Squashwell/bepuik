@@ -35,6 +35,7 @@
 #ifdef DEBUG
 #include <cstdio>
 #include <cfloat>
+#include <assert.h>
 #endif
 
 namespace BEPUik
@@ -51,10 +52,20 @@ namespace BEPUik
 		targetedByOtherControl(false),
 		stressCount(0),
 		pchan(0),
-		InertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT)
+
+		setMassCalled(false),
+		setLengthCalled(false),
+		setRadiusCalled(false),
+		setInertiaTensorScalingCalled(false),
+
+		inertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN),
+		radius(.2f),
+		halfLength(.5f),
+		InverseMass(1.0f),
+
+		linearVelocity(Vector3()),
+		angularVelocity(Vector3())
 	{
-		linearVelocity = Vector3();
-		angularVelocity = Vector3();
 	}
 
 	/// <summary>
@@ -77,46 +88,24 @@ namespace BEPUik
 		targetedByOtherControl(false),
 		stressCount(0),
 		pchan(0),
-		InertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT)
-	{
 
+		setMassCalled(false),
+		setLengthCalled(false),
+		setRadiusCalled(false),
+		setInertiaTensorScalingCalled(false),
+
+		inertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN),
+		radius(.2f),
+		halfLength(.5f),
+		InverseMass(1.0f),
+
+		linearVelocity(Vector3()),
+		angularVelocity(Vector3())
+	{
 		SetMass(mass);
 		SetRadius(radius);
 		SetLength(length);
-		linearVelocity = Vector3();
-		angularVelocity = Vector3();
 	}
-
-	/// <summary>
-	/// Constructs a new bone. Assumes the mass will be set later.
-	/// </summary>
-	/// <param name="position">Initial position of the bone.</param>
-	/// <param name="orientation">Initial orientation of the bone.</param>
-	/// <param name="radius">Radius of the bone.</param>
-	/// <param name="length">Length of the bone.</param>
-	IKBone::IKBone(Vector3 position, Quaternion orientation, float radius, float length) :
-		Position(position),
-		Orientation(orientation),
-		Joints(vector<IKJoint*>()),
-		predecessors(vector<IKBone*>()),
-		Pinned(false),
-		IsActive(false),
-		traversed(false),
-		unstressedCycle(false),
-		targetedByOtherControl(false),
-		stressCount(0),
-		pchan(0),
-	    InertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_DEFAULT)
-	{
-		SetMass(1);
-		SetRadius(radius);
-		SetLength(length);
-		linearVelocity = Vector3();
-		angularVelocity = Vector3();
-
-
-	}
-
 
 	/// <summary>
 	/// Gets the mass of the bone.
@@ -125,6 +114,11 @@ namespace BEPUik
 	/// </summary>
 	float IKBone::GetMass()
 	{
+#ifdef DEBUG
+		assert(InverseMass == InverseMass);
+		assert(InverseMass!=0.0f);
+		assert(setMassCalled);
+#endif
 		return 1 / InverseMass;
 	}
 
@@ -135,10 +129,19 @@ namespace BEPUik
 	/// </summary>
 	void IKBone::SetMass(float newMass)
 	{
+#ifdef DEBUG
+		assert(newMass==newMass);
+#endif
+
 		if(newMass < FLT_EPSILON)
 			newMass = FLT_EPSILON;
 		
 		InverseMass = 1 / newMass;
+#ifdef DEBUG
+		assert(InverseMass==InverseMass);
+		assert(InverseMass!=0.0f);
+#endif
+		setMassCalled = true;
 		ComputeLocalInertiaTensor();
 	}
 
@@ -159,6 +162,11 @@ namespace BEPUik
 	void IKBone::SetRadius(float newRadius)
 	{
 		radius = newRadius;
+#ifdef DEBUG
+		assert(radius==radius);
+		assert(radius >= FLT_EPSILON);
+#endif
+		setRadiusCalled = true;
 		ComputeLocalInertiaTensor();
 
 	}
@@ -169,6 +177,10 @@ namespace BEPUik
 	/// </summary>
 	float IKBone::GetLength()
 	{
+#ifdef DEBUG
+		assert(halfLength == halfLength);
+		assert(halfLength != 0.0f);
+#endif
 		return halfLength * 2;
 	}
 
@@ -179,19 +191,48 @@ namespace BEPUik
 	void IKBone::SetLength(float newLength)
 	{
 		halfLength = newLength / 2;
+		setLengthCalled = true;
+		ComputeLocalInertiaTensor();
+	}
+
+	void IKBone::SetInertiaTensorScaling(float newInertiaTensorScaling)
+	{
+#ifdef DEBUG
+		assert(newInertiaTensorScaling!=0.0f);
+		assert(newInertiaTensorScaling==newInertiaTensorScaling);
+#endif
+		inertiaTensorScaling = newInertiaTensorScaling;
+		setInertiaTensorScalingCalled = true;
 		ComputeLocalInertiaTensor();
 	}
 
 
 	void IKBone::ComputeLocalInertiaTensor()
 	{
+		if(!setLengthCalled || !setMassCalled || !setRadiusCalled || !setInertiaTensorScalingCalled) return;
+
 		Matrix3X3 localInertiaTensor = Matrix3X3();
-		float multiplier = GetMass() * InertiaTensorScaling;
+#ifdef DEBUG
+		assert(inertiaTensorScaling == inertiaTensorScaling);
+		assert(inertiaTensorScaling != 0.0f);
+		assert(radius==radius);
+		assert(radius!=0.0f);
+#endif
+		float multiplier = GetMass() * inertiaTensorScaling;
+#ifdef DEBUG
+		assert(multiplier==multiplier);
+#endif
 		float diagValue = (.0833333333f * GetLength() * GetLength() + .25f * radius * radius) * multiplier;
 		localInertiaTensor.M11 = diagValue;
 		localInertiaTensor.M22 = .5f * radius * radius * multiplier;
 		localInertiaTensor.M33 = diagValue;
+#ifdef DEBUG
+		assert(!localInertiaTensor.IsNan());
+#endif
 		Matrix3X3::Invert(localInertiaTensor, LocalInertiaTensorInverse);
+#ifdef DEBUG
+		assert(!LocalInertiaTensorInverse.IsNan());
+#endif
 	}
 
 	/// <summary>
@@ -200,8 +241,8 @@ namespace BEPUik
 	void IKBone::UpdateInertiaTensor()
 	{
 #ifdef DEBUG		
-		if(Orientation.IsNan())
-			printf("BEPUik Orientation is NaN!\n");
+		assert(!Orientation.IsNan());
+		assert(!LocalInertiaTensorInverse.IsNan());
 #endif
 		
 		//This is separate from the position update because the orientation can change outside of our iteration loop, so this has to run first.
@@ -218,19 +259,16 @@ namespace BEPUik
 	void IKBone::UpdatePosition()
 	{
 #ifdef DEBUG
-		if(linearVelocity.IsNan())
-			printf("BEPUik Linear velocity is NaN!\n");
-		
-		if(Position.IsNan())
-			printf("BEPUik Position is NaN!\n");
+		assert(!linearVelocity.IsNan());
+		assert(!Position.IsNan());
+		assert(!angularVelocity.IsNan());
 #endif
 		
 		//Update the position based on the linear velocity.
 		Vector3::Add(linearVelocity, Position, Position);
 
 #ifdef DEBUG
-		if(Position.IsNan())
-			printf("BEPUik Position is NaN!\n");
+		assert(!Position.IsNan());
 #endif		
 		
 		//Update the orientation based on the angular velocity.
@@ -239,8 +277,7 @@ namespace BEPUik
 		Quaternion multiplier = Quaternion(increment.X, increment.Y, increment.Z, 0);
 		
 #ifdef DEBUG
-		if(multiplier.IsNan())
-			printf("BEPUik Update Position multiplier is NaN!\n");
+		assert(!multiplier.IsNan());
 #endif
 		
 		Quaternion::Multiply(multiplier, Orientation, multiplier);
@@ -257,8 +294,10 @@ namespace BEPUik
 	void IKBone::ApplyLinearImpulse(Vector3 &impulse)
 	{
 #ifdef DEBUG
-		if(linearVelocity.IsNan())
-			printf("IKBone::ApplyLinearImpulse linear velocity is Nan!\n");
+		assert(!impulse.IsNan());
+		assert(!linearVelocity.IsNan());
+		assert(InverseMass==InverseMass);
+		assert(InverseMass!=0.0f);
 #endif
 		Vector3 velocityChange;
 		Vector3::Multiply(impulse, InverseMass, velocityChange);
@@ -268,73 +307,14 @@ namespace BEPUik
 	void IKBone::ApplyAngularImpulse(Vector3 &impulse)
 	{
 #ifdef DEBUG
-		if(angularVelocity.IsNan())
-			printf("IKBone::ApplyAngularImpulse angular velocity is Nan!\n");
+		assert(!impulse.IsNan());
+		assert(!InertiaTensorInverse.IsNan());
+		assert(!angularVelocity.IsNan());
+
 #endif
 		
 		Vector3 velocityChange;
 		Matrix3X3::Transform(impulse, InertiaTensorInverse, velocityChange);
 		Vector3::Add(velocityChange, angularVelocity, angularVelocity);
 	}
-
-	void IKBone::GetHeadPosition(Vector3 &head)
-	{
-		Matrix worldMatrix = Matrix();
-		Matrix::CreateFromQuaternion(Orientation,worldMatrix);
-
-		Vector3 offsetIdentity = Vector3(0,-GetLength()/2,0);
-		Vector3 offsetWorld = Vector3();
-		Matrix::Transform(offsetIdentity,worldMatrix,offsetWorld);
-
-		head.X = offsetWorld.X + Position.X;
-		head.Y = offsetWorld.Y + Position.Y;
-		head.Z = offsetWorld.Z + Position.Z;
-	}
-
-	void IKBone::GetTailPosition(Vector3 &tail)
-	{
-		Matrix worldMatrix = Matrix();
-		Matrix::CreateFromQuaternion(Orientation,worldMatrix);
-
-		Vector3 offsetIdentity = Vector3(0,GetLength()/2,0);
-		Vector3 offsetWorld = Vector3();
-		Matrix::Transform(offsetIdentity,worldMatrix,offsetWorld);
-
-		tail.X = offsetWorld.X + Position.X;
-		tail.Y = offsetWorld.Y + Position.Y;
-		tail.Z = offsetWorld.Z + Position.Z;
-	}
-
-	void IKBone::GetHeadMatrix(Matrix &headMatrix)
-	{
-		Matrix::CreateFromQuaternion(Orientation,headMatrix);
-
-		Vector3 headWorldPosition = Vector3();
-		GetHeadPosition(headWorldPosition);
-
-		headMatrix.M41 = headWorldPosition.X;
-		headMatrix.M42 = headWorldPosition.Y;
-		headMatrix.M43 = headWorldPosition.Z;
-	}
-    
-    void IKBone::GetMatrix(Matrix &matrix)
-    {
-        Matrix::CreateFromQuaternion(Orientation,matrix);
-		matrix.M41 = Position.X;
-		matrix.M42 = Position.Y;
-		matrix.M43 = Position.Z;        
-    }
-
-	void IKBone::GetTailMatrix(Matrix &tailMatrix)
-	{
-		Matrix::CreateFromQuaternion(Orientation,tailMatrix);
-
-		Vector3 tailWorldPosition = Vector3();
-		GetTailPosition(tailWorldPosition);
-
-		tailMatrix.M41 = tailWorldPosition.X;
-		tailMatrix.M42 = tailWorldPosition.Y;
-		tailMatrix.M43 = tailWorldPosition.Z;
-	}
-
 }
