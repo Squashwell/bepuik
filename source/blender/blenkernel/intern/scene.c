@@ -1429,19 +1429,19 @@ static bool scene_need_update_objects(Main *bmain)
 
 /* TODO:BEPUIK XXX include for hack below */
 #include "MOD_modifiertypes.h"
-static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Scene *scene_parent)
+static bool bepuik_is_valid_dynamic_poseob(Object * ob)
 {
-	TaskScheduler *task_scheduler = BLI_task_scheduler_get();
-	TaskPool *task_pool;
-	ThreadedObjectUpdateState state;
-	bool need_singlethread_pass;
-    Base *base;
-	/* TODO:BEPUIK XXX disgusting hack ensures that BEPUik will be solved continuously during "Dynamic" mode
-	 * during modal operators. What's a better way to do this?*/
+	return 	((ob->type == OB_ARMATURE) && (ob->pose) && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC));
+}
+
+static void bepuik_update_hack(Scene * scene)
+{
+	Base *base;
+
 	for (base = scene->base.first; base; base = base->next) {
 		Object *object = base->object;
 
-		if(object->type == OB_ARMATURE && object->pose->bepuikflag & POSE_BEPUIK_DYNAMIC) {
+		if(bepuik_is_valid_dynamic_poseob(object)) {
 			DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
 		}
 		else if(object->type == OB_MESH)
@@ -1450,12 +1450,24 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 			for (mod = object->modifiers.first; mod; mod = mod->next) {
 				if (mod->type == eModifierType_Armature) {
 					Object * object_armature = ((ArmatureModifierData *)mod)->object;
-					if(object_armature && (object_armature->pose->bepuikflag & POSE_BEPUIK_DYNAMIC))
+					if(bepuik_is_valid_dynamic_poseob(object_armature))
 						DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
 				}
 			}
 		}
 	}
+}
+
+static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Scene *scene_parent)
+{
+	TaskScheduler *task_scheduler = BLI_task_scheduler_get();
+	TaskPool *task_pool;
+	ThreadedObjectUpdateState state;
+	bool need_singlethread_pass;
+
+	/* TODO:BEPUIK XXX disgusting hack ensures that BEPUik will be solved continuously during "Dynamic" mode
+	 * during modal operators. What's a better way to do this?*/
+	bepuik_update_hack(scene);
 
 	/* Early check for whether we need to invoke all the task-based
 	 * tihngs (spawn new ppol, traverse dependency graph and so on).
@@ -1471,7 +1483,7 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 		 * TODO(sergey): Remove once we're sure the check above is correct.
 		 */
 #ifndef NDEBUG
-
+		Base *base;
 
 		for (base = scene->base.first; base; base = base->next) {
 			Object *object = base->object;
