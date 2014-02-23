@@ -26,6 +26,21 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
+/*
+ * Generic bepuik todos:
+ *
+ * could probably get rid of solved_position and solved_orientation on pchans
+ *
+ * blender constraints could be solved before or after bepuik.  The best way to do this would be to have a "node" based
+ * interface with bepuik/blender constraints
+ *
+ * angular joint should/could be given orientation parameter.
+ *
+ * bepuik targets could have defined offset (otherwise defined by armature offset)
+ * it would make targetting two palms together easier
+ *
+ * perhaps rename "absolute" to "hard" since technically they are no longer absolute
+*/
 #include <string.h>
 #include <vector>
 
