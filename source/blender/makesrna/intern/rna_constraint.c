@@ -46,9 +46,9 @@
 #include "ED_object.h"
 
 EnumPropertyItem bepuik_target_rigidity_type_items[] = {
-		{BEPUIK_TARGET_POSITION, "POSITION", 0, "Position", "Set the position rigidity of the selected targets"},
-		{BEPUIK_TARGET_ORIENTATION, "ORIENTATION", 0, "Orientation", "Set the orientation rigidity of the selected targets"},
-		{BEPUIK_TARGET_ABSOLUTE, "ABSOLUTE", 0, "Absolute Target", "Set the state of the absolute target of the selected targets"},
+		{BEPUIK_TARGET_RIGIDITY_TYPE_POSITION, "POSITION", 0, "Position", "Set the position rigidity of the selected targets"},
+		{BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION, "ORIENTATION", 0, "Orientation", "Set the orientation rigidity of the selected targets"},
+		{BEPUIK_TARGET_RIGIDITY_TYPE_HARD, "HARD", 0, "Hard", "Set the hard state of the selected targets"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -2689,11 +2689,17 @@ static void rna_def_constraint_bepuik_target(BlenderRNA * brna)
 	
 	BEPUIK_CONNECTION
 	
-	prop = RNA_def_property(srna, "use_bepuik_absolute_target",PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BEPUIK_CONSTRAINT_ABSOLUTE);
-	RNA_def_property_ui_text(prop, "Absolute Target", "Solve target without any softness");
+	prop = RNA_def_property(srna, "use_hard_rigidity",PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BEPUIK_CONSTRAINT_HARD);
+	RNA_def_property_ui_text(prop, "Hard", "Solve target without any softness");
 	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");	
 			
+	prop = RNA_def_property(srna, "position_rigidity", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop,0,FLT_MAX);
+	RNA_def_property_ui_text(prop, "Position Rigidity","Rigidity of the position component of the target");
+	RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_DEFAULT);
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+
 	prop = RNA_def_property(srna,"orientation_rigidity", PROP_FLOAT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(prop, "Orientation Rigidity", "Rigidity of the orientation component of the target");
 	RNA_def_property_range(prop,0,BEPUIK_RIGIDITY_MAX);
@@ -2801,6 +2807,7 @@ void RNA_def_constraint(BlenderRNA *brna)
 	RNA_def_property_range(prop,0,FLT_MAX);
 	RNA_def_property_ui_text(prop, "Rigidity","The rigidity of the constraint");
 	RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_DEFAULT);
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 	
 	/* pointers */
 	rna_def_constrainttarget(brna);

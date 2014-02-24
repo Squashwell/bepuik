@@ -514,7 +514,7 @@ static void draw_bepuik_target(bConstraint * constraint, Bone * bone, float * ri
 {
 	bBEPUikTarget * bepuik_target_constraint = constraint->data;
 	
-	if((bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE) || bepuik_target_constraint->orientation_rigidity >= FLT_EPSILON)
+	if((bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD) || bepuik_target_constraint->orientation_rigidity >= FLT_EPSILON)
 	{
 		/*draw flag lines */
 		glPushMatrix();
@@ -535,7 +535,7 @@ static void draw_bepuik_target(bConstraint * constraint, Bone * bone, float * ri
 		glPopMatrix();
 	}
 	
-	if((bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE) || constraint->bepuik_rigidity >= FLT_EPSILON)
+	if((bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD) || constraint->bepuik_rigidity >= FLT_EPSILON)
 	{
 		float scale = bone->length;
 		float size[3] = {scale,scale,scale};
@@ -2229,7 +2229,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_TARGET) continue;
 								
 								bepuik_target_constraint = constraint->data;
-								if(!(bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE))
+								if(!(bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD))
 									draw_bepuik_target(constraint,bone,bepuik_rigidity_color_soft,bepuik_rigidity_outline_color);
 							}
 							
@@ -2239,7 +2239,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_TARGET) continue;
 								
 								bepuik_target_constraint = constraint->data;
-								if(bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE)
+								if(bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 									draw_bepuik_target(constraint,bone,bepuik_rigidity_color_hard,bepuik_rigidity_outline_color);
 							}
 						}

@@ -1012,8 +1012,8 @@ class ConstraintButtonsPanel():
         
     def BEPUIK_TARGET(self,context,layout,con):
         self.bepuik_template_connection(layout,con)
-        layout.prop(con,"use_bepuik_absolute_target")
-        layout.prop(con,"bepuik_rigidity")
+        layout.prop(con,"use_hard_rigidity")
+        layout.prop(con,"position_rigidity")
         layout.prop(con,"orientation_rigidity")
         layout.prop(con,"pulled_point")
 

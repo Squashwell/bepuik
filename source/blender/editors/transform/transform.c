@@ -7882,16 +7882,16 @@ int BEPUikTargetRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
 			int *flag = td->extra;
 			if(t->bepuikflag & T_BEPUIK_TARGET_SET) {
 				if(rigidity >= FLT_EPSILON)
-					*flag |= BEPUIK_CONSTRAINT_ABSOLUTE;
+					*flag |= BEPUIK_CONSTRAINT_HARD;
 				else
-					*flag &= ~BEPUIK_CONSTRAINT_ABSOLUTE;
+					*flag &= ~BEPUIK_CONSTRAINT_HARD;
 			}
 			else
 			{
 				if(rigidity >= FLT_EPSILON)
-					*flag |= BEPUIK_CONSTRAINT_ABSOLUTE;
+					*flag |= BEPUIK_CONSTRAINT_HARD;
 				else if(rigidity < 0)
-					*flag &= ~BEPUIK_CONSTRAINT_ABSOLUTE;
+					*flag &= ~BEPUIK_CONSTRAINT_HARD;
 			}
 		}
 		

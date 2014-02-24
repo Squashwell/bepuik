@@ -250,8 +250,8 @@ typedef struct bPoseChannel {
 	float bepuik_rest_pose_size[3];
 	float bepuik_prev_pose_mat[4][4];
 
-	float bepuik_absolute_controlled_position[3];
-	float bepuik_absolute_controlled_orientation[4];
+	float bepuik_hard_controlled_position[3];
+	float bepuik_hard_controlled_orientation[4];
 
 	float bepuik_rest_pose_mat[4][4];
 	float bepuik_rest_tail[3];

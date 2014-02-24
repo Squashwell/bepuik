@@ -29,6 +29,8 @@
 /*
  * Generic bepuik todos:
  *
+ * rename bBEPUikTarget & others back to Control
+ *
  * could probably get rid of solved_position and solved_orientation on pchans
  *
  * blender constraints could be solved before or after bepuik.  The best way to do this would be to have a "node" based
@@ -39,7 +41,6 @@
  * bepuik targets could have defined offset (otherwise defined by armature offset)
  * it would make targetting two palms together easier
  *
- * perhaps rename "absolute" to "hard" since technically they are no longer absolute
 */
 #include <string.h>
 #include <vector>
@@ -583,12 +584,12 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET) return;
 
 			
-			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE)
+			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 			{
 				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET;
 				
-				copy_v3_v3(pchan_controlled->bepuik_absolute_controlled_position,destination_position);
-				copy_qt_qt(pchan_controlled->bepuik_absolute_controlled_orientation,destination_orientation);
+				copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
+				copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
 				
 				effective_orientation_rigidity += 10.0f;
 				effective_position_rigidity += 1000.0f;
@@ -635,12 +636,12 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
 			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET) return;
 			
-			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE)
+			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 			{
 				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET;
 				
-				copy_v3_v3(pchan_controlled->bepuik_absolute_controlled_position,destination_position);
-				copy_qt_qt(pchan_controlled->bepuik_absolute_controlled_orientation,destination_orientation);
+				copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
+				copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
 				
 				effective_orientation_rigidity += 10.0f;
 				effective_position_rigidity += 1000.0f;
@@ -681,12 +682,12 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 		//if an absolute target was previously created for this bone, then we dont need to create any other targets
 		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET) return;
 		
-		if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE)
+		if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 		{
 			pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET;
 			
-			copy_v3_v3(pchan_controlled->bepuik_absolute_controlled_position,destination_position);
-			copy_qt_qt(pchan_controlled->bepuik_absolute_controlled_orientation,destination_orientation);
+			copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
+			copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
 			
 			effective_orientation_rigidity += 10.0f;
 			effective_position_rigidity += 1000.0f;
@@ -789,7 +790,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 			if(constraint->flag & (CONSTRAINT_DISABLE|CONSTRAINT_OFF)) continue;
 			
 			bBEPUikTarget * bepuik_target = (bBEPUikTarget *)constraint->data;
-			if (!(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE)) continue;
+			if (!(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)) continue;
 			
 			setup_bepuik_target(ob,constraint,ikbone,controls);
 		}
@@ -918,7 +919,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 			case CONSTRAINT_TYPE_BEPUIK_TARGET:
 			{
 				bBEPUikTarget * bepuik_target = (bBEPUikTarget *)constraint->data;
-				if (bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE) break;
+				if (bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD) break;
 				
 				setup_bepuik_target(ob,constraint,ikbone,controls);
 				break;
@@ -1085,8 +1086,8 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		{
 			if(pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET)
 			{
-				pchan_bepuik_position_to_internal_bepuik_position(ikbone->Position,pchan->bepuik_absolute_controlled_position,pchan->bepuik_absolute_controlled_orientation,ikbone->GetLength());
-				bepuqt_qt(ikbone->Orientation,pchan->bepuik_absolute_controlled_orientation);
+				pchan_bepuik_position_to_internal_bepuik_position(ikbone->Position,pchan->bepuik_hard_controlled_position,pchan->bepuik_hard_controlled_orientation,ikbone->GetLength());
+				bepuqt_qt(ikbone->Orientation,pchan->bepuik_hard_controlled_orientation);
 			}
 			else
 			{

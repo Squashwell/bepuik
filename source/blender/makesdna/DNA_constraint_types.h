@@ -648,23 +648,23 @@ typedef struct bBEPUikTarget {
 	struct Object * connection_target;
 	char connection_subtarget[64];
 	
+	float position_rigidity;
 	float orientation_rigidity;
 	int bepuikflag;
 	float mat[4][4];
 	float pulled_point[3];
 	float pulled_start_pose_space[3];
 	float pulled_destination_pose_space[3];
-	float pad[1];
 }bBEPUikTarget;
 
 typedef enum eBEPUikTargetRigidity_Types{
-	BEPUIK_TARGET_POSITION = (1 << 0),
-	BEPUIK_TARGET_ORIENTATION = (1 << 1),
-	BEPUIK_TARGET_ABSOLUTE = (1 << 2)
+	BEPUIK_TARGET_RIGIDITY_TYPE_POSITION = (1 << 0),
+	BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION = (1 << 1),
+	BEPUIK_TARGET_RIGIDITY_TYPE_HARD = (1 << 2)
 } eBEPUikTargetRigidity_Flags;
 
 typedef enum eBEPUikConstraint_Flags{
-	BEPUIK_CONSTRAINT_ABSOLUTE =					(1<<0)
+	BEPUIK_CONSTRAINT_HARD =					(1<<0)
 } eBEPUikConstraint_Flags;
 
 /* ------------------------------------------ */

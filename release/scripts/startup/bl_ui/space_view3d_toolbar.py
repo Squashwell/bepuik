@@ -759,11 +759,11 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
         op.only_top_target = True
         op.rigidity_types = {'ORIENTATION'}
         
-        op = col.operator("transform.bepuik_target_rigidity_modify", text="Absolute")
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="Hard")
         op.value = 1
         op.set = True
         op.only_top_target = True
-        op.rigidity_types = {'ABSOLUTE'}
+        op.rigidity_types = {'HARD'}
         
         col = layout.column(align=True)
         col.label("Remove Target Rigidity:")
@@ -777,15 +777,15 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
         op.set = True
         op.rigidity_types = {'ORIENTATION'}
         
-        op = col.operator("transform.bepuik_target_rigidity_modify", text="No Absolute")
+        op = col.operator("transform.bepuik_target_rigidity_modify", text="No Hard")
         op.value = 0
         op.set = True
-        op.rigidity_types = {'ABSOLUTE'}
+        op.rigidity_types = {'HARD'}
         
         op = col.operator("transform.bepuik_target_rigidity_modify", text="None")
         op.value = 0
         op.set = True
-        op.rigidity_types = {'ABSOLUTE','POSITION','ORIENTATION'}
+        op.rigidity_types = {'HARD','POSITION','ORIENTATION'}
         
 
 from bl_ui.properties_object import BEPUikSolverSettings

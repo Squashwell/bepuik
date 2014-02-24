@@ -788,7 +788,7 @@ static bPoseChannel * get_best_bepuik_target(int transform_mode, bPoseChannel * 
 			if(!pchan_target) continue;
 			
 			//always prefer the first found absolute target
-			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_ABSOLUTE) return pchan_target;
+			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD) return pchan_target;
 			
 			if(transform_mode == TFM_TRANSLATION)
 			{

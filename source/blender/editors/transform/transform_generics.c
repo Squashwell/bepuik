@@ -1254,13 +1254,13 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		
 			int flags = RNA_property_enum_get(op->ptr, prop);
 			
-			if(flags & BEPUIK_TARGET_ABSOLUTE)
+			if(flags & BEPUIK_TARGET_RIGIDITY_TYPE_HARD)
 				t->bepuikflag |= T_BEPUIK_TARGET_ABSOLUTE;
 			
-			if(flags & BEPUIK_TARGET_ORIENTATION)
+			if(flags & BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION)
 				t->bepuikflag |= T_BEPUIK_TARGET_ORIENTATION;
 			
-			if(flags & BEPUIK_TARGET_POSITION)
+			if(flags & BEPUIK_TARGET_RIGIDITY_TYPE_POSITION)
 				t->bepuikflag |= T_BEPUIK_TARGET_POSITION;
 		}
 	
