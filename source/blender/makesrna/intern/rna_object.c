@@ -2759,10 +2759,12 @@ static void rna_def_object(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_bepuik_dynamic", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", OB_BEPUIK_DYNAMIC);
 	RNA_def_property_ui_text(prop, "Dynamic", "Dynamically modify bone positions in a continuous feedback loop");
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
 	prop = RNA_def_property(srna, "use_bepuik_inactive_targets_follow", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", OB_BEPUIK_INACTIVE_TARGETS_FOLLOW);
 	RNA_def_property_ui_text(prop, "Inactive Targets Follow", "Targets with no rigidity follow the bones they control");
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
 	prop = RNA_def_property(srna, "use_bepuik_parented_peripheral_bones", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", OB_BEPUIK_PARENTED_PERIPHERAL_BONES);
