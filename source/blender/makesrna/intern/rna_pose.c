@@ -1130,33 +1130,7 @@ static void rna_def_pose_channel(BlenderRNA *brna)
     RNA_def_property_range(prop,BEPUIK_INTERTIA_TENSOR_SCALING_MIN,BEPUIK_INTERTIA_TENSOR_SCALING_MAX);
 	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
-	
-    /* BEPUik Solved information */ {
-    prop = RNA_def_property(srna,"bepuik_solved_orientation",PROP_FLOAT,PROP_QUATERNION);
-    RNA_def_property_ui_text(prop,"Solved Orientation","Solved orientation of the BEPUik bone");
-    RNA_def_property_float_array_default(prop,default_quat);
-    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-    
-    prop = RNA_def_property(srna,"bepuik_solved_head",PROP_FLOAT,PROP_TRANSLATION); 
-    RNA_def_property_ui_text(prop,"Solved Head Position",""); 
-    RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
-    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-    
-    prop = RNA_def_property(srna,"bepuik_solved_tail",PROP_FLOAT,PROP_TRANSLATION); 
-    RNA_def_property_ui_text(prop,"Solved Tail Position",""); 
-    RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
-    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-    
-    prop = RNA_def_property(srna,"bepuik_solved_position",PROP_FLOAT,PROP_TRANSLATION); 
-    RNA_def_property_ui_text(prop,"Solved Position",""); 
-    RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
-    RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-    }
-	
+		
 	/* BEPUik Transform Information */ {
 	prop = RNA_def_property(srna,"bepuik_transform_position",PROP_FLOAT,PROP_TRANSLATION); 
 	RNA_def_property_ui_text(prop,"Transform Position","Transform Position of the BEPUik Bone"); 

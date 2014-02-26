@@ -242,26 +242,12 @@ typedef struct bPoseChannel {
 
 	void        *temp;              /* use for outliner */
 
+	float bepuik_ball_socket_rigidity;
+	float bepuik_rotational_heaviness;
+
 	float bepuik_transform_position[3];
 	float bepuik_transform_local_offset[3];
 	float bepuik_transform_orientation[4];
-
-	float bepuik_ball_socket_rigidity;
-	float bepuik_rest_pose_size[3];
-	float bepuik_prev_pose_mat[4][4];
-
-	float bepuik_hard_controlled_position[3];
-	float bepuik_hard_controlled_orientation[4];
-
-	float bepuik_rest_pose_mat[4][4];
-	float bepuik_rest_tail[3];
-
-	float bepuik_solved_orientation[4];
-	float bepuik_solved_head[3];
-	float bepuik_solved_tail[3];
-	float bepuik_solved_position[3];
-
-	float bepuik_rotational_heaviness;
 
 	float bepuik_prepose_mat[4][4];
 	float bepuik_dynamic_stiffness_orientation[4];

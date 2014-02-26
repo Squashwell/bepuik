@@ -494,7 +494,6 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 	chan->protectflag = OB_LOCK_ROT4D;  /* lock by components by default */
 	
 	chan->bepuik_ball_socket_rigidity = BEPUIK_RIGIDITY_DEFAULT;
-	unit_qt(chan->bepuik_solved_orientation);
 	chan->bepuik_rotational_heaviness = BEPUIK_INTERTIA_TENSOR_SCALING_MIN;
 	
 	BLI_addtail(&pose->chanbase, chan);

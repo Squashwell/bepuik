@@ -274,11 +274,6 @@ typedef struct BEPUikUndoData
     float bepuik_angular_orientation[4];
     float bepuik_stiffness_pose_mat[4][4];
 	float bepuik_stiffness_pose_tail[3];
-    
-    float bepuik_solved_orientation[4];
-    float bepuik_solved_head[3];
-    float bepuik_solved_tail[3];
-    float bepuik_solved_position[3];
 }BEPUikUndoData;
 
 typedef struct TransData {

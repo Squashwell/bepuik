@@ -31,8 +31,6 @@
  *
  * perhaps change bepuik constraints (except bepuik target) so they dont use targets and just update the bone rename function
  *
- * could probably get rid of solved_position and solved_orientation on pchans
- *
  * blender constraints could be solved before or after bepuik.  The best way to do this would be to have a "node" based
  * interface with bepuik/blender constraints
  *
@@ -135,14 +133,6 @@ static void get_offset_along_quat(float rpos[3],float qt[4],float offset)
  mul_qt_v3(qt,rpos);
 }
 
-void bepu_print_flags(bPose * pose)
-{
-	printf("\n");
-	if(pose->bepuikflag & POSE_BEPUIK_DYNAMIC) printf("feedback\n");
-	if(pose->bepuikflag & POSE_BEPUIK_SELECTION_AS_DRAGCONTROL) printf("dragcontrol\n");
-	if(pose->bepuikflag & POSE_BEPUIK_SELECTION_AS_STATECONTROL) printf("statecontrol\n");
-}
-
 static void pchan_bepuik_position_to_internal_bepuik_position(Vector3 &internal_bepuik_position, float pchan_bepuik_loc[3], float pchan_bepuik_quat[4], float pchan_bepuik_length)
 {
 	float internal_bepuik_loc[3];
@@ -162,123 +152,6 @@ static void internal_bepuik_position_to_pchan_bepuik_position(float pchan_bepuik
 	get_offset_along_quat(pchan_bepuik_position,internal_bepuik_quat,length*-0.5f);
 	add_v3_v3(pchan_bepuik_position,internal_bepuik_loc);	
 }
-
-static void pchan_bepuik_solved_match_ikbone(Object * ob, bPoseChannel * pchan, IKBone * ikbone)
-{
-	float bepupos[3];
-	float bepuquat[4];
-	v3_bepuv3(bepupos,ikbone->Position);
-	qt_bepuqt(bepuquat,ikbone->Orientation);
-	
-	internal_bepuik_position_to_pchan_bepuik_position(pchan->bepuik_solved_position,ikbone->Position,ikbone->Orientation,ikbone->GetLength());
-	copy_qt_qt(pchan->bepuik_solved_orientation,bepuquat);
-	copy_v3_v3(pchan->bepuik_solved_head,pchan->bepuik_solved_position);
-	
-	get_offset_along_quat(pchan->bepuik_solved_tail,bepuquat,ikbone->GetLength());
-	add_v3_v3(pchan->bepuik_solved_tail,pchan->bepuik_solved_position);
-}
-
-
-
-
-
-
-//void bepu_test_bend_stick(Object * ob)
-//{
-// vector <IKBone *> ikbones = vector <IKBone *>();
-// vector <IKJoint *> ikjoints = vector <IKJoint *>();
-
-// float y = .5;
-// for (bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
-//	{
-// IKBone * ikbone = new IKBone(Vector3(0,y,0),Quaternion(0,0,0,1),.2,1);
-//// ikbone->SetRadius(.2);
-// ikbones.push_back(ikbone);
-// y+= 1;
- 
-//	}
- 
-// y = 1;
-// for(size_t i = 0; i < ikbones.size()-1; i++)
-// {
-// Vector3 anchorPosition = Vector3();
-// ikbones[i]->GetTailPosition(anchorPosition);
- 
-// IKBallSocketJoint * ikballsocketjoint = new IKBallSocketJoint(ikbones[i],ikbones[i+1],ikbones[i],ikbones[i+1],Vector3(0,y,0));
-// ikballsocketjoint->SetRigidity(.05f);
- 
-// IKAngularJoint * ikangularjoint = new IKAngularJoint(ikbones[i],ikbones[i+1]);
-// ikangularjoint->SetRigidity(.05f); 
- 
-// ikjoints.push_back(ikballsocketjoint);
-// ikjoints.push_back(ikangularjoint);
- 
-// y+=1;
-// }
-
-// IKBone * first_ikbone = ikbones[0];
-// IKBone * last_ikbone = ikbones[ikbones.size()-1];
-//// float loc[3] = {10,0,0};
-//// float quat[4] = {0,0, 0.7071068286895752, -0.7071068286895752};
- 
-// DragControl * dragControl = new DragControl();
-// dragControl->SetTargetBone(last_ikbone);
-// dragControl->GetLinearMotor()->SetOffset(Vector3(0,.5,0));
-// dragControl->GetLinearMotor()->TargetPosition = Vector3(10,0,0);
-// dragControl->GetLinearMotor()->SetMaximumForce(MAXFLOAT);
-// dragControl->GetLinearMotor()->SetRigidity(0.2);
- 
-//// StateControl * stateControl = new StateControl();
-//// stateControl->SetTargetBone(last_ikbone);
-//// stateControl->GetLinearMotor()->TargetPosition = Vector3(10,0,0);
-//// stateControl->GetAngularMotor()->TargetOrientation = Quaternion(1,0,0,0);
-//// stateControl->GetLinearMotor()->SetStiffnessConstant(0.2);
-//// stateControl->GetLinearMotor()->SetDamping(0.2);
-//// stateControl->GetAngularMotor()->SetStiffnessConstant(0.2);
-//// stateControl->GetAngularMotor()->SetDamping(0.2);
- 
-// first_ikbone->Pinned = true;
-// vector <Control *> controls = vector <Control *>();
-//// controls.push_back(stateControl);
-// controls.push_back(dragControl);
-
-// IKSolver * iksolver = new IKSolver();
-// iksolver->FixerIterationCount = 0;
-// iksolver->ControlIterationCount = 20;
-// iksolver->VelocitySubiterationCount = 3;
-// iksolver->AutoscaleControlImpulses = false;
-// iksolver->AutoscaleControlMaximumAngularForce = MAXFLOAT;
-// iksolver->AutoscaleControlMaximumLinearForce = MAXFLOAT;
- 
-// for(int i = 0; i < 1000; i++)
-// iksolver->Solve(controls);
- 
-
-
-// size_t i = 0;
-// for (bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
-//	{
- 
-// bepu_pchan_bepuik_solved_match_ikbone(ob,pchan,ikbones[i]);
-// i++;
-//// ikbones.push_back(bepu_ikbone_new_from_pchan(pchan));
-//	}
- 
-// delete iksolver;
- 
-//// delete stateControl;
-// delete dragControl;
- 
-// for(size_t i = 0; i < ikjoints.size(); i++)
-// {
-// delete ikjoints[i];
-// }
- 
-// for(size_t i = 0; i < ikbones.size(); i++)
-// {
-// delete ikbones[i];
-// }
-//}
 
 static bool string_ends_with(const char * s, const char * suffix)
 {
@@ -355,8 +228,17 @@ struct BEPUikTempSolvingData
 	float eul[3];                       /* euler rotation */
 	float quat[4];                      /* quaternion rotation */
 	float rotAxis[3], rotAngle;         /* axis-angle rotation */
-	
-	Quaternion dynamic_stiffness_orientation;
+
+	/* bepuik only temp information */
+	float rest_tail[3];
+	float rest_pose_size[3];
+
+	float rest_pose_mat[4][4];
+
+	float hard_controlled_position[3];
+	float hard_controlled_orientation[4];
+
+	float prev_pose_mat[4][4];
 };
 
 #define BEPUIK_COPY_IMPORTANT_CHAN_DATA(destination,source) \
@@ -365,8 +247,6 @@ copy_v3_v3(destination->eul,source->eul); \
 copy_qt_qt(destination->quat,source->quat); \
 copy_v3_v3(destination->rotAxis,source->rotAxis); \
 destination->rotAngle = pchan->rotAngle;
-
-
 
 static void bepu_store_locrotsize(bPoseChannel * pchan)
 {
@@ -414,13 +294,14 @@ if(!pchan_connection) break; \
 IKBone * ikbone_connection = pchan_get_bepuik_bone(pchan_connection); \
 if(!ikbone_connection) break;
 
+#define BEPUIK_DATA(pchan) ((BEPUikTempSolvingData *)((pchan)->bepuik))
 
 #define LOC(IDENTIFIER) bPoseChannel * pchan_##IDENTIFIER = BKE_pose_channel_find_name(ob->pose,bjoint->IDENTIFIER##_subtarget); \
 Vector3 v3_##IDENTIFIER; \
 if(pchan_##IDENTIFIER)	\
 { \
 float bv3_##IDENTIFIER[3]; \
-interp_v3_v3v3(bv3_##IDENTIFIER,pchan_##IDENTIFIER->bepuik_rest_pose_mat[3],pchan_##IDENTIFIER->bepuik_rest_tail,bjoint->IDENTIFIER##_head_tail); \
+interp_v3_v3v3(bv3_##IDENTIFIER,BEPUIK_DATA(pchan_##IDENTIFIER)->rest_pose_mat[3],BEPUIK_DATA(pchan_##IDENTIFIER)->rest_tail,bjoint->IDENTIFIER##_head_tail); \
 bepuv3_v3(v3_##IDENTIFIER,bv3_##IDENTIFIER); \
 } else { break; }
 
@@ -431,7 +312,7 @@ Vector3 v3_##IDENTIFIER; \
 if(pchan_##IDENTIFIER) \
 { \
 float bv3_##IDENTIFIER[3]; \
-mat_get_axis(bv3_##IDENTIFIER,bjoint->IDENTIFIER,pchan_##IDENTIFIER->bepuik_rest_pose_mat); \
+mat_get_axis(bv3_##IDENTIFIER,bjoint->IDENTIFIER,BEPUIK_DATA(pchan_##IDENTIFIER)->rest_pose_mat); \
 bepuv3_v3(v3_##IDENTIFIER,bv3_##IDENTIFIER); \
 } else { break; }
 
@@ -522,10 +403,11 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 	bBEPUikControl * bepuik_control = (bBEPUikControl *)constraint->data;
 	if(!bepuik_control->connection_target) return;
 	bPoseChannel * pchan_controlled = ikbone->pchan;
+	BEPUikTempSolvingData * pchan_controlled_bepuik = (BEPUikTempSolvingData *)pchan_controlled->bepuik;
 		
 	float local_offset[3];
 	float local_offset_bepuik_internal[3];
-	get_scale_applied_bone_local_offsets(local_offset,local_offset_bepuik_internal,pchan_controlled->bone->length,pchan_controlled->bepuik_rest_pose_size,bepuik_control->pulled_point);
+	get_scale_applied_bone_local_offsets(local_offset,local_offset_bepuik_internal,pchan_controlled->bone->length,BEPUIK_DATA(pchan_controlled)->rest_pose_size,bepuik_control->pulled_point);
 	
 	float effective_orientation_rigidity = bepuik_control->orientation_rigidity;
 	float effective_position_rigidity = constraint->bepuik_rigidity;
@@ -548,12 +430,12 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			float target_no_scale_bepuik_rest[4][4];
 			float target_inverse_no_scale_bepuik_rest[4][4];
 			unit_m4(target_no_scale_bepuik_rest);
-			mul_m4_m4m4(target_no_scale_bepuik_rest,pchan_controlled->bepuik_rest_pose_mat,arm_controlled_to_arm_target);
+			mul_m4_m4m4(target_no_scale_bepuik_rest,pchan_controlled_bepuik->rest_pose_mat,arm_controlled_to_arm_target);
 			normalize_m4(target_no_scale_bepuik_rest);
 			invert_m4_m4(target_inverse_no_scale_bepuik_rest,target_no_scale_bepuik_rest);
 			
 			float controlled_no_scale_bepuik_rest_mat[4][4];
-			normalize_m4_m4(controlled_no_scale_bepuik_rest_mat,pchan_controlled->bepuik_rest_pose_mat);
+			normalize_m4_m4(controlled_no_scale_bepuik_rest_mat,pchan_controlled_bepuik->rest_pose_mat);
 			
 			ControlledToTarget * controlled_to_target = new ControlledToTarget;
 			controlled_to_target->pchan_controlled = pchan_controlled;
@@ -577,7 +459,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			float destination_orientation[4];
 			mat4_to_loc_quat(destination_position,destination_orientation,absolute_destination_mat);
 
-			setup_bepuik_control_mats(constraint,absolute_destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
+			setup_bepuik_control_mats(constraint,absolute_destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
 			
 
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
@@ -588,8 +470,8 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			{
 				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
 				
-				copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
-				copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
+				copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
+				copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
 				
 				effective_orientation_rigidity += 10.0f;
 				effective_position_rigidity += 1000.0f;
@@ -631,7 +513,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 	
 			mat4_to_loc_quat(destination_position,destination_orientation,destination_mat);
 	
-			setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
+			setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
 			
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
 			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
@@ -640,8 +522,8 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			{
 				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
 				
-				copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
-				copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
+				copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
+				copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
 				
 				effective_orientation_rigidity += 10.0f;
 				effective_position_rigidity += 1000.0f;
@@ -677,7 +559,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 
 		mat4_to_loc_quat(destination_position,destination_orientation,destination_mat);
 
-		setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
+		setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
 		
 		//if an absolute target was previously created for this bone, then we dont need to create any other targets
 		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
@@ -686,8 +568,8 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 		{
 			pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
 			
-			copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
-			copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
+			copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
+			copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
 			
 			effective_orientation_rigidity += 10.0f;
 			effective_position_rigidity += 1000.0f;
@@ -725,7 +607,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		BEPUikTempSolvingData * pchan_bepuik = new BEPUikTempSolvingData;
 		pchan->bepuik = pchan_bepuik;
 		bepu_store_locrotsize(pchan);
-		mul_m4_m4m4(pchan->bepuik_prev_pose_mat,pchan->constinv,pchan->pose_mat);
+		mul_m4_m4m4(pchan_bepuik->prev_pose_mat,pchan->constinv,pchan->pose_mat);
 		
 		size_to_mat4(pchan->chan_mat, pchan->size);
 		BKE_armature_mat_bone_to_pose(pchan,pchan->chan_mat,pchan->pose_mat);
@@ -733,9 +615,9 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		copy_v3_v3(pchan->pose_head, pchan->pose_mat[3]);
 		BKE_pose_where_is_bone_tail(pchan);
 		
-		copy_m4_m4(pchan->bepuik_rest_pose_mat,pchan->pose_mat);
-		copy_v3_v3(pchan->bepuik_rest_tail,pchan->pose_tail);
-		mat4_to_size(pchan->bepuik_rest_pose_size,pchan->bepuik_rest_pose_mat);
+		copy_m4_m4(pchan_bepuik->rest_pose_mat,pchan->pose_mat);
+		copy_v3_v3(pchan_bepuik->rest_tail,pchan->pose_tail);
+		mat4_to_size(pchan_bepuik->rest_pose_size,pchan_bepuik->rest_pose_mat);
 		
 		if(pchan->bepuikflag & BONE_BEPUIK)
 		{
@@ -751,7 +633,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 			// matches an ikbone's position, orientation and length to that of a pchan.
 			// Note that a pchan's y axis length, including scale, will influence the length
 			// of the bepuik bone itself.
-			ikbone_match_mat_length(ikbone,pchan->bepuik_rest_pose_mat,pchan->bone->length);
+			ikbone_match_mat_length(ikbone,pchan_bepuik->rest_pose_mat,pchan->bone->length);
 		}
 		else
 		{
@@ -942,7 +824,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 			IKBone * parent_connection = pchan_get_bepuik_bone(pchan->parent);
 			
 			Vector3 bepuv3 = Vector3();
-			bepuv3_v3(bepuv3,pchan->bepuik_rest_pose_mat[3]);
+			bepuv3_v3(bepuv3,BEPUIK_DATA(pchan)->rest_pose_mat[3]);
 			IKJoint * auto_ballsocket = new IKBallSocketJoint(child_connection,parent_connection,bepuv3);
 			auto_ballsocket->SetRigidity(pchan->bepuik_ball_socket_rigidity);
 			joints.push_back(auto_ballsocket);
@@ -987,7 +869,6 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		}
 	}	
 
-	
 	//setup iksolver parameters
 	IKSolver * iksolver = new IKSolver();
 
@@ -1005,10 +886,6 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 	iksolver->AutoscaleControlMaximumAngularForce = MAXFLOAT;
 	iksolver->VelocitySubiterationCount = ob->bepuik_velocity_subiterations;
 	
-
-	
-
-		
 	vector <Control *> controls_to_solve = vector <Control *>();
 	
 	BOOST_FOREACH(Control * control, controls)
@@ -1045,12 +922,10 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 				IKBone * parent = pchan_get_bepuik_bone(pchan->parent);
 				if(!parent) continue;
 				
-				BEPUikTempSolvingData * bepuik = (BEPUikTempSolvingData*)pchan->bepuik;
-				
 				if(ob->pose->bepuikflag & POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT)
 				{										
-					mat4_to_quat(qa,pchan->parent->bepuik_prev_pose_mat);
-					mat4_to_quat(qb,pchan->bepuik_prev_pose_mat);
+					mat4_to_quat(qa,BEPUIK_DATA(pchan->parent)->prev_pose_mat);
+					mat4_to_quat(qb,BEPUIK_DATA(pchan)->prev_pose_mat);
 					
 					bepuqt_qt(b,qb);
 					bepuqt_qt(a,qa);
@@ -1082,18 +957,19 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 	for(bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
 	{					
 		IKBone * ikbone = pchan_get_bepuik_bone(pchan);
+		BEPUikTempSolvingData * pchan_bepuik = BEPUIK_DATA(pchan);
 		if(ikbone)
 		{
 			if(pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL)
 			{
-				pchan_bepuik_position_to_internal_bepuik_position(ikbone->Position,pchan->bepuik_hard_controlled_position,pchan->bepuik_hard_controlled_orientation,ikbone->GetLength());
-				bepuqt_qt(ikbone->Orientation,pchan->bepuik_hard_controlled_orientation);
+				pchan_bepuik_position_to_internal_bepuik_position(ikbone->Position,pchan_bepuik->hard_controlled_position,pchan_bepuik->hard_controlled_orientation,ikbone->GetLength());
+				bepuqt_qt(ikbone->Orientation,pchan_bepuik->hard_controlled_orientation);
 			}
 			else
 			{
 				if(ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC)
 				{
-					ikbone_position_orientation_match_mat(ikbone,pchan->bepuik_prev_pose_mat);
+					ikbone_position_orientation_match_mat(ikbone,BEPUIK_DATA(pchan)->prev_pose_mat);
 				}
 				else
 				{
@@ -1111,8 +987,12 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		
 		if(ikbone && ikbone->IsActive)
 		{
-			pchan_bepuik_solved_match_ikbone(ob,pchan,ikbone);
-			loc_quat_size_to_mat4(pchan->pose_mat,pchan->bepuik_solved_position,pchan->bepuik_solved_orientation,pchan->bepuik_rest_pose_size);
+			float loc[3];
+			float quat[4];
+			qt_bepuqt(quat,ikbone->Orientation);
+			internal_bepuik_position_to_pchan_bepuik_position(loc,ikbone->Position,ikbone->Orientation,ikbone->GetLength());
+
+			loc_quat_size_to_mat4(pchan->pose_mat,loc,quat,BEPUIK_DATA(pchan)->rest_pose_size);
 			BKE_armature_mat_pose_to_bone(pchan,pchan->pose_mat,pchan->chan_mat);
 			BKE_pchan_apply_mat4(pchan,pchan->chan_mat,FALSE);
 		
@@ -1166,7 +1046,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 				
 				if(size > 0)
 				{					
-					loc_quat_size_to_mat4(pchan_target->pose_mat,average_position,average_orientation,pchan_target->bepuik_rest_pose_size);
+					loc_quat_size_to_mat4(pchan_target->pose_mat,average_position,average_orientation,BEPUIK_DATA(pchan_target)->rest_pose_size);
 					BKE_armature_mat_pose_to_bone(pchan_target,pchan_target->pose_mat,pchan_target->chan_mat);
 					BKE_pchan_apply_mat4(pchan_target,pchan_target->chan_mat,FALSE);
 					
@@ -1203,17 +1083,13 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 	
 	//The following need to be deleted in this order, or it can cause problems.	
 	for(size_t i = 0; i < controls.size(); i++)
-	{
 		delete controls[i];
-	}
 	
 	for(size_t i = 0; i < joints.size(); i++)
 		delete joints[i];
 	
 	for(size_t i = 0; i < ikbones.size(); i++)
-	{
 		delete ikbones[i];
-	}	
 }
 
 void bepu_end(Scene *scene, Object *ob, float ctime)
