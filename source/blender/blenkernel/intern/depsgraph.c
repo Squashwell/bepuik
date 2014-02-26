@@ -2857,7 +2857,7 @@ void DAG_pose_sort(Object *ob)
 			bConstraintTarget *ct;
 			
 			/* exclude all bepuik constraints from depsgraph (except for bepuik targets)? err... uh*/
-			if((con->flag & CONSTRAINT_BEPUIK) && (con->type != CONSTRAINT_TYPE_BEPUIK_TARGET))
+			if((con->flag & CONSTRAINT_BEPUIK) && (con->type != CONSTRAINT_TYPE_BEPUIK_CONTROL))
 				continue;
 				
 			if (cti && cti->get_constraint_targets) {

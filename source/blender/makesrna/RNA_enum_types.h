@@ -57,7 +57,7 @@ extern EnumPropertyItem space_type_items[];
 extern EnumPropertyItem region_type_items[];
 extern EnumPropertyItem modifier_type_items[];
 
-extern EnumPropertyItem bepuik_target_rigidity_type_items[];
+extern EnumPropertyItem bepuik_control_rigidity_type_items[];
 
 extern EnumPropertyItem constraint_type_items[];
 extern EnumPropertyItem boidrule_type_items[];

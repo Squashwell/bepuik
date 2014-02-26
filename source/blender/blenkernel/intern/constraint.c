@@ -4478,7 +4478,7 @@ static void func_twist_limit_new_data(void *cdata)
 BEPUIK_CTI(twist_limit,TWIST_LIMIT,bBEPUikTwistLimit,BEPUik Twist Limit,func_twist_limit_new_data)
 static void func_target_new_data(void * cdata)
 {
-	bBEPUikTarget *data = (bBEPUikTarget *)cdata;
+	bBEPUikControl *data = (bBEPUikControl *)cdata;
 	data->orientation_rigidity = BEPUIK_RIGIDITY_TARGET_DEFAULT;
 	unit_m4(data->mat);
 	zero_v3(data->pulled_start_pose_space);
@@ -4486,8 +4486,8 @@ static void func_target_new_data(void * cdata)
 	zero_v3(data->pulled_point);
 }
 
-BEPUIK_1_TARGET(target,TARGET,bBEPUikTarget)
-BEPUIK_CTI(target,TARGET,bBEPUikTarget,BEPUik Target,func_target_new_data)
+BEPUIK_1_TARGET(target,TARGET,bBEPUikControl)
+BEPUIK_CTI(target,CONTROL,bBEPUikControl,BEPUik Control,func_target_new_data)
 
 /* ************************* Constraints Type-Info *************************** */
 /* All of the constraints api functions use bConstraintTypeInfo structs to carry out
@@ -4543,7 +4543,7 @@ static void constraints_init_typeinfo(void)
 	constraintsTypeInfo[38] = &CTI_BEPUIK_SWIVEL_HINGE_JOINT;			
 	constraintsTypeInfo[39] = &CTI_BEPUIK_TWIST_JOINT;			 
 	constraintsTypeInfo[40] = &CTI_BEPUIK_TWIST_LIMIT;
-	constraintsTypeInfo[41] = &CTI_BEPUIK_TARGET;
+	constraintsTypeInfo[41] = &CTI_BEPUIK_CONTROL;
 }
 
 /* This function should be used for getting the appropriate type-info when only
@@ -4598,7 +4598,7 @@ bool BKE_constraint_type_is_bepuik_type(int type)
 		case CONSTRAINT_TYPE_BEPUIK_SWIVEL_HINGE_JOINT:
 		case CONSTRAINT_TYPE_BEPUIK_TWIST_JOINT:
 		case CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT:
-		case CONSTRAINT_TYPE_BEPUIK_TARGET:
+		case CONSTRAINT_TYPE_BEPUIK_CONTROL:
 			return true;
 	}
 	

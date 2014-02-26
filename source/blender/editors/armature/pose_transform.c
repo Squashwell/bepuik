@@ -299,7 +299,7 @@ static void set_pose_keys(Object *ob)
  *
  * > returns: whether the bone that we pasted to if we succeeded
  */
-static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bool selOnly, const bool flip, bool bepuik_targets_only)
+static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bool selOnly, const bool flip, bool bepuik_controls_only)
 {
 	bPoseChannel *pchan;
 	char name[MAXBONENAME];
@@ -331,7 +331,7 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 			
 			for(src = chan->constraints.first; src; src = src->next)
 			{
-				if(src->type == CONSTRAINT_TYPE_BEPUIK_TARGET)
+				if(src->type == CONSTRAINT_TYPE_BEPUIK_CONTROL)
 				{
 					if (flip)
 						BKE_deform_flip_side_name(name, src->name, false);        /* 0 = don't strip off number extensions */
@@ -340,15 +340,15 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 					
 					for(dst = pchan->constraints.first; dst; dst = dst->next)
 					{
-						if(dst->type == CONSTRAINT_TYPE_BEPUIK_TARGET)
+						if(dst->type == CONSTRAINT_TYPE_BEPUIK_CONTROL)
 						{
 							if(strcmp(name,dst->name) == 0)
 							{
-								bBEPUikTarget * dst_bepuik_target = dst->data;
-								bBEPUikTarget * src_bepuik_target = src->data;
+								bBEPUikControl * dst_bepuik_control = dst->data;
+								bBEPUikControl * src_bepuik_control = src->data;
 								dst->bepuik_rigidity = src->bepuik_rigidity;
-								dst_bepuik_target->orientation_rigidity = src_bepuik_target->orientation_rigidity;
-								dst_bepuik_target->bepuikflag = src_bepuik_target->bepuikflag;
+								dst_bepuik_control->orientation_rigidity = src_bepuik_control->orientation_rigidity;
+								dst_bepuik_control->bepuikflag = src_bepuik_control->bepuikflag;
 							}
 						}
 					}
@@ -357,7 +357,7 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 			}
 		}
 		
-		if(bepuik_targets_only)
+		if(bepuik_controls_only)
 			return pchan;
 		
 		

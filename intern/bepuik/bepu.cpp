@@ -29,7 +29,7 @@
 /*
  * Generic bepuik todos:
  *
- * rename bBEPUikTarget & others back to Control
+ * perhaps change bepuik constraints (except bepuik target) so they dont use targets and just update the bone rename function
  *
  * could probably get rid of solved_position and solved_orientation on pchans
  *
@@ -499,43 +499,43 @@ static StateControl * new_statecontrol(IKBone * ikbone, float local_offset_bepui
 	return statecontrol;
 }
 
-static void setup_bepuik_target_mats(bConstraint * con, float pose_destination_mat[4][4], float pose_destination_position[3], float pose_destination_orientation[4], float bone_local_offset[3], float controlled_pose_size[3])
+static void setup_bepuik_control_mats(bConstraint * con, float pose_destination_mat[4][4], float pose_destination_position[3], float pose_destination_orientation[4], float bone_local_offset[3], float controlled_pose_size[3])
 {
-	bBEPUikTarget * bepuik_target = (bBEPUikTarget *)con->data;
-	copy_m4_m4(bepuik_target->mat,pose_destination_mat);
+	bBEPUikControl * bepuik_control = (bBEPUikControl *)con->data;
+	copy_m4_m4(bepuik_control->mat,pose_destination_mat);
 	
 	//figure out the size for the bepuik target visualization mat
 	float size_mat[4][4];
 	size_to_mat4(size_mat,controlled_pose_size);
-	mul_m4_m4m4(bepuik_target->mat,bepuik_target->mat,size_mat);
+	mul_m4_m4m4(bepuik_control->mat,bepuik_control->mat,size_mat);
 	
-	copy_v3_v3(bepuik_target->pulled_start_pose_space,bone_local_offset);
-	copy_v3_v3(bepuik_target->pulled_destination_pose_space,bone_local_offset);
-	mul_qt_v3(pose_destination_orientation,bepuik_target->pulled_destination_pose_space);
-	add_v3_v3(bepuik_target->pulled_destination_pose_space,pose_destination_position);
+	copy_v3_v3(bepuik_control->pulled_start_pose_space,bone_local_offset);
+	copy_v3_v3(bepuik_control->pulled_destination_pose_space,bone_local_offset);
+	mul_qt_v3(pose_destination_orientation,bepuik_control->pulled_destination_pose_space);
+	add_v3_v3(bepuik_control->pulled_destination_pose_space,pose_destination_position);
 	
 	con->flag |= CONSTRAINT_BEPUIK_DRAWABLE;
 }
 
-static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * ikbone, vector <Control *> &controls)
+static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone * ikbone, vector <Control *> &controls)
 {	
-	bBEPUikTarget * bepuik_target = (bBEPUikTarget *)constraint->data;
-	if(!bepuik_target->connection_target) return;
+	bBEPUikControl * bepuik_control = (bBEPUikControl *)constraint->data;
+	if(!bepuik_control->connection_target) return;
 	bPoseChannel * pchan_controlled = ikbone->pchan;
 		
 	float local_offset[3];
 	float local_offset_bepuik_internal[3];
-	get_scale_applied_bone_local_offsets(local_offset,local_offset_bepuik_internal,pchan_controlled->bone->length,pchan_controlled->bepuik_rest_pose_size,bepuik_target->pulled_point);
+	get_scale_applied_bone_local_offsets(local_offset,local_offset_bepuik_internal,pchan_controlled->bone->length,pchan_controlled->bepuik_rest_pose_size,bepuik_control->pulled_point);
 	
-	float effective_orientation_rigidity = bepuik_target->orientation_rigidity;
+	float effective_orientation_rigidity = bepuik_control->orientation_rigidity;
 	float effective_position_rigidity = constraint->bepuik_rigidity;
 	
-	if(bepuik_target->connection_target->type == OB_ARMATURE)
+	if(bepuik_control->connection_target->type == OB_ARMATURE)
 	{
-		bPoseChannel * pchan_target = BKE_pose_channel_find_name(bepuik_target->connection_target->pose,bepuik_target->connection_subtarget);
+		bPoseChannel * pchan_target = BKE_pose_channel_find_name(bepuik_control->connection_target->pose,bepuik_control->connection_subtarget);
 		if(!pchan_target) return;
 		
-		if(bepuik_target->connection_target == ob) //the target pchan is in the same armature
+		if(bepuik_control->connection_target == ob) //the target pchan is in the same armature
 		{			
 			float mat[4][4];
 	
@@ -577,16 +577,16 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 			float destination_orientation[4];
 			mat4_to_loc_quat(destination_position,destination_orientation,absolute_destination_mat);
 
-			setup_bepuik_target_mats(constraint,absolute_destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
+			setup_bepuik_control_mats(constraint,absolute_destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
 			
 
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
-			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET) return;
+			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
 
 			
-			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)
+			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 			{
-				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET;
+				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
 				
 				copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
 				copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
@@ -605,7 +605,7 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 				if(pchan_target)
 					pchan_target->bepuikflag |= BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET;
 				
-				StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_target->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
+				StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_control->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
 				
 				controls.push_back(statecontrol);
 			}
@@ -616,10 +616,10 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 			float destination_mat[4][4];
 			float destination_position[3];
 			float destination_orientation[4];
-	//		BKE_armature_mat_world_to_pose(ob,bepuik_target->connection_target->obmat,destination_mat); this function is exactly opposite of what it says it does???
+	//		BKE_armature_mat_world_to_pose(ob,bepuik_control->connection_target->obmat,destination_mat); this function is exactly opposite of what it says it does???
 			
 
-			mul_m4_m4m4(destination_mat, bepuik_target->connection_target->obmat, pchan_target->pose_mat);
+			mul_m4_m4m4(destination_mat, bepuik_control->connection_target->obmat, pchan_target->pose_mat);
 			
 			float imat[4][4];
 			invert_m4_m4(imat, ob->obmat);
@@ -631,14 +631,14 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 	
 			mat4_to_loc_quat(destination_position,destination_orientation,destination_mat);
 	
-			setup_bepuik_target_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
+			setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
 			
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
-			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET) return;
+			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
 			
-			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)
+			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 			{
-				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET;
+				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
 				
 				copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
 				copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
@@ -655,7 +655,7 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 			if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
 			{
 				
-				StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_target->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
+				StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_control->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
 				
 				controls.push_back(statecontrol);
 			}
@@ -667,24 +667,24 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 		float destination_mat[4][4];
 		float destination_position[3];
 		float destination_orientation[4];
-//		BKE_armature_mat_world_to_pose(ob,bepuik_target->connection_target->obmat,destination_mat); this function is exactly opposite of what it says it does???
+//		BKE_armature_mat_world_to_pose(ob,bepuik_control->connection_target->obmat,destination_mat); this function is exactly opposite of what it says it does???
 		
 		float imat[4][4];
 		invert_m4_m4(imat, ob->obmat);
-		mul_m4_m4m4(destination_mat, imat, bepuik_target->connection_target->obmat);
+		mul_m4_m4m4(destination_mat, imat, bepuik_control->connection_target->obmat);
 		
 		normalize_m4(destination_mat);
 
 		mat4_to_loc_quat(destination_position,destination_orientation,destination_mat);
 
-		setup_bepuik_target_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
+		setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,pchan_controlled->bepuik_rest_pose_size);
 		
 		//if an absolute target was previously created for this bone, then we dont need to create any other targets
-		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET) return;
+		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
 		
-		if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)
+		if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 		{
-			pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET;
+			pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
 			
 			copy_v3_v3(pchan_controlled->bepuik_hard_controlled_position,destination_position);
 			copy_qt_qt(pchan_controlled->bepuik_hard_controlled_orientation,destination_orientation);
@@ -701,7 +701,7 @@ static void setup_bepuik_target(Object * ob, bConstraint * constraint, IKBone * 
 		if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
 		{
 			
-			StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_target->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
+			StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_control->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
 			
 			controls.push_back(statecontrol);
 		}
@@ -786,16 +786,16 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		//find any absolute targets first
 		for(bConstraint * constraint = (bConstraint *)pchan->constraints.first; constraint; constraint = constraint->next)
 		{
-			if(constraint->type != CONSTRAINT_TYPE_BEPUIK_TARGET) continue;
+			if(constraint->type != CONSTRAINT_TYPE_BEPUIK_CONTROL) continue;
 			if(constraint->flag & (CONSTRAINT_DISABLE|CONSTRAINT_OFF)) continue;
 			
-			bBEPUikTarget * bepuik_target = (bBEPUikTarget *)constraint->data;
-			if (!(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD)) continue;
+			bBEPUikControl * bepuik_control = (bBEPUikControl *)constraint->data;
+			if (!(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)) continue;
 			
-			setup_bepuik_target(ob,constraint,ikbone,controls);
+			setup_bepuik_control(ob,constraint,ikbone,controls);
 		}
 		
-		//create constraints but exclude bepuik targets if there was an absolute target found earlier
+		//create constraints but exclude bepuik controls if there was an absolute control found earlier
 		for(bConstraint * constraint = (bConstraint *)pchan->constraints.first; constraint; constraint = constraint->next)
 		{
 			if(constraint->flag & (CONSTRAINT_DISABLE|CONSTRAINT_OFF))
@@ -916,12 +916,12 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 				ikjoint = new IKTwistLimit(ikbone,ikbone_connection,v3_axis_a,v3_measurement_axis_a,v3_axis_b,v3_measurement_axis_b,bjoint->max_twist);
 				break;
 			}
-			case CONSTRAINT_TYPE_BEPUIK_TARGET:
+			case CONSTRAINT_TYPE_BEPUIK_CONTROL:
 			{
-				bBEPUikTarget * bepuik_target = (bBEPUikTarget *)constraint->data;
-				if (bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD) break;
+				bBEPUikControl * bepuik_control = (bBEPUikControl *)constraint->data;
+				if (bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD) break;
 				
-				setup_bepuik_target(ob,constraint,ikbone,controls);
+				setup_bepuik_control(ob,constraint,ikbone,controls);
 				break;
 			}
 			}
@@ -1084,7 +1084,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		IKBone * ikbone = pchan_get_bepuik_bone(pchan);
 		if(ikbone)
 		{
-			if(pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET)
+			if(pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL)
 			{
 				pchan_bepuik_position_to_internal_bepuik_position(ikbone->Position,pchan->bepuik_hard_controlled_position,pchan->bepuik_hard_controlled_orientation,ikbone->GetLength());
 				bepuqt_qt(ikbone->Orientation,pchan->bepuik_hard_controlled_orientation);
@@ -1180,11 +1180,11 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 	for(bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
 		for(bConstraint * constraint = (bConstraint *)pchan->constraints.first; constraint; constraint = constraint->next)
 		{
-			if(constraint->type == CONSTRAINT_TYPE_BEPUIK_TARGET)
+			if(constraint->type == CONSTRAINT_TYPE_BEPUIK_CONTROL)
 			{
 				
-				bBEPUikTarget * bepuik_target_constraint = (bBEPUikTarget *)constraint->data;
-				bPoseChannel * pchan_target = BKE_pose_channel_find_name(ob->pose,bepuik_target_constraint->connection_subtarget);
+				bBEPUikControl * bepuik_control = (bBEPUikControl *)constraint->data;
+				bPoseChannel * pchan_target = BKE_pose_channel_find_name(ob->pose,bepuik_control->connection_subtarget);
 				
 				if(pchan_target)
 				{
@@ -1192,8 +1192,8 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 					mat4_to_quat(quat,pchan->pose_mat);
 					
 					//by now, pchan_pulled_point is the scale applied local offset
-					mul_qt_v3(quat,bepuik_target_constraint->pulled_start_pose_space);
-					add_v3_v3(bepuik_target_constraint->pulled_start_pose_space,pchan->pose_mat[3]);
+					mul_qt_v3(quat,bepuik_control->pulled_start_pose_space);
+					add_v3_v3(bepuik_control->pulled_start_pose_space,pchan->pose_mat[3]);
 					
 				}
 			}

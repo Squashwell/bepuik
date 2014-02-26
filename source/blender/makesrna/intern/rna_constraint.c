@@ -45,10 +45,10 @@
 
 #include "ED_object.h"
 
-EnumPropertyItem bepuik_target_rigidity_type_items[] = {
-		{BEPUIK_TARGET_RIGIDITY_TYPE_POSITION, "POSITION", 0, "Position", "Set the position rigidity of the selected targets"},
-		{BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION, "ORIENTATION", 0, "Orientation", "Set the orientation rigidity of the selected targets"},
-		{BEPUIK_TARGET_RIGIDITY_TYPE_HARD, "HARD", 0, "Hard", "Set the hard state of the selected targets"},
+EnumPropertyItem bepuik_control_rigidity_type_items[] = {
+		{BEPUIK_CONTROL_RIGIDITY_TYPE_POSITION, "POSITION", 0, "Position", "Set the position rigidity of the selected controls"},
+		{BEPUIK_CONTROL_RIGIDITY_TYPE_ORIENTATION, "ORIENTATION", 0, "Orientation", "Set the orientation rigidity of the selected controls"},
+		{BEPUIK_CONTROL_RIGIDITY_TYPE_HARD, "HARD", 0, "Hard", "Set the hard state of the selected controls"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -136,8 +136,8 @@ EnumPropertyItem constraint_type_items[] = {
 												"Constrain any twist between two bones"},
 	{CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT,		"BEPUIK_TWIST_LIMIT", ICON_CONSTRAINT_DATA, "Twist Limit", 
 												"Constrain twist between two bones within an angle"},
-	{CONSTRAINT_TYPE_BEPUIK_TARGET,				"BEPUIK_TARGET", ICON_CONSTRAINT_DATA, "Target",
-												"Constrain to a target's location and rotation"},
+	{CONSTRAINT_TYPE_BEPUIK_CONTROL,			"BEPUIK_CONTROL", ICON_CONSTRAINT_DATA, "Control",
+												"Constrain a BEPUik bone to a target location and rotation"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -272,8 +272,8 @@ static StructRNA *rna_ConstraintType_refine(struct PointerRNA *ptr)
             return &RNA_BEPUikTwistJoint; 
         case CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT:
             return &RNA_BEPUikTwistLimit;
-		case CONSTRAINT_TYPE_BEPUIK_TARGET:
-			return &RNA_BEPUikTarget;
+		case CONSTRAINT_TYPE_BEPUIK_CONTROL:
+			return &RNA_BEPUikControl;
 		default:
 			return &RNA_UnknownType;
 	}
@@ -2678,14 +2678,14 @@ static void rna_def_constraint_bepuik_twist_limit(BlenderRNA *brna)
 	RNA_def_property_float_default(prop,M_PI_4);
 	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 }
-static void rna_def_constraint_bepuik_target(BlenderRNA * brna)
+static void rna_def_constraint_bepuik_control(BlenderRNA * brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	srna = RNA_def_struct(brna, "BEPUikTarget", "Constraint");
-	RNA_def_struct_ui_text(srna, "BEPUik Target", "Constrain to a target's location and rotation");
-	RNA_def_struct_sdna_from(srna, "bBEPUikTarget", "data");
+	srna = RNA_def_struct(brna, "BEPUikControl", "Constraint");
+	RNA_def_struct_ui_text(srna, "BEPUik Control", "Constrain a bepuik bone to a target location and rotation");
+	RNA_def_struct_sdna_from(srna, "bBEPUikControl", "data");
 	
 	BEPUIK_CONNECTION
 	
@@ -2693,12 +2693,6 @@ static void rna_def_constraint_bepuik_target(BlenderRNA * brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BEPUIK_CONSTRAINT_HARD);
 	RNA_def_property_ui_text(prop, "Hard", "Solve target without any softness");
 	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");	
-			
-	prop = RNA_def_property(srna, "position_rigidity", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop,0,FLT_MAX);
-	RNA_def_property_ui_text(prop, "Position Rigidity","Rigidity of the position component of the target");
-	RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_DEFAULT);
-	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 
 	prop = RNA_def_property(srna,"orientation_rigidity", PROP_FLOAT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(prop, "Orientation Rigidity", "Rigidity of the orientation component of the target");
@@ -2852,7 +2846,7 @@ void RNA_def_constraint(BlenderRNA *brna)
 	rna_def_constraint_bepuik_swivel_hinge_joint(brna);
 	rna_def_constraint_bepuik_twist_joint(brna);
 	rna_def_constraint_bepuik_twist_limit(brna);
-	rna_def_constraint_bepuik_target(brna);
+	rna_def_constraint_bepuik_control(brna);
 
 }
 

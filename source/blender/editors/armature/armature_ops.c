@@ -421,22 +421,22 @@ void ED_keymap_armature(wmKeyConfig *keyconf)
 	WM_keymap_add_menu(keymap, "VIEW3D_MT_pose_specials", WKEY, KM_PRESS, 0, 0);
 	
 	/* bepuik rigidity transform ops */
-	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_SHIFT, 0);
-	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_RIGIDITY_TYPE_POSITION);
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_control_rigidity_modify", DKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_CONTROL_RIGIDITY_TYPE_POSITION);
 	RNA_boolean_set(kmi->ptr,"only_top_target",1);
 	
-	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_CTRL, 0);
-	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION);
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_control_rigidity_modify", DKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_CONTROL_RIGIDITY_TYPE_ORIENTATION);
 	RNA_boolean_set(kmi->ptr,"only_top_target",1);
 	
-	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_CTRL | KM_ALT | KM_SHIFT, 0); 
-	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_RIGIDITY_TYPE_HARD);
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_control_rigidity_modify", DKEY, KM_PRESS, KM_CTRL | KM_ALT | KM_SHIFT, 0); 
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_CONTROL_RIGIDITY_TYPE_HARD);
 	RNA_boolean_set(kmi->ptr,"set",1);
 	RNA_float_set(kmi->ptr, "value", 1);
 	RNA_boolean_set(kmi->ptr,"only_top_target",1);
 	
-	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_target_rigidity_modify", DKEY, KM_PRESS, KM_ALT, 0); 
-	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_TARGET_RIGIDITY_TYPE_HARD | BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION | BEPUIK_TARGET_RIGIDITY_TYPE_POSITION);
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_bepuik_control_rigidity_modify", DKEY, KM_PRESS, KM_ALT, 0); 
+	RNA_enum_set(kmi->ptr, "rigidity_types", BEPUIK_CONTROL_RIGIDITY_TYPE_HARD | BEPUIK_CONTROL_RIGIDITY_TYPE_ORIENTATION | BEPUIK_CONTROL_RIGIDITY_TYPE_POSITION);
 	RNA_boolean_set(kmi->ptr,"set",1);
 	RNA_float_set(kmi->ptr, "value", 0);
 }

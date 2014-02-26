@@ -2498,7 +2498,7 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 			pchan->flag &= ~(POSE_DONE | POSE_CHAIN | POSE_IKTREE | POSE_IKSPLINE);
 
-			pchan->bepuikflag &= ~(BONE_BEPUIK_IN_SOLVING_PARTITION | BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_TARGET | BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET | BONE_BEPUIK_FEEDBACK | BONE_BEPUIK_HAS_PREPOSE );
+			pchan->bepuikflag &= ~(BONE_BEPUIK_IN_SOLVING_PARTITION | BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL | BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET | BONE_BEPUIK_FEEDBACK | BONE_BEPUIK_HAS_PREPOSE );
 			
 #ifdef WITH_BEPUIK
 			if(pchan->bepuikflag & BONE_BEPUIK)
@@ -2627,7 +2627,7 @@ static int pchan_meets_flag_requirements(Object * ob, bPoseChannel * pchan, int 
 }
 
 /* This translates the current pchan context into an implicit "selection"
- * of bepuik_target constraints.  Affected bepuik target constraints have their 
+ * of bepuik_control constraints.  Affected bepuik target constraints have their
  * CONSTRAINT_BEPUIK_TRANSFORM flag set.
  *
  * Any bone that holds an affected bepuik target has its BONE_TRANSFORM flag set */
@@ -2645,12 +2645,12 @@ void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_
 	
 	/* walk thru all the bepuik targets in the object */
 	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {	
-		short flagged_first_bepuik_target = 0;
+		short flagged_first_bepuik_control = 0;
 		
 		for(con = pchan->constraints.first; con; con = con->next) {
-			if(con->type == CONSTRAINT_TYPE_BEPUIK_TARGET) {
-				bBEPUikTarget * bepuik_target_constraint = con->data;
-				bPoseChannel * pchan_target = BKE_pose_channel_find_name(ob->pose,bepuik_target_constraint->connection_subtarget);
+			if(con->type == CONSTRAINT_TYPE_BEPUIK_CONTROL) {
+				bBEPUikControl * bepuik_control = con->data;
+				bPoseChannel * pchan_target = BKE_pose_channel_find_name(ob->pose,bepuik_control->connection_subtarget);
 				
 				/* does the target pchan meet the requirements ? */
 				if(pchan_target && pchan_meets_flag_requirements(ob,pchan_target,require_selected_visible,required_pchan_flags)) {
@@ -2662,8 +2662,8 @@ void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_
 				if(pchan_meets_flag_requirements(ob,pchan,require_selected_visible,required_pchan_flags)) {
 					if(top_targets_only) {
 						/* sometimes we want to affect ONLY the top target on the selected owner pchan */
-						if(!flagged_first_bepuik_target) {
-							flagged_first_bepuik_target = 1;
+						if(!flagged_first_bepuik_control) {
+							flagged_first_bepuik_control = 1;
 							con->flag |= CONSTRAINT_BEPUIK_TRANSFORM;
 							pchan->bone->flag |= BONE_TRANSFORM;
 						}

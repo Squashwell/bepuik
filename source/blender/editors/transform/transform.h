@@ -270,21 +270,10 @@ typedef struct BEPUikUndoData
 	float pose_tail[3];             /* also used for drawing help lines... */
     
     /* ifdef WITH_BEPUIK tweak values */
-    float bepuik_orientation[4];
-    float bepuik_length;
-    float bepuik_radius;
-    float bepuik_position[3];
-    
 	float bepuik_angular_rigidity;
     float bepuik_angular_orientation[4];
     float bepuik_stiffness_pose_mat[4][4];
 	float bepuik_stiffness_pose_tail[3];
-
-	float bepuik_target_rigidity;
-	float bepuik_target_orientation_rigidity;
-	float bepuik_target_tail_rigidity;
-    float bepuik_target_orientation[4];
-    float bepuik_target_position[3];
     
     float bepuik_solved_orientation[4];
     float bepuik_solved_head[3];
@@ -470,10 +459,10 @@ typedef struct TransInfo {
 #define T_ALT_TRANSFORM		(1 << 24)
 
 /* TransInfo->bepuikflag */
-#define T_BEPUIK_TARGET_POSITION (1 << 0)
-#define T_BEPUIK_TARGET_ORIENTATION (1 << 1)
-#define T_BEPUIK_TARGET_ABSOLUTE (1 << 2)
-#define T_BEPUIK_TARGET_SET (1 << 3)
+#define T_BEPUIK_CONTROL_POSITION (1 << 0)
+#define T_BEPUIK_CONTROL_ORIENTATION (1 << 1)
+#define T_BEPUIK_CONTROL_HARD (1 << 2)
+#define T_BEPUIK_CONTROL_SET (1 << 3)
 #define T_BEPUIK			(1 << 4)
 #define T_BEPUIK_DRAG       (1 << 5)
 #define T_BEPUIK_TOP_TARGET (1 << 6)

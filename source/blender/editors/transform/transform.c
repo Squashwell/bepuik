@@ -2217,7 +2217,7 @@ int initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *even
 		case TFM_SEQ_SLIDE:
 			initSeqSlide(t);
 			break;
-		case TFM_BEPUIK_TARGET_RIGIDITY_MODIFY:
+		case TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY:
 			initBEPUikTargetRigidityModify(t);
 			break;
 	}
@@ -7800,7 +7800,7 @@ void bepu_transinfo_free(TransInfo * t)
 
 void initBEPUikTargetRigidityModify(TransInfo *t)
 {
-	t->mode = TFM_BEPUIK_TARGET_RIGIDITY_MODIFY;
+	t->mode = TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY;
 	t->transform = BEPUikTargetRigidityModify;
 
 	initMouseInputMode(t, &t->mouse, INPUT_HORIZONTAL_ABSOLUTE);
@@ -7870,7 +7870,7 @@ int BEPUikTargetRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
 			continue;
 
 		if (td->val) {
-			if(t->bepuikflag & T_BEPUIK_TARGET_SET)
+			if(t->bepuikflag & T_BEPUIK_CONTROL_SET)
 				*td->val = rigidity;
 			else
 				*td->val = td->ival + rigidity;
@@ -7880,7 +7880,7 @@ int BEPUikTargetRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
 		}
 		else if(td->flag & TD_INTVALUES) {
 			int *flag = td->extra;
-			if(t->bepuikflag & T_BEPUIK_TARGET_SET) {
+			if(t->bepuikflag & T_BEPUIK_CONTROL_SET) {
 				if(rigidity >= FLT_EPSILON)
 					*flag |= BEPUIK_CONSTRAINT_HARD;
 				else

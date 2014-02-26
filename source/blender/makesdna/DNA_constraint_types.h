@@ -644,23 +644,23 @@ typedef struct bBEPUikTwistLimit {
 
 }bBEPUikTwistLimit;
 
-typedef struct bBEPUikTarget {
+typedef struct bBEPUikControl {
 	struct Object * connection_target;
 	char connection_subtarget[64];
 	
-	float position_rigidity;
 	float orientation_rigidity;
 	int bepuikflag;
 	float mat[4][4];
 	float pulled_point[3];
 	float pulled_start_pose_space[3];
 	float pulled_destination_pose_space[3];
-}bBEPUikTarget;
+	int pad;
+}bBEPUikControl;
 
 typedef enum eBEPUikTargetRigidity_Types{
-	BEPUIK_TARGET_RIGIDITY_TYPE_POSITION = (1 << 0),
-	BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION = (1 << 1),
-	BEPUIK_TARGET_RIGIDITY_TYPE_HARD = (1 << 2)
+	BEPUIK_CONTROL_RIGIDITY_TYPE_POSITION = (1 << 0),
+	BEPUIK_CONTROL_RIGIDITY_TYPE_ORIENTATION = (1 << 1),
+	BEPUIK_CONTROL_RIGIDITY_TYPE_HARD = (1 << 2)
 } eBEPUikTargetRigidity_Flags;
 
 typedef enum eBEPUikConstraint_Flags{
@@ -715,7 +715,7 @@ typedef enum eBConstraint_Types {
     CONSTRAINT_TYPE_BEPUIK_SWIVEL_HINGE_JOINT = 38,
     CONSTRAINT_TYPE_BEPUIK_TWIST_JOINT = 39,
     CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT = 40,
-	CONSTRAINT_TYPE_BEPUIK_TARGET = 41,
+	CONSTRAINT_TYPE_BEPUIK_CONTROL = 41,
     
 	/* NOTE: no constraints are allowed to be added after this */
 	NUM_CONSTRAINT_TYPES

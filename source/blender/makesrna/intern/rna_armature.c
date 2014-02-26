@@ -1030,9 +1030,9 @@ static void rna_def_armature(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Draw Bone Group Colors", "Draw bone group colors");
 	RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
 	
-	prop = RNA_def_property(srna, "show_bepuik_targets", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", ARM_BEPUIK_DRAWTARGETS);
-	RNA_def_property_ui_text(prop, "Draw BEPUik Targets", "Draw BEPUik target constraints");
+	prop = RNA_def_property(srna, "show_bepuik_controls", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", ARM_BEPUIK_DRAWCONTROLS);
+	RNA_def_property_ui_text(prop, "Draw BEPUik Controls", "Draw BEPUik Control constraints");
 	RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
 	RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
 	

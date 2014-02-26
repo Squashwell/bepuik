@@ -456,7 +456,7 @@ static float bepuik_rigidity_outline_color[3] = {0.0f,0.0f,0.0f};
 static float bepuik_rigidity_color_soft[3] = {1.0f,1.0f,0.0f};
 static float bepuik_rigidity_color_hard[3] = {1.0f,0.0f,0.0f};
 
-static float bepuik_target_verts[7][3] = 
+static float bepuik_control_verts[7][3] =
 {
    {0.0f, 0.0f, 0.0f},
    {0.0f, 0.45f, 0.0f},
@@ -467,19 +467,19 @@ static float bepuik_target_verts[7][3] =
    {-.1f, 0.9f, 0.0f}
 };
 
-static unsigned int bepuik_target_wire_flag[5] = {0,1,2,3,4};
-static unsigned int bepuik_target_wire_tip[3] =  {5,4,6};
+static unsigned int bepuik_control_wire_flag[5] = {0,1,2,3,4};
+static unsigned int bepuik_control_wire_tip[3] =  {5,4,6};
 
-static void draw_bepuik_target_solid_flag(void)
+static void draw_bepuik_control_solid_flag(void)
 {
 	glBegin(GL_TRIANGLES);
-	glVertex3fv(bepuik_target_verts[1]);
-	glVertex3fv(bepuik_target_verts[2]);
-	glVertex3fv(bepuik_target_verts[3]);
+	glVertex3fv(bepuik_control_verts[1]);
+	glVertex3fv(bepuik_control_verts[2]);
+	glVertex3fv(bepuik_control_verts[3]);
 	glEnd();
 }
 
-static void draw_bepuik_target_wire(void)
+static void draw_bepuik_control_wire(void)
 {
 	static GLuint displist = 0;
 	
@@ -489,18 +489,18 @@ static void draw_bepuik_target_wire(void)
 
 		/*	Section 1, sides */
 		glEnableClientState(GL_VERTEX_ARRAY);
-		glVertexPointer(3, GL_FLOAT, 0, bepuik_target_verts);
+		glVertexPointer(3, GL_FLOAT, 0, bepuik_control_verts);
 		
 		glDrawElements(GL_LINE_STRIP,
-		               sizeof(bepuik_target_wire_flag) / sizeof(*bepuik_target_wire_flag),
+		               sizeof(bepuik_control_wire_flag) / sizeof(*bepuik_control_wire_flag),
 		               GL_UNSIGNED_INT,
-		               bepuik_target_wire_flag);
+		               bepuik_control_wire_flag);
 
 		/*	Section 1, square */
 		glDrawElements(GL_LINE_STRIP,
-		               sizeof(bepuik_target_wire_tip) / sizeof(*bepuik_target_wire_tip),
+		               sizeof(bepuik_control_wire_tip) / sizeof(*bepuik_control_wire_tip),
 		               GL_UNSIGNED_INT,
-		               bepuik_target_wire_tip);
+		               bepuik_control_wire_tip);
 		
 		glDisableClientState(GL_VERTEX_ARRAY);
 		
@@ -510,38 +510,38 @@ static void draw_bepuik_target_wire(void)
 	glCallList(displist);
 }
 
-static void draw_bepuik_target(bConstraint * constraint, Bone * bone, float * rigidity_color, float * bepuik_rigidity_outline_color)
+static void draw_bepuik_control(bConstraint * constraint, Bone * bone, float * rigidity_color, float * bepuik_rigidity_outline_color)
 {
-	bBEPUikTarget * bepuik_target_constraint = constraint->data;
+	bBEPUikControl * bepuik_control = constraint->data;
 	
-	if((bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD) || bepuik_target_constraint->orientation_rigidity >= FLT_EPSILON)
+	if((bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD) || bepuik_control->orientation_rigidity >= FLT_EPSILON)
 	{
 		/*draw flag lines */
 		glPushMatrix();
-		glMultMatrixf(bepuik_target_constraint->mat);
+		glMultMatrixf(bepuik_control->mat);
 		glScalef(bone->length, bone->length, bone->length);
 		
 		glColor3fv(rigidity_color);
-		draw_bepuik_target_solid_flag();
+		draw_bepuik_control_solid_flag();
 		
 		glColor3fv(bepuik_rigidity_outline_color);
 		glLineWidth(3.0f);
-		draw_bepuik_target_wire();
+		draw_bepuik_control_wire();
 		
 		glColor3fv(rigidity_color);
 		glLineWidth(1.0f);
-		draw_bepuik_target_wire();
+		draw_bepuik_control_wire();
 		
 		glPopMatrix();
 	}
 	
-	if((bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD) || constraint->bepuik_rigidity >= FLT_EPSILON)
+	if((bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD) || constraint->bepuik_rigidity >= FLT_EPSILON)
 	{
 		float scale = bone->length;
 		float size[3] = {scale,scale,scale};
 		float mat[4][4];
 		size_to_mat4(mat,size);
-		copy_v3_v3(mat[3],bepuik_target_constraint->pulled_start_pose_space);
+		copy_v3_v3(mat[3],bepuik_control->pulled_start_pose_space);
 		
 		/*draw the offset line*/
 		glLineWidth(3.0);
@@ -549,15 +549,15 @@ static void draw_bepuik_target(bConstraint * constraint, Bone * bone, float * ri
 		glPushMatrix();
 		
 		glBegin(GL_LINES);
-		glVertex3fv(bepuik_target_constraint->pulled_destination_pose_space);
-		glVertex3fv(bepuik_target_constraint->mat[3]);
+		glVertex3fv(bepuik_control->pulled_destination_pose_space);
+		glVertex3fv(bepuik_control->mat[3]);
 		glEnd();
 		
 		glLineWidth(1.0);
 		glColor3fv(rigidity_color);
 		glBegin(GL_LINES);
-		glVertex3fv(bepuik_target_constraint->pulled_destination_pose_space);
-		glVertex3fv(bepuik_target_constraint->mat[3]);
+		glVertex3fv(bepuik_control->pulled_destination_pose_space);
+		glVertex3fv(bepuik_control->mat[3]);
 		glEnd();
 		
 		glPopMatrix();
@@ -569,8 +569,8 @@ static void draw_bepuik_target(bConstraint * constraint, Bone * bone, float * ri
 		glPushMatrix();
 		
 		glBegin(GL_LINES);
-		glVertex3fv(bepuik_target_constraint->pulled_destination_pose_space);
-		glVertex3fv(bepuik_target_constraint->pulled_start_pose_space);
+		glVertex3fv(bepuik_control->pulled_destination_pose_space);
+		glVertex3fv(bepuik_control->pulled_start_pose_space);
 		glEnd();
 		
 		glDisable(GL_LINE_STIPPLE);
@@ -2146,7 +2146,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	}
 
 	/* finally names and axes and bepuik targets */
-	if (((arm->flag & (ARM_DRAWNAMES | ARM_DRAWAXES)) || (arm->bepuikflag & (ARM_BEPUIK_DRAWTARGETS | ARM_BEPUIK_DRAWPREPOSE))) &&
+	if (((arm->flag & (ARM_DRAWNAMES | ARM_DRAWAXES)) || (arm->bepuikflag & (ARM_BEPUIK_DRAWCONTROLS | ARM_BEPUIK_DRAWPREPOSE))) &&
 	    (is_outline == 0) &&
 	    ((base->flag & OB_FROMDUPLI) == 0))
 	{
@@ -2199,7 +2199,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 						}
 					}
 				
-					if(arm->bepuikflag & ARM_BEPUIK_DRAWTARGETS) {
+					if(arm->bepuikflag & ARM_BEPUIK_DRAWCONTROLS) {
 //						if(pchan->bone->flag & BONE_SELECTED)
 //						{
 //							/* debug stuff... */
@@ -2222,25 +2222,25 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 						
 						if(pchan->bepuikflag & BONE_BEPUIK) {
 							bConstraint * constraint;
-							bBEPUikTarget * bepuik_target_constraint;
+							bBEPUikControl * bepuik_control;
 							
 							for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
 								if(!(constraint->flag & CONSTRAINT_BEPUIK_DRAWABLE)) continue;
-								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_TARGET) continue;
+								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_CONTROL) continue;
 								
-								bepuik_target_constraint = constraint->data;
-								if(!(bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD))
-									draw_bepuik_target(constraint,bone,bepuik_rigidity_color_soft,bepuik_rigidity_outline_color);
+								bepuik_control = constraint->data;
+								if(!(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD))
+									draw_bepuik_control(constraint,bone,bepuik_rigidity_color_soft,bepuik_rigidity_outline_color);
 							}
 							
 							/* draw hard targets on top of soft targets */
 							for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
 								if(!(constraint->flag & CONSTRAINT_BEPUIK_DRAWABLE)) continue;
-								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_TARGET) continue;
+								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_CONTROL) continue;
 								
-								bepuik_target_constraint = constraint->data;
-								if(bepuik_target_constraint->bepuikflag & BEPUIK_CONSTRAINT_HARD)
-									draw_bepuik_target(constraint,bone,bepuik_rigidity_color_hard,bepuik_rigidity_outline_color);
+								bepuik_control = constraint->data;
+								if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
+									draw_bepuik_control(constraint,bone,bepuik_rigidity_color_hard,bepuik_rigidity_outline_color);
 							}
 						}
 					}

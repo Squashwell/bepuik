@@ -775,26 +775,26 @@ static bPoseChannel * get_best_bepuik_target(int transform_mode, bPoseChannel * 
 	float zero3[3];
 	bConstraint * constraint;
 	bPoseChannel * pchan_target;
-	bBEPUikTarget * bepuik_target;
+	bBEPUikControl * bepuik_control;
 	zero_v3(zero3);
 	
 	for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
-		if((constraint->type == CONSTRAINT_TYPE_BEPUIK_TARGET) && !(constraint->flag & (CONSTRAINT_OFF|CONSTRAINT_DISABLE))) {
-			bepuik_target = constraint->data;
+		if((constraint->type == CONSTRAINT_TYPE_BEPUIK_CONTROL) && !(constraint->flag & (CONSTRAINT_OFF|CONSTRAINT_DISABLE))) {
+			bepuik_control = constraint->data;
 			
-			if(!bepuik_target->connection_target) continue;
-			if(!bepuik_target->connection_target->pose) continue;
-			pchan_target = BKE_pose_channel_find_name(bepuik_target->connection_target->pose,bepuik_target->connection_subtarget);
+			if(!bepuik_control->connection_target) continue;
+			if(!bepuik_control->connection_target->pose) continue;
+			pchan_target = BKE_pose_channel_find_name(bepuik_control->connection_target->pose,bepuik_control->connection_subtarget);
 			if(!pchan_target) continue;
 			
 			//always prefer the first found absolute target
-			if(bepuik_target->bepuikflag & BEPUIK_CONSTRAINT_HARD) return pchan_target;
+			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD) return pchan_target;
 			
 			if(transform_mode == TFM_TRANSLATION)
 			{
 				if(tbepuikflags & T_BEPUIK_DRAG)
 				{
-					if(bepuik_target->orientation_rigidity >= FLT_EPSILON)
+					if(bepuik_control->orientation_rigidity >= FLT_EPSILON)
 						return pchan_target;
 				}
 				else if(constraint->bepuik_rigidity >= FLT_EPSILON)
@@ -804,7 +804,7 @@ static bPoseChannel * get_best_bepuik_target(int transform_mode, bPoseChannel * 
 			}
 			else if(ELEM(transform_mode,TFM_TRACKBALL,TFM_ROTATION))
 			{
-				if(bepuik_target->orientation_rigidity >= FLT_EPSILON)
+				if(bepuik_control->orientation_rigidity >= FLT_EPSILON)
 					return pchan_target;
 			}
 		}
@@ -941,9 +941,9 @@ static int count_set_bepuik_target_constraints(Object * ob, int bepuikflags)
 	bPoseChannel * pchan;
 	bConstraint * constraint;
 	int rigidity_types_affected = 0;
-	if(bepuikflags & T_BEPUIK_TARGET_POSITION) rigidity_types_affected++;
-	if(bepuikflags & T_BEPUIK_TARGET_ORIENTATION) rigidity_types_affected++;
-	if(bepuikflags & T_BEPUIK_TARGET_ABSOLUTE) rigidity_types_affected++;
+	if(bepuikflags & T_BEPUIK_CONTROL_POSITION) rigidity_types_affected++;
+	if(bepuikflags & T_BEPUIK_CONTROL_ORIENTATION) rigidity_types_affected++;
+	if(bepuikflags & T_BEPUIK_CONTROL_HARD) rigidity_types_affected++;
 	
 	BKE_bepuik_set_target_flags(ob,bepuikflags & T_BEPUIK_TOP_TARGET,1,0);
 	
@@ -974,7 +974,7 @@ int count_set_pose_transflags(int *out_mode, short around, int tbepuikflags, Obj
 	int hastranslation = 0;
 	int total = 0;
 	
-	if(mode == TFM_BEPUIK_TARGET_RIGIDITY_MODIFY) {
+	if(mode == TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY) {
 		return count_set_bepuik_target_constraints(ob,tbepuikflags);
 	}
 
@@ -1361,7 +1361,7 @@ static void createTransPose(TransInfo *t, Object *ob)
 
 	td = t->data;
 
-	if(t->mode == TFM_BEPUIK_TARGET_RIGIDITY_MODIFY)
+	if(t->mode == TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY)
 	{
 		for(pchan = t->poseobj->pose->chanbase.first; pchan; pchan = pchan->next)
 		{
@@ -1370,7 +1370,7 @@ static void createTransPose(TransInfo *t, Object *ob)
 			{
 				if(constraint->flag & CONSTRAINT_BEPUIK_TRANSFORM)
 				{
-					if(t->bepuikflag & T_BEPUIK_TARGET_POSITION)
+					if(t->bepuikflag & T_BEPUIK_CONTROL_POSITION)
 					{
 						td->val = &constraint->bepuik_rigidity;
 						td->ival = constraint->bepuik_rigidity;
@@ -1378,18 +1378,18 @@ static void createTransPose(TransInfo *t, Object *ob)
 						td++;
 					}
 					
-					if(t->bepuikflag & T_BEPUIK_TARGET_ORIENTATION)
+					if(t->bepuikflag & T_BEPUIK_CONTROL_ORIENTATION)
 					{
-						bBEPUikTarget * bepuik_target = constraint->data;
+						bBEPUikControl * bepuik_target = constraint->data;
 						td->val = &bepuik_target->orientation_rigidity;
 						td->ival = bepuik_target->orientation_rigidity;
 						td->flag = TD_SELECTED;
 						td++;
 					}
 					
-					if(t->bepuikflag & T_BEPUIK_TARGET_ABSOLUTE)
+					if(t->bepuikflag & T_BEPUIK_CONTROL_HARD)
 					{
-						bBEPUikTarget * bepuik_target = constraint->data;
+						bBEPUikControl * bepuik_target = constraint->data;
 						td->val = 0;
 						td->ival = 0;
 						td->extra = &bepuik_target->bepuikflag;
@@ -5652,7 +5652,7 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 							if ((v3d->flag & V3D_ALIGN) == 0)
 								do_scale = TRUE;
 						}
-						else if(tmode==TFM_BEPUIK_TARGET_RIGIDITY_MODIFY)
+						else if(tmode==TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY)
 						{
 							do_bepuik_target = TRUE;
 						}

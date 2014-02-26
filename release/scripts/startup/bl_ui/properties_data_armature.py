@@ -90,7 +90,7 @@ class DATA_PT_display(ArmatureButtonsPanel, Panel):
         col.prop(arm, "show_bone_custom_shapes", text="Shapes")
         
         col.label("BEPUik:")
-        col.prop(arm,"show_bepuik_targets",text="Target")
+        col.prop(arm,"show_bepuik_controls",text="Controls")
         col.prop(arm,"show_bepuik_prepose",text="Prepose")
         
         

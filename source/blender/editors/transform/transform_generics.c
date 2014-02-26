@@ -1248,30 +1248,30 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		t->around = V3D_CENTER;
 	}
 	
-	if(t->mode==TFM_BEPUIK_TARGET_RIGIDITY_MODIFY && op)
+	if(t->mode==TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY && op)
 	{
 		if ((prop = RNA_struct_find_property(op->ptr, "rigidity_types")) && RNA_property_is_set(op->ptr, prop)) {
 		
 			int flags = RNA_property_enum_get(op->ptr, prop);
 			
-			if(flags & BEPUIK_TARGET_RIGIDITY_TYPE_HARD)
-				t->bepuikflag |= T_BEPUIK_TARGET_ABSOLUTE;
+			if(flags & BEPUIK_CONTROL_RIGIDITY_TYPE_HARD)
+				t->bepuikflag |= T_BEPUIK_CONTROL_HARD;
 			
-			if(flags & BEPUIK_TARGET_RIGIDITY_TYPE_ORIENTATION)
-				t->bepuikflag |= T_BEPUIK_TARGET_ORIENTATION;
+			if(flags & BEPUIK_CONTROL_RIGIDITY_TYPE_ORIENTATION)
+				t->bepuikflag |= T_BEPUIK_CONTROL_ORIENTATION;
 			
-			if(flags & BEPUIK_TARGET_RIGIDITY_TYPE_POSITION)
-				t->bepuikflag |= T_BEPUIK_TARGET_POSITION;
+			if(flags & BEPUIK_CONTROL_RIGIDITY_TYPE_POSITION)
+				t->bepuikflag |= T_BEPUIK_CONTROL_POSITION;
 		}
 	
 		if ((prop = RNA_struct_find_property(op->ptr, "set"))) {
 			if(RNA_property_is_set(op->ptr, prop)) {
 				if(RNA_property_boolean_get(op->ptr, prop))
-					t->bepuikflag |= T_BEPUIK_TARGET_SET;
+					t->bepuikflag |= T_BEPUIK_CONTROL_SET;
 				else
-					t->bepuikflag &= ~T_BEPUIK_TARGET_SET;
+					t->bepuikflag &= ~T_BEPUIK_CONTROL_SET;
 			} else
-				RNA_boolean_set(op->ptr, "set", t->bepuikflag & T_BEPUIK_TARGET_SET);
+				RNA_boolean_set(op->ptr, "set", t->bepuikflag & T_BEPUIK_CONTROL_SET);
 			
 		}
 		

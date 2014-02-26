@@ -79,7 +79,7 @@ static char OP_VERT_SLIDE[] = "TRANSFORM_OT_vert_slide";
 static char OP_EDGE_CREASE[] = "TRANSFORM_OT_edge_crease";
 static char OP_EDGE_BWEIGHT[] = "TRANSFORM_OT_edge_bevelweight";
 static char OP_SEQ_SLIDE[] = "TRANSFORM_OT_seq_slide";
-static char OP_BEPUIK_TARGET_RIGIDITY_MODIFY[] = "TRANSFORM_OT_bepuik_target_rigidity_modify";
+static char OP_BEPUIK_CONTROL_RIGIDITY_MODIFY[] = "TRANSFORM_OT_bepuik_control_rigidity_modify";
 
 static void TRANSFORM_OT_translate(struct wmOperatorType *ot);
 static void TRANSFORM_OT_rotate(struct wmOperatorType *ot);
@@ -98,7 +98,7 @@ static void TRANSFORM_OT_vert_slide(struct wmOperatorType *ot);
 static void TRANSFORM_OT_edge_crease(struct wmOperatorType *ot);
 static void TRANSFORM_OT_edge_bevelweight(struct wmOperatorType *ot);
 static void TRANSFORM_OT_seq_slide(struct wmOperatorType *ot);
-static void TRANSFORM_OT_bepuik_target_rigidity_modify(struct wmOperatorType *ot);
+static void TRANSFORM_OT_bepuik_control_rigidity_modify(struct wmOperatorType *ot);
 
 
 static TransformModeItem transform_modes[] =
@@ -120,7 +120,7 @@ static TransformModeItem transform_modes[] =
 	{OP_EDGE_CREASE, TFM_CREASE, TRANSFORM_OT_edge_crease},
 	{OP_EDGE_BWEIGHT, TFM_BWEIGHT, TRANSFORM_OT_edge_bevelweight},
 	{OP_SEQ_SLIDE, TFM_SEQ_SLIDE, TRANSFORM_OT_seq_slide},
-	{OP_BEPUIK_TARGET_RIGIDITY_MODIFY,TFM_BEPUIK_TARGET_RIGIDITY_MODIFY, TRANSFORM_OT_bepuik_target_rigidity_modify},
+	{OP_BEPUIK_CONTROL_RIGIDITY_MODIFY,TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY, TRANSFORM_OT_bepuik_control_rigidity_modify},
 	{NULL, 0}
 };
 
@@ -155,7 +155,7 @@ EnumPropertyItem transform_mode_types[] =
 	{TFM_ALIGN, "ALIGN", 0, "Align", ""},
 	{TFM_EDGE_SLIDE, "EDGESLIDE", 0, "Edge Slide", ""},
 	{TFM_SEQ_SLIDE, "SEQSLIDE", 0, "Sequence Slide", ""},
-	{TFM_BEPUIK_TARGET_RIGIDITY_MODIFY, "BEPUIK_TARGET_RIGIDITY", 0, "Transform BEPUik Target Rigidity", ""},
+	{TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY, "BEPUIK_CONTROL_RIGIDITY_MODIFY", 0, "BEPUik_Control_Rigidity_Modify", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -879,12 +879,12 @@ static void TRANSFORM_OT_edge_crease(struct wmOperatorType *ot)
 	Transform_Properties(ot, P_SNAP);
 }
 
-static void TRANSFORM_OT_bepuik_target_rigidity_modify(struct wmOperatorType *ot)
+static void TRANSFORM_OT_bepuik_control_rigidity_modify(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name   = "Modify BEPUik Target Rigidity";
-	ot->description = "Change target rigidity of selected BEPUik bones";
-	ot->idname = OP_BEPUIK_TARGET_RIGIDITY_MODIFY;
+	ot->name   = "BEPUik Control Rigidity Modify";
+	ot->description = "Change the rigidity of selected BEPUik controls";
+	ot->idname = OP_BEPUIK_CONTROL_RIGIDITY_MODIFY;
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
 
 	/* api callbacks */
@@ -894,10 +894,10 @@ static void TRANSFORM_OT_bepuik_target_rigidity_modify(struct wmOperatorType *ot
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_posemode;
 
-	RNA_def_float(ot->srna,"value",0.0f,-FLT_MAX,FLT_MAX,"Rigidity","Target Rigidity",-FLT_MAX,FLT_MAX);
+	RNA_def_float(ot->srna,"value",0.0f,-FLT_MAX,FLT_MAX,"Rigidity","Control Rigidity",-FLT_MAX,FLT_MAX);
 	RNA_def_boolean(ot->srna,"set",0,"Set","Set the values instead of transforming them");
-	RNA_def_boolean(ot->srna,"only_top_target",0,"Only Top Target","Affect only the top most target constraint on each selected bepuik bone");
-	RNA_def_enum_flag(ot->srna, "rigidity_types", bepuik_target_rigidity_type_items, 0, "Set Rigidity Types", "Rigidity types to modify on the selected targets");
+	RNA_def_boolean(ot->srna,"only_top_target",0,"Only Top Control","Affect only the top most BEPUik Control on each selected bepuik bone");
+	RNA_def_enum_flag(ot->srna, "rigidity_types", bepuik_control_rigidity_type_items, 0, "Set Rigidity Types", "Rigidity types to modify on the selected controls");
 }
 
 static void TRANSFORM_OT_edge_bevelweight(struct wmOperatorType *ot)

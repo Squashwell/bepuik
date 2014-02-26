@@ -135,7 +135,7 @@ typedef enum eArmature_Flag {
 
 /* armature->flag */
 typedef enum eArmature_BEPUik_Flag {
-	ARM_BEPUIK_DRAWTARGETS = (1<<0),
+	ARM_BEPUIK_DRAWCONTROLS = (1<<0),
 	ARM_BEPUIK_DRAWPREPOSE = (1<<1)
 } eArmature_BEPUik_Flag;
 
