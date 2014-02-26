@@ -796,6 +796,8 @@ static int edbm_mark_seam_exec(bContext *C, wmOperator *op)
 
 void MESH_OT_mark_seam(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Mark Seam";
 	ot->idname = "MESH_OT_mark_seam";
@@ -808,7 +810,8 @@ void MESH_OT_mark_seam(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
-	RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	prop = RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 static int edbm_mark_sharp_exec(bContext *C, wmOperator *op)
@@ -850,6 +853,8 @@ static int edbm_mark_sharp_exec(bContext *C, wmOperator *op)
 
 void MESH_OT_mark_sharp(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Mark Sharp";
 	ot->idname = "MESH_OT_mark_sharp";
@@ -862,7 +867,8 @@ void MESH_OT_mark_sharp(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
-	RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	prop = RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 
@@ -1893,6 +1899,16 @@ static int edbm_remove_doubles_exec(bContext *C, wmOperator *op)
 	const bool use_unselected = RNA_boolean_get(op->ptr, "use_unselected");
 	const int totvert_orig = em->bm->totvert;
 	int count;
+	char htype_select;
+
+	/* avoid loosing selection state (select -> tags) */
+	if      (em->selectmode & SCE_SELECT_VERTEX) htype_select = BM_VERT;
+	else if (em->selectmode & SCE_SELECT_EDGE)   htype_select = BM_EDGE;
+	else                                         htype_select = BM_FACE;
+
+	/* store selection as tags */
+	BM_mesh_elem_hflag_enable_test(em->bm, htype_select, BM_ELEM_TAG, true, true, BM_ELEM_SELECT);
+
 
 	if (use_unselected) {
 		EDBM_op_init(em, &bmop, op,
@@ -1922,6 +1938,10 @@ static int edbm_remove_doubles_exec(bContext *C, wmOperator *op)
 	
 	count = totvert_orig - em->bm->totvert;
 	BKE_reportf(op->reports, RPT_INFO, "Removed %d vertices", count);
+
+	/* restore selection from tags */
+	BM_mesh_elem_hflag_enable_test(em->bm, htype_select, BM_ELEM_SELECT, true, true, BM_ELEM_TAG);
+	EDBM_selectmode_flush(em);
 
 	EDBM_update_generic(em, true, true);
 
@@ -2580,7 +2600,7 @@ static bool mesh_separate_selected(Main *bmain, Scene *scene, Base *base_old, BM
 	BM_mesh_elem_hflag_disable_all(bm_old, BM_FACE | BM_EDGE | BM_VERT, BM_ELEM_TAG, false);
 
 	/* sel -> tag */
-	BM_mesh_elem_hflag_enable_test(bm_old, BM_FACE | BM_EDGE | BM_VERT, BM_ELEM_TAG, true, BM_ELEM_SELECT);
+	BM_mesh_elem_hflag_enable_test(bm_old, BM_FACE | BM_EDGE | BM_VERT, BM_ELEM_TAG, true, false, BM_ELEM_SELECT);
 
 	return (mesh_separate_tagged(bmain, scene, base_old, bm_old) != NULL);
 }
@@ -3757,7 +3777,7 @@ static int edbm_delete_edgeloop_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	BM_mesh_elem_hflag_enable_test(em->bm, BM_FACE, BM_ELEM_SELECT, true, BM_ELEM_TAG);
+	BM_mesh_elem_hflag_enable_test(em->bm, BM_FACE, BM_ELEM_SELECT, true, false, BM_ELEM_TAG);
 
 	EDBM_update_generic(em, true, true);
 
@@ -5038,6 +5058,8 @@ static int edbm_mark_freestyle_edge_exec(bContext *C, wmOperator *op)
 
 void MESH_OT_mark_freestyle_edge(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Mark Freestyle Edge";
 	ot->description = "(Un)mark selected edges as Freestyle feature edges";
@@ -5050,7 +5072,8 @@ void MESH_OT_mark_freestyle_edge(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	prop = RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 static int edbm_mark_freestyle_face_exec(bContext *C, wmOperator *op)
@@ -5099,6 +5122,8 @@ static int edbm_mark_freestyle_face_exec(bContext *C, wmOperator *op)
 
 void MESH_OT_mark_freestyle_face(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Mark Freestyle Face";
 	ot->description = "(Un)mark selected faces for exclusion from Freestyle feature edge detection";
@@ -5111,7 +5136,8 @@ void MESH_OT_mark_freestyle_face(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	prop = RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 #endif

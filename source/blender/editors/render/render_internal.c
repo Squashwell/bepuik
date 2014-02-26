@@ -804,6 +804,9 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	if (WM_jobs_test(CTX_wm_manager(C), scene, WM_JOB_TYPE_RENDER))
 		return OPERATOR_CANCELLED;
 
+	if (RE_force_single_renderlayer(scene))
+		WM_event_add_notifier(C, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
 	if (!RE_is_rendering_allowed(scene, camera_override, op->reports)) {
 		return OPERATOR_CANCELLED;
 	}

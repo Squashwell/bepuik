@@ -505,7 +505,6 @@ static int check_mode_full_sample(RenderData *rd)
 void RE_InitState(Render *re, Render *source, RenderData *rd, SceneRenderLayer *srl, int winx, int winy, rcti *disprect)
 {
 	bool had_freestyle = (re->r.mode & R_EDGE_FRS) != 0;
-	int prev_actlay = re->r.actlay;
 
 	re->ok = TRUE;   /* maybe flag */
 	
@@ -589,7 +588,7 @@ void RE_InitState(Render *re, Render *source, RenderData *rd, SceneRenderLayer *
 	}
 	
 	if (srl) {
-		int index = BLI_findindex(&re->r.layers, srl);
+		int index = BLI_findindex(&rd->layers, srl);
 		if (index != -1) {
 			re->r.actlay = index;
 			re->r.scemode |= R_SINGLE_LAYER;
@@ -609,8 +608,16 @@ void RE_InitState(Render *re, Render *source, RenderData *rd, SceneRenderLayer *
 			re->result = NULL;
 		}
 		else if (re->result) {
+			SceneRenderLayer *actsrl = BLI_findlink(&re->r.layers, re->r.actlay);
+			RenderLayer *rl;
+			bool have_layer = false;
+
+			for (rl = re->result->layers.first; rl; rl = rl->next)
+				if (STREQ(rl->name, actsrl->name))
+					have_layer = true;
+
 			if (re->result->rectx == re->rectx && re->result->recty == re->recty &&
-			    prev_actlay == re->r.actlay)
+			    have_layer)
 			{
 				/* keep render result, this avoids flickering black tiles
 				 * when the preview changes */
@@ -2314,6 +2321,20 @@ static void do_render_all_options(Render *re)
 	}
 }
 
+bool RE_force_single_renderlayer(Scene *scene)
+{
+	int scemode = check_mode_full_sample(&scene->r);
+	if (scemode & R_SINGLE_LAYER) {
+		SceneRenderLayer *srl = BLI_findlink(&scene->r.layers, scene->r.actlay);
+		/* force layer to be enabled */
+		if (srl->layflag & SCE_LAY_DISABLE) {
+			srl->layflag &= ~SCE_LAY_DISABLE;
+			return true;
+		}
+	}
+	return false;
+}
+
 static bool check_valid_compositing_camera(Scene *scene, Object *camera_override)
 {
 	if (scene->r.scemode & R_DOCOMP && scene->use_nodes) {
@@ -2475,14 +2496,8 @@ bool RE_is_rendering_allowed(Scene *scene, Object *camera_override, ReportList *
 		}
 #endif
 	}
-
-	/* layer flag tests */
-	if (scemode & R_SINGLE_LAYER) {
-		srl = BLI_findlink(&scene->r.layers, scene->r.actlay);
-		/* force layer to be enabled */
-		srl->layflag &= ~SCE_LAY_DISABLE;
-	}
 	
+	/* layer flag tests */
 	for (srl = scene->r.layers.first; srl; srl = srl->next)
 		if (!(srl->layflag & SCE_LAY_DISABLE))
 			break;
