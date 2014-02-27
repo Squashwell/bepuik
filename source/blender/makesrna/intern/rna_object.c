@@ -2795,13 +2795,6 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_int_default(prop,BEPUIK_FIXER_ITERATIONS_DEFAULT);
 	RNA_def_property_update(prop,NC_OBJECT | ND_DRAW, "rna_Object_internal_update_data");
 	
-	prop = RNA_def_property(srna, "bepuik_velocity_subiterations", PROP_INT, PROP_UNSIGNED);
-	RNA_def_property_int_sdna(prop, NULL, "bepuik_velocity_subiterations");
-	RNA_def_property_ui_text(prop, "Velocity Subiterations", "Number of velocity subiterations");
-	RNA_def_property_range(prop,BEPUIK_VELOCITY_SUBITERATIONS_MIN,BEPUIK_VELOCITY_SUBITERATIONS_MAX);
-	RNA_def_property_int_default(prop,BEPUIK_VELOCITY_SUBITERATIONS_DEFAULT);
-	RNA_def_property_update(prop,NC_OBJECT | ND_DRAW, "rna_Object_internal_update_data");
-	
 	prop = RNA_def_property(srna, "bepuik_dynamic_peripheral_stiffness", PROP_FLOAT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(prop, "Dynamic Peripheral Stiffness", "Angular joint rigidity applied to each peripheral bone during dynamic mode");
 	RNA_def_property_range(prop,0,FLT_MAX);

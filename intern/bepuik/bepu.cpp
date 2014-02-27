@@ -884,7 +884,10 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 	iksolver->FixerIterationCount = ob->bepuik_fixer_iterations;
 	iksolver->AutoscaleControlMaximumLinearForce = MAXFLOAT;
 	iksolver->AutoscaleControlMaximumAngularForce = MAXFLOAT;
-	iksolver->VelocitySubiterationCount = ob->bepuik_velocity_subiterations;
+
+	int velocity_subiteration_count = ob->bepuik_solve_quality * 3;
+	CLAMP(velocity_subiteration_count,1,10);
+	iksolver->VelocitySubiterationCount = velocity_subiteration_count;
 	
 	vector <Control *> controls_to_solve = vector <Control *>();
 	

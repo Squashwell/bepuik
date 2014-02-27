@@ -324,12 +324,8 @@ class BEPUikSolverSettings():
         col = layout.column()
         col.prop(ob,"bepuik_solve_length")
         col.active = not ob.use_bepuik_dynamic
-        
-        col = layout.column()
-        col.prop(ob,'bepuik_solve_quality')
-        col.prop(ob,"bepuik_fixer_iterations")
-        col.prop(ob,"bepuik_velocity_subiterations")
-        
+        layout.prop(ob,'bepuik_solve_quality')
+
         layout.separator()
         
         box = layout.box()

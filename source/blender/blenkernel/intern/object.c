@@ -1019,7 +1019,6 @@ Object *BKE_object_add_only_object(Main *bmain, int type, const char *name)
 	ob->bepuik_solve_length = BEPUIK_SOLVE_LENGTH_DEFAULT;
 	ob->bepuik_solve_quality = BEPUIK_SOLVE_QUALITY_DEFAULT;
 	ob->bepuik_fixer_iterations = BEPUIK_FIXER_ITERATIONS_DEFAULT;
-	ob->bepuik_velocity_subiterations = BEPUIK_VELOCITY_SUBITERATIONS_DEFAULT;
 
 	ob->bepuik_dynamic_solve_length = BEPUIK_DYNAMIC_SOLVE_LENGTH_DEFAULT;
 	ob->bepuik_dynamic_position_rigidity = BEPUIK_DYNAMIC_POSITION_RIGIDITY_DEFAULT;

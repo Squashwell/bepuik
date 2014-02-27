@@ -258,14 +258,12 @@ typedef struct Object {
 	unsigned int bepuik_solve_length;
 	unsigned int bepuik_solve_quality;
 	unsigned int bepuik_fixer_iterations;
-	unsigned int bepuik_velocity_subiterations;
 	
 	unsigned int bepuik_dynamic_solve_length;
 	float bepuik_dynamic_peripheral_stiffness;
 	float bepuik_dynamic_position_rigidity;
 	float bepuik_dynamic_orientation_rigidity;
 	int bepuikflag;
-	char pad1[4];
 	
 	ListBase constraints;		/* object constraints */
 	ListBase nlastrips  DNA_DEPRECATED;			// XXX deprecated... old animation system
@@ -681,10 +679,6 @@ enum {
 #define OB_BEPUIK_INACTIVE_TARGETS_FOLLOW (1<<2)
 #define OB_BEPUIK_DYNAMIC (1<<3)
 
-#define BEPUIK_VELOCITY_SUBITERATIONS_MAX 200
-#define BEPUIK_VELOCITY_SUBITERATIONS_DEFAULT 10
-#define BEPUIK_VELOCITY_SUBITERATIONS_MIN 1
-
 #define BEPUIK_FIXER_ITERATIONS_MAX 500
 #define BEPUIK_FIXER_ITERATIONS_DEFAULT 0
 #define BEPUIK_FIXER_ITERATIONS_MIN 0
@@ -696,11 +690,11 @@ enum {
 
 #define BEPUIK_SOLVE_QUALITY_MIN 1
 #define BEPUIK_SOLVE_QUALITY_DEFAULT 1
-#define BEPUIK_SOLVE_QUALITY_MAX 10
+#define BEPUIK_SOLVE_QUALITY_MAX 20
 
 #define BEPUIK_SOLVE_LENGTH_MIN 1
 #define BEPUIK_SOLVE_LENGTH_DEFAULT 60
-#define BEPUIK_SOLVE_LENGTH_MAX 2000
+#define BEPUIK_SOLVE_LENGTH_MAX 5000
 
 /* ob->mode */
 typedef enum ObjectMode {
