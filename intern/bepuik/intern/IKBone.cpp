@@ -31,10 +31,9 @@
 #include "Matrix3x3.hpp"
 #include "IKBone.hpp"
 #include "bepu.h"
-
+#include <float.h>
 #ifdef DEBUG
 #include <cstdio>
-#include <cfloat>
 #include <assert.h>
 #endif
 
