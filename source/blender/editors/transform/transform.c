@@ -195,6 +195,9 @@ static void applyAlign(TransInfo *t, const int mval[2]);
 
 static void initSeqSlide(TransInfo *t);
 static void applySeqSlide(TransInfo *t, const int mval[2]);
+
+static void initBEPUikControlRigidityModify(TransInfo *t);
+static void applyBEPUikControlRigidityModify(TransInfo *t, const int mval[2]);
 /* end transform callbacks */
 
 
@@ -2218,7 +2221,7 @@ int initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *even
 			initSeqSlide(t);
 			break;
 		case TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY:
-			initBEPUikTargetRigidityModify(t);
+			initBEPUikControlRigidityModify(t);
 			break;
 	}
 
@@ -7798,10 +7801,10 @@ void bepu_transinfo_free(TransInfo * t)
 
 }
 
-void initBEPUikTargetRigidityModify(TransInfo *t)
+static void initBEPUikControlRigidityModify(TransInfo *t)
 {
 	t->mode = TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY;
-	t->transform = BEPUikTargetRigidityModify;
+	t->transform = applyBEPUikControlRigidityModify;
 
 	initMouseInputMode(t, &t->mouse, INPUT_HORIZONTAL_ABSOLUTE);
 
@@ -7818,7 +7821,7 @@ void initBEPUikTargetRigidityModify(TransInfo *t)
 	t->flag |= T_NO_CONSTRAINT | T_NO_PROJECT;
 }
 
-int BEPUikTargetRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
+static void applyBEPUikControlRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
 {
 	TransData *td = t->data;
 	float rigidity;
@@ -7900,8 +7903,6 @@ int BEPUikTargetRigidityModify(TransInfo *t, const int UNUSED(mval[2]))
 	recalcData(t);
 
 	ED_area_headerprint(t->sa, str);
-
-	return 1;
 }
 
 #undef MAX_INFO_LEN

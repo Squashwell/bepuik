@@ -542,8 +542,6 @@ void drawPropCircle(const struct bContext *C, TransInfo *t);
 
 struct wmKeyMap *transform_modal_keymap(struct wmKeyConfig *keyconf);
 
-void initBEPUikTargetRigidityModify(TransInfo *t);
-int BEPUikTargetRigidityModify(TransInfo *t, const int mval[2]);
 void bepu_restore_pchans(TransInfo *t);
 void bepu_store_pchans(TransInfo *t);
 void bepu_transinfo_free(TransInfo *t);
