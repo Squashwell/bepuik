@@ -1431,7 +1431,7 @@ static bool scene_need_update_objects(Main *bmain)
 #include "MOD_modifiertypes.h"
 static bool bepuik_is_valid_dynamic_poseob(Object * ob)
 {
-	return 	((ob->type == OB_ARMATURE) && (ob->pose) && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC));
+	return 	(ob && (ob->type == OB_ARMATURE) && (ob->pose) && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC));
 }
 
 static void bepuik_update_hack(Scene * scene)
@@ -1440,18 +1440,19 @@ static void bepuik_update_hack(Scene * scene)
 
 	for (base = scene->base.first; base; base = base->next) {
 		Object *object = base->object;
-
-		if(bepuik_is_valid_dynamic_poseob(object)) {
-			DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
-		}
-		else if(object->type == OB_MESH)
-		{
-			ModifierData * mod;
-			for (mod = object->modifiers.first; mod; mod = mod->next) {
-				if (mod->type == eModifierType_Armature) {
-					Object * object_armature = ((ArmatureModifierData *)mod)->object;
-					if(bepuik_is_valid_dynamic_poseob(object_armature))
-						DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
+		if(object) {
+			if(bepuik_is_valid_dynamic_poseob(object)) {
+				DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
+			}
+			else if(object->type == OB_MESH)
+			{
+				ModifierData * mod;
+				for (mod = object->modifiers.first; mod; mod = mod->next) {
+					if (mod->type == eModifierType_Armature) {
+						Object * object_armature = ((ArmatureModifierData *)mod)->object;
+						if(bepuik_is_valid_dynamic_poseob(object_armature))
+							DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
+					}
 				}
 			}
 		}
