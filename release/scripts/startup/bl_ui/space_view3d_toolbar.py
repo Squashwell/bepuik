@@ -787,6 +787,9 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
         op.set = True
         op.rigidity_types = {'HARD','POSITION','ORIENTATION'}
         
+        col = layout.column()
+        col.operator("pose.bepuik_visual_transform_apply")
+        
 
 from bl_ui.properties_object import BEPUikSolverSettings
 class VIEW3D_PT_bepuik_solver_settings(View3DPanel, Panel, BEPUikSolverSettings):        

@@ -236,12 +236,56 @@ void POSE_OT_visual_transform_apply(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Apply Visual Transform to Pose";
 	ot->idname = "POSE_OT_visual_transform_apply";
-	ot->description = "Apply final constrained position of pose bones to their transform";
+	ot->description = "Apply final constrained position, orientation, and scale of pose bones to their transform";
 	
 	/* callbacks */
 	ot->exec = pose_visual_transform_apply_exec;
 	ot->poll = ED_operator_posemode;
 	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* set the current pose as the restpose */
+static int pose_bepuik_visual_transform_apply_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C)); // must be active object, not edit-object
+	bPoseChannel * pchan;
+
+	/* don't check if editmode (should be done by caller) */
+	if (ob->type != OB_ARMATURE)
+		return OPERATOR_CANCELLED;
+
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next)
+	{
+		float delta_mat[4][4];
+		float size[3];
+		copy_v3_v3(size,pchan->size);
+		BKE_armature_mat_pose_to_bone(pchan, pchan->pose_mat, delta_mat);
+
+		BKE_pchan_apply_mat4(pchan, delta_mat, TRUE);
+		copy_v3_v3(pchan->size,size);
+	}
+
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+
+	/* note, notifier might evolve */
+	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
+
+	return OPERATOR_FINISHED;
+}
+
+void POSE_OT_bepuik_visual_transform_apply(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Apply BEPUik Visual Transform to Pose";
+	ot->idname = "POSE_OT_bepuik_visual_transform_apply";
+	ot->description = "Apply final constrained position and orientation (no scale) of all pose bones to their transform ";
+
+	/* callbacks */
+	ot->exec = pose_bepuik_visual_transform_apply_exec;
+	ot->poll = ED_operator_posemode;
+
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }

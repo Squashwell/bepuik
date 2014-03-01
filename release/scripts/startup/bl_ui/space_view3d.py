@@ -1929,6 +1929,7 @@ class VIEW3D_MT_pose_apply(Menu):
 
         layout.operator("pose.armature_apply")
         layout.operator("pose.visual_transform_apply")
+        layout.operator("pose.bepuik_visual_transform_apply")
 
 
 class VIEW3D_MT_pose_specials(Menu):

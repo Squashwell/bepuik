@@ -166,6 +166,7 @@ void ED_operatortypes_armature(void)
 	
 	/* BEPUik */
 	WM_operatortype_append(POSE_OT_bepuik_set_bone);
+	WM_operatortype_append(POSE_OT_bepuik_visual_transform_apply);
 }
 
 void ED_operatormacros_armature(void)
