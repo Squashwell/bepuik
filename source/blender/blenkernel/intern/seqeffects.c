@@ -1350,8 +1350,8 @@ static float check_zone(WipeZone *wipezone, int x, int y, Sequence *seq, float f
 				b3 = yo - posy * 0.5f;
 				b2 = y;
 
-				hyp = abs(y - posy * 0.5f);
-				hyp2 = abs(y - (yo - posy * 0.5f));
+				hyp = fabsf(y - posy * 0.5f);
+				hyp2 = fabsf(y - (yo - posy * 0.5f));
 			}
 			else {
 				b1 = posy * 0.5f - (-angle) * posx * 0.5f;
@@ -1501,8 +1501,8 @@ static float check_zone(WipeZone *wipezone, int x, int y, Sequence *seq, float f
 			pointdist = sqrt(temp1 * temp1 + temp1 * temp1);
 
 			temp2 = sqrt((halfx - x) * (halfx - x) + (halfy - y) * (halfy - y));
-			if (temp2 > pointdist) output = in_band(hwidth, fabs(temp2 - pointdist), 0, 1);
-			else output = in_band(hwidth, fabs(temp2 - pointdist), 1, 1);
+			if (temp2 > pointdist) output = in_band(hwidth, fabsf(temp2 - pointdist), 0, 1);
+			else output = in_band(hwidth, fabsf(temp2 - pointdist), 1, 1);
 
 			if (!wipe->forward) output = 1 - output;
 			

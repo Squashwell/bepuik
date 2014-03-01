@@ -950,6 +950,9 @@ static void view3d_camera_border(Scene *scene, ARegion *ar, View3D *v3d, RegionV
 
 	/* get camera viewplane */
 	BKE_camera_params_init(&params);
+	/* fallback for non camera objects */
+	params.clipsta = v3d->near;
+	params.clipend = v3d->far;
 	BKE_camera_params_from_object(&params, v3d->camera);
 	if (no_shift) {
 		params.shiftx = 0.0f;
@@ -1217,7 +1220,7 @@ static void drawviewborder(Scene *scene, ARegion *ar, View3D *v3d)
 			vmargin = 0.035f * (y2 - y1);
 			uiDrawBox(GL_LINE_LOOP, x1 + hmargin, y1 + vmargin, x2 - hmargin, y2 - vmargin, 2.0f);
 		}
-		if (ca && (ca->flag & CAM_SHOWSENSOR)) {
+		if (ca->flag & CAM_SHOWSENSOR) {
 			/* determine sensor fit, and get sensor x/y, for auto fit we
 			 * assume and square sensor and only use sensor_x */
 			float sizex = scene->r.xsch * scene->r.xasp;
@@ -2746,6 +2749,9 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(Scene *scene, View3D *v3d, ARegion *ar, in
 		CameraParams params;
 
 		BKE_camera_params_init(&params);
+		/* fallback for non camera objects */
+		params.clipsta = v3d->near;
+		params.clipend = v3d->far;
 		BKE_camera_params_from_object(&params, v3d->camera);
 		BKE_camera_params_compute_viewplane(&params, sizex, sizey, scene->r.xasp, scene->r.yasp);
 		BKE_camera_params_compute_matrix(&params);

@@ -826,7 +826,7 @@ void calchandles_fcurve(FCurve *fcu)
 		if (bezt->vec[2][0] < bezt->vec[1][0]) bezt->vec[2][0] = bezt->vec[1][0];
 		
 		/* calculate auto-handles */
-		BKE_nurb_handle_calc(bezt, prev, next, 1);  /* (1 == special) autohandle */
+		BKE_nurb_handle_calc(bezt, prev, next, true);
 		
 		/* for automatic ease in and out */
 		if (ELEM(bezt->h1, HD_AUTO, HD_AUTO_ANIM) && ELEM(bezt->h2, HD_AUTO, HD_AUTO_ANIM)) {
@@ -2115,7 +2115,7 @@ static float fcurve_eval_samples(FCurve *fcu, FPoint *fpts, float evaltime)
 		cvalue = lastfpt->vec[1];
 	}
 	else {
-		float t = (float)abs(evaltime - (int)evaltime);
+		float t = fabsf(evaltime - floorf(evaltime));
 		
 		/* find the one on the right frame (assume that these are spaced on 1-frame intervals) */
 		fpt = prevfpt + (int)(evaltime - prevfpt->vec[0]);

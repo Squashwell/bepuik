@@ -2533,6 +2533,8 @@ static void view3d_from_minmax(bContext *C, View3D *v3d, ARegion *ar,
 			if (rv3d->persp == RV3D_CAMOB && ED_view3d_camera_lock_check(v3d, rv3d)) {
 				CameraParams params;
 				BKE_camera_params_init(&params);
+				params.clipsta = v3d->near;
+				params.clipend = v3d->far;
 				BKE_camera_params_from_object(&params, v3d->camera);
 
 				lens = params.lens;
@@ -3001,7 +3003,7 @@ static int view3d_center_camera_exec(bContext *C, wmOperator *UNUSED(op)) /* was
 	rv3d->camzoom = BKE_screen_view3d_zoom_from_fac(min_ff(xfac, yfac));
 	CLAMP(rv3d->camzoom, RV3D_CAMZOOM_MIN, RV3D_CAMZOOM_MAX);
 
-	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, CTX_wm_view3d(C));
+	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 
 	return OPERATOR_FINISHED;
 }
