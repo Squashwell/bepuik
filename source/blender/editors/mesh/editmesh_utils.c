@@ -132,16 +132,7 @@ void EDBM_mesh_clear(BMEditMesh *em)
 	BM_mesh_clear(em->bm);
 	
 	/* free derived meshes */
-	if (em->derivedCage) {
-		em->derivedCage->needsFree = 1;
-		em->derivedCage->release(em->derivedCage);
-	}
-	if (em->derivedFinal && em->derivedFinal != em->derivedCage) {
-		em->derivedFinal->needsFree = 1;
-		em->derivedFinal->release(em->derivedFinal);
-	}
-	
-	em->derivedCage = em->derivedFinal = NULL;
+	BKE_editmesh_free_derivedmesh(em);
 	
 	/* free tessellation data */
 	em->tottri = 0;
@@ -1333,6 +1324,9 @@ void EDBM_update_generic(BMEditMesh *em, const bool do_tessface, const bool is_d
 		/* in debug mode double check we didn't need to recalculate */
 		BLI_assert(BM_mesh_elem_table_check(em->bm) == true);
 	}
+
+	/* don't keep stale derivedMesh data around, see: [#38872] */
+	BKE_editmesh_free_derivedmesh(em);
 }
 
 /* poll call for mesh operators requiring a view3d context */

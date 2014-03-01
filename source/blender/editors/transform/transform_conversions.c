@@ -1425,27 +1425,6 @@ static void createTransPose(TransInfo *t, Object *ob)
 
 /* ********************* armature ************** */
 
-static void createTransArmatureVerts_init_roll_fix(TransData *td, EditBone *ebo)
-{
-	/* To fix roll, see comments in transform_generic.c::recalcData_objects() */
-	const float z_axis[3] = {0.0f, 0.0f, 1.0f};
-	float vec[3];
-
-	sub_v3_v3v3(vec, ebo->tail, ebo->head);
-	normalize_v3(vec);
-
-	td->extra = ebo;
-
-	if (fabsf(dot_v3v3(vec, z_axis)) > 0.999999f) {
-		/* If nearly aligned with Z axis, do not alter roll. See T38843. */
-		ebo->temp_f = ebo->roll;
-	}
-	else {
-		ebo->temp_f = ebo->roll - ED_rollBoneToVector(ebo, z_axis, false);
-	}
-	td->ival = ebo->roll;
-}
-
 static void createTransArmatureVerts(TransInfo *t)
 {
 	EditBone *ebo;
@@ -1581,7 +1560,8 @@ static void createTransArmatureVerts(TransInfo *t)
 					ED_armature_ebone_to_mat3(ebo, td->axismtx);
 
 					if ((ebo->flag & BONE_ROOTSEL) == 0) {
-						createTransArmatureVerts_init_roll_fix(td, ebo);
+						td->extra = ebo;
+						td->ival = ebo->roll;
 					}
 
 					td->ext = NULL;
@@ -1603,7 +1583,8 @@ static void createTransArmatureVerts(TransInfo *t)
 
 					ED_armature_ebone_to_mat3(ebo, td->axismtx);
 
-					createTransArmatureVerts_init_roll_fix(td, ebo);
+					td->extra = ebo; /* to fix roll */
+					td->ival = ebo->roll;
 
 					td->ext = NULL;
 					td->val = NULL;
@@ -2635,7 +2616,7 @@ static void createTransEditVerts(TransInfo *t)
 		{
 			mappedcos = crazyspace_get_mapped_editverts(t->scene, t->obedit);
 			quats = MEM_mallocN(em->bm->totvert * sizeof(*quats), "crazy quats");
-			crazyspace_set_quats_editmesh(em, defcos, mappedcos, quats);
+			crazyspace_set_quats_editmesh(em, defcos, mappedcos, quats, !propmode);
 			if (mappedcos)
 				MEM_freeN(mappedcos);
 		}
@@ -5159,7 +5140,8 @@ static bool constraints_list_needinv(TransInfo *t, ListBase *list)
 }
 
 /* transcribe given object into TransData for Transforming */
-static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
+static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob,
+                              const Object *ob_act)
 {
 	Scene *scene = t->scene;
 	bool constinv;
@@ -5285,7 +5267,7 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 	}
 
 	/* set active flag */
-	if (ob == OBACT) {
+	if (ob == ob_act) {
 		td->flag |= TD_ACTIVE;
 	}
 }
@@ -6316,6 +6298,9 @@ int special_transform_moving(TransInfo *t)
 
 static void createTransObject(bContext *C, TransInfo *t)
 {
+	Scene *scene = t->scene;
+	const Object *ob_act = OBACT;
+
 	TransData *td = NULL;
 	TransDataExtension *tx;
 	int propmode = t->flag & T_PROP_EDIT;
@@ -6357,7 +6342,7 @@ static void createTransObject(bContext *C, TransInfo *t)
 			td->flag |= TD_SKIP;
 		}
 		
-		ObjectToTransData(t, td, ob);
+		ObjectToTransData(t, td, ob, ob_act);
 		td->val = NULL;
 		td++;
 		tx++;
@@ -6365,7 +6350,6 @@ static void createTransObject(bContext *C, TransInfo *t)
 	CTX_DATA_END;
 	
 	if (propmode) {
-		Scene *scene = t->scene;
 		View3D *v3d = t->view;
 		Base *base;
 
@@ -6380,7 +6364,7 @@ static void createTransObject(bContext *C, TransInfo *t)
 				td->ext = tx;
 				td->ext->rotOrder = ob->rotmode;
 				
-				ObjectToTransData(t, td, ob);
+				ObjectToTransData(t, td, ob, ob_act);
 				td->val = NULL;
 				td++;
 				tx++;
@@ -7461,11 +7445,15 @@ void createTransData(bContext *C, TransInfo *t)
 			sort_trans_data_dist(t);
 		}
 
+		/* Check if we're transforming the camera from the camera */
 		if ((t->spacetype == SPACE_VIEW3D) && (t->ar->regiontype == RGN_TYPE_WINDOW)) {
 			View3D *v3d = t->view;
-			RegionView3D *rv3d = CTX_wm_region_view3d(C);
-			if (rv3d && (t->flag & T_OBJECT) && v3d->camera == OBACT && rv3d->persp == RV3D_CAMOB) {
-				t->flag |= T_CAMERA;
+			RegionView3D *rv3d = t->ar->regiondata;
+			if ((rv3d->persp == RV3D_CAMOB) && v3d->camera) {
+				/* we could have a flag to easily check an object is being transformed */
+				if (v3d->camera->recalc) {
+					t->flag |= T_CAMERA;
+				}
 			}
 		}
 	}
