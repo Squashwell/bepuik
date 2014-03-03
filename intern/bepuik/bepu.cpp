@@ -321,6 +321,12 @@ bepuv3_v3(v3_##IDENTIFIER,bv3_##IDENTIFIER); \
 
 #define PCHAN_BEPUIK_BONE_LENGTH(pchan) (((BEPUikTempSolvingData *)((pchan)->bepuik))->ikbone->GetLength())
 
+static float get_bone_length_normalized_orientation_rigidity(IKBone * ikbone, float orientation_rigidity)
+{
+	float length = ikbone->GetLength();
+	return length * length * .1f * orientation_rigidity;
+}
+
 static void ikjoints_enable_by_partition(vector <IKJoint *> &joints)
 {
 	BOOST_FOREACH(IKJoint * ikjoint, joints)
@@ -374,7 +380,7 @@ static StateControl * new_statecontrol(IKBone * ikbone, float local_offset_bepui
 	bepuv3_v3(statecontrol->GetLinearMotor()->TargetPosition,target_position);
 	bepuqt_qt(statecontrol->GetAngularMotor()->TargetOrientation,target_orientation);
 	
-	statecontrol->GetAngularMotor()->SetRigidity(orientation_rigidity);
+	statecontrol->GetAngularMotor()->SetRigidity(get_bone_length_normalized_orientation_rigidity(ikbone,orientation_rigidity));
 	statecontrol->GetLinearMotor()->SetRigidity(position_rigidity);	
 	
 	return statecontrol;
@@ -855,7 +861,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 				StateControl * statecontrol = new StateControl();
 				statecontrol->SetTargetBone(ikbone);
 				statecontrol->GetLinearMotor()->SetRigidity(ob->bepuik_dynamic_position_rigidity);
-				statecontrol->GetAngularMotor()->SetRigidity(ob->bepuik_dynamic_orientation_rigidity);
+				statecontrol->GetAngularMotor()->SetRigidity(get_bone_length_normalized_orientation_rigidity(ikbone,ob->bepuik_dynamic_orientation_rigidity));
 				
 				ikbone->SetInertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
 				
@@ -942,7 +948,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 				}
 								
 				IKAngularJoint * ikangularjoint = new IKAngularJoint(parent,child,dynamic_stiffness_orientation);
-				ikangularjoint->SetRigidity(ob->bepuik_dynamic_peripheral_stiffness);
+				ikangularjoint->SetRigidity(get_bone_length_normalized_orientation_rigidity(child,ob->bepuik_dynamic_peripheral_stiffness));
 				joints.push_back(ikangularjoint);
 			}
 		}
