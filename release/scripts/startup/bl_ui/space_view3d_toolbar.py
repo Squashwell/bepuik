@@ -729,13 +729,14 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
     
     @classmethod
     def poll(cls,context):
-        if context.object.type == 'ARMATURE':
-            ob = context.object
-        else:
-            ob = context.object.find_armature()
-        
-        if ob and ob.mode == 'POSE':
-            return True
+        if context.object:
+            if context.object.type == 'ARMATURE':
+                ob = context.object
+            else:
+                ob = context.object.find_armature()
+            
+            if ob and ob.mode == 'POSE':
+                return True
         
         return False
     

@@ -312,7 +312,7 @@ class OBJECT_PT_relations_extras(ObjectButtonsPanel, Panel):
 class BEPUikSolverSettings():
     @classmethod
     def poll(cls,context):
-        return context.object.type == 'ARMATURE' or context.object.find_armature()
+        return context.object and (context.object.type == 'ARMATURE' or context.object.find_armature())
     
     def draw(self, context):
         if context.object.type == 'ARMATURE':
