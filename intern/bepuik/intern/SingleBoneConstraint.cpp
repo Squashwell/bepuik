@@ -38,7 +38,8 @@ bool alreadydid = false;
 namespace BEPUik
 {
 	SingleBoneConstraint::SingleBoneConstraint():
-		accumulatedImpulse(Vector3(0,0,0))
+		accumulatedImpulse(Vector3(0,0,0)),
+		TargetBone(NULL)
 	{
 	}
 
