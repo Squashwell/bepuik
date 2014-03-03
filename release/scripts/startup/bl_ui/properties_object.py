@@ -310,9 +310,17 @@ class OBJECT_PT_relations_extras(ObjectButtonsPanel, Panel):
 
 
 class BEPUikSolverSettings():
+    @classmethod
+    def poll(cls,context):
+        return context.object.type == 'ARMATURE' or context.object.find_armature()
+    
     def draw(self, context):
+        if context.object.type == 'ARMATURE':
+            ob = context.object
+        else:
+            ob = context.object.find_armature()
+        
         layout = self.layout
-        ob = context.object
 
         layout.active = ob.type == 'ARMATURE'
         
@@ -323,8 +331,7 @@ class BEPUikSolverSettings():
         
         col = layout.column()
         col.prop(ob,"bepuik_solve_length")
-        col.active = not ob.use_bepuik_dynamic
-        layout.prop(ob,'bepuik_solve_quality')
+        col.prop(ob,'bepuik_solve_quality')
 
         layout.separator()
         

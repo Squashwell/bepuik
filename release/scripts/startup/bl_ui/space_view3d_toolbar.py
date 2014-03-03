@@ -725,10 +725,21 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
 
 class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
     bl_category = "BEPUik"
-    bl_context = "posemode"
     bl_label = "BEPUik Tools"
     
-    def draw(self,context):
+    @classmethod
+    def poll(cls,context):
+        if context.object.type == 'ARMATURE':
+            ob = context.object
+        else:
+            ob = context.object.find_armature()
+        
+        if ob and ob.mode == 'POSE':
+            return True
+        
+        return False
+    
+    def draw(self,context):        
         layout = self.layout
         
         col = self.layout.column(align=True)
@@ -794,7 +805,6 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
 from bl_ui.properties_object import BEPUikSolverSettings
 class VIEW3D_PT_bepuik_solver_settings(View3DPanel, Panel, BEPUikSolverSettings):        
     bl_category = "BEPUik"
-    bl_context = "posemode"
     bl_label = "BEPUik Solver Settings"          
             
 
