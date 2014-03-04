@@ -324,7 +324,7 @@ bepuv3_v3(v3_##IDENTIFIER,bv3_##IDENTIFIER); \
 static float get_bone_length_normalized_orientation_rigidity(IKBone * ikbone, float orientation_rigidity)
 {
 	float length = ikbone->GetLength();
-	return length * length * .1f * orientation_rigidity;
+	return length * length * orientation_rigidity;
 }
 
 static void ikjoints_enable_by_partition(vector <IKJoint *> &joints)
