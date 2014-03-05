@@ -1111,12 +1111,6 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop,PROP_EDITABLE);
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 	
-	prop = RNA_def_property(srna, "use_bepuik_always_solve",PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BONE_BEPUIK_ALWAYS_SOLVE);
-	RNA_def_property_ui_text(prop, "Always Solve", "Always solve this bone during hierarchy-aware solving");
-	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
-	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
-	
     prop = RNA_def_property(srna,"bepuik_ball_socket_rigidity",PROP_FLOAT,PROP_NONE);
     RNA_def_property_ui_text(prop,"Ball Socket Rigidity","The rigidity of the ball socket joint");
     RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_DEFAULT);

@@ -247,10 +247,8 @@ class BONE_PT_bepuik(BoneButtonsPanel, Panel):
         layout.prop(pchan,"use_bepuik",text="Enable")
         col = layout.column()
         col.active = pchan.use_bepuik
-        col.prop(pchan,"use_bepuik_always_solve")
         col.prop(pchan,'bepuik_ball_socket_rigidity',text="Ball Socket Rigidity")
         col.prop(pchan,'bepuik_rotational_heaviness')
-        
         
 #        debugcol = layout.column()
 #        debugcol.prop(pchan,"bepuik_will_be_solved")

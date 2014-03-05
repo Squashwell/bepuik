@@ -908,12 +908,6 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		
 	}
 	
-	for(bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
-	{
-		if(pchan->bepuikflag & BONE_BEPUIK_ALWAYS_SOLVE)
-			flag_child_to_root_for_solve(pchan);
-	}
-	
 	if((ob->bepuik_dynamic_peripheral_stiffness >= FLT_EPSILON) && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC))
 	{
 		Quaternion dynamic_stiffness_orientation;
