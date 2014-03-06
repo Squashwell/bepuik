@@ -291,8 +291,14 @@ kmi = km.keymap_items.new('transform.bepuik_control_rigidity_modify','D','PRESS'
 kmi.properties.rigidity_types = {'POSITION'}
 kmi.properties.only_top_target = True
 
-kmi = km.keymap_items.new('transform.bepuik_control_rigidity_modify','D','PRESS',ctrl=True)
+kmi = km.keymap_items.new('transform.bepuik_control_rigidity_modify','D','PRESS',shift=True,alt=True)
 kmi.properties.rigidity_types = {'ORIENTATION'}
+kmi.properties.only_top_target = True
+
+kmi = km.keymap_items.new('transform.bepuik_control_rigidity_modify','D','PRESS',shift=True,ctrl=True)
+kmi.properties.rigidity_types = {'POSITION','ORIENTATION'}
+kmi.properties.set = True
+kmi.properties.value = 1
 kmi.properties.only_top_target = True
 
 kmi = km.keymap_items.new('transform.bepuik_control_rigidity_modify','D','PRESS',shift=True,alt=True,ctrl=True)
