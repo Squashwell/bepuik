@@ -1113,8 +1113,8 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	
     prop = RNA_def_property(srna,"bepuik_ball_socket_rigidity",PROP_FLOAT,PROP_NONE);
     RNA_def_property_ui_text(prop,"Ball Socket Rigidity","The rigidity of the ball socket joint");
-    RNA_def_property_float_default(prop,BEPUIK_RIGIDITY_DEFAULT);
-    RNA_def_property_range(prop,BEPUIK_RIGIDITY_MIN,BEPUIK_RIGIDITY_MAX);
+    RNA_def_property_float_default(prop,BEPUIK_CONSTRAINT_RIGIDITY_DEFAULT);
+    RNA_def_property_range(prop,0,FLT_MAX);
 	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
     

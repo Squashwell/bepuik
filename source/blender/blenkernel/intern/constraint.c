@@ -4479,7 +4479,7 @@ BEPUIK_CTI(twist_limit,TWIST_LIMIT,bBEPUikTwistLimit,BEPUik Twist Limit,func_twi
 static void func_target_new_data(void * cdata)
 {
 	bBEPUikControl *data = (bBEPUikControl *)cdata;
-	data->orientation_rigidity = BEPUIK_RIGIDITY_TARGET_DEFAULT;
+	data->orientation_rigidity = BEPUIK_CONTROL_ORIENTATION_RIGIDITY_DEFAULT;
 	unit_m4(data->mat);
 	zero_v3(data->pulled_start_pose_space);
 	zero_v3(data->pulled_destination_pose_space);
@@ -4704,7 +4704,7 @@ static bConstraint *add_new_constraint_internal(const char *name, short type)
 	con->enforce = 1.0f;
 	
 
-	con->bepuik_rigidity = BEPUIK_RIGIDITY_DEFAULT;
+	con->bepuik_rigidity = BEPUIK_CONSTRAINT_RIGIDITY_DEFAULT;
 
 
 	/* Determine a basic name, and info */
