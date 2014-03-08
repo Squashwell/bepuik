@@ -469,12 +469,12 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			
 
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
-			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
+			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
 
 			
 			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 			{
-				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
+				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL;
 				
 				copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
 				copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
@@ -522,11 +522,11 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
 			
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
-			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
+			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
 			
 			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 			{
-				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
+				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL;
 				
 				copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
 				copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
@@ -568,11 +568,11 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 		setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
 		
 		//if an absolute target was previously created for this bone, then we dont need to create any other targets
-		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL) return;
+		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
 		
 		if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 		{
-			pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL;
+			pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL;
 			
 			copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
 			copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
@@ -963,7 +963,7 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		BEPUikTempSolvingData * pchan_bepuik = BEPUIK_DATA(pchan);
 		if(ikbone)
 		{
-			if(pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL)
+			if(pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL)
 			{
 				pchan_bepuik_position_to_internal_bepuik_position(ikbone->Position,pchan_bepuik->hard_controlled_position,pchan_bepuik->hard_controlled_orientation,ikbone->GetLength());
 				bepuqt_qt(ikbone->Orientation,pchan_bepuik->hard_controlled_orientation);

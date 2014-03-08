@@ -141,7 +141,7 @@ namespace BEPUik
 		{
 			Control * control = controls[i];
 			IKBone* targetBone = control->GetTargetBone();
-			if(targetBone->pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_ABSOLUTE_CONTROL)
+			if(targetBone->pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL)
 				targetBone->SetMass(100000);
 //			targetBone->SetMass(control->GetRigidityMassMultiplier() * targetBone->GetMass());
 			bonesToVisit.push(targetBone);
