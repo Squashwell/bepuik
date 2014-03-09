@@ -386,22 +386,25 @@ static StateControl * new_statecontrol(IKBone * ikbone, float local_offset_bepui
 	return statecontrol;
 }
 
-static void setup_bepuik_control_mats(bConstraint * con, float pose_destination_mat[4][4], float pose_destination_position[3], float pose_destination_orientation[4], float bone_local_offset[3], float controlled_pose_size[3])
+static void setup_bepuik_control_drawinfo(bConstraint * con, bPoseChannel * pchan_controlled, float destination_mat[4][4], float string_start[3], float string_end[3], float offset_start[3], float offset_end[3])
 {
 	bBEPUikControl * bepuik_control = (bBEPUikControl *)con->data;
-	copy_m4_m4(bepuik_control->destination_mat,pose_destination_mat);
-	
+	BEPUikTempSolvingData * pchan_controlled_bepuik = (BEPUikTempSolvingData *)pchan_controlled->bepuik;
+
+	copy_m4_m4(bepuik_control->destination_mat,destination_mat);
+
 	//figure out the size for the bepuik target visualization mat
 	float size_mat[4][4];
-	size_to_mat4(size_mat,controlled_pose_size);
+	size_to_mat4(size_mat,pchan_controlled_bepuik->rest_pose_size);
 	mul_m4_m4m4(bepuik_control->destination_mat,bepuik_control->destination_mat,size_mat);
-	
-	copy_v3_v3(bepuik_control->pulled_start_pose_space,bone_local_offset);
-	copy_v3_v3(bepuik_control->pulled_destination_pose_space,bone_local_offset);
-	mul_qt_v3(pose_destination_orientation,bepuik_control->pulled_destination_pose_space);
-	add_v3_v3(bepuik_control->pulled_destination_pose_space,pose_destination_position);
-	
+
+	copy_v3_v3(bepuik_control->string_start,string_start);
+	copy_v3_v3(bepuik_control->string_end,string_end);
+
 	con->flag |= CONSTRAINT_BEPUIK_DRAWABLE;
+
+	copy_v3_v3(bepuik_control->offset_start,offset_start);
+	copy_v3_v3(bepuik_control->offset_end,offset_end);
 }
 
 static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone * ikbone, vector <Control *> &controls)
@@ -411,9 +414,9 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 	bPoseChannel * pchan_controlled = ikbone->pchan;
 	BEPUikTempSolvingData * pchan_controlled_bepuik = (BEPUikTempSolvingData *)pchan_controlled->bepuik;
 		
-	float local_offset[3];
-	float local_offset_bepuik_internal[3];
-	get_scale_applied_bone_local_offsets(local_offset,local_offset_bepuik_internal,pchan_controlled->bone->length,BEPUIK_DATA(pchan_controlled)->rest_pose_size,bepuik_control->pulled_point);
+	float scale_applied_local_offset[3];
+	float scale_applied_local_offset_bepuik_internal[3];
+	get_scale_applied_bone_local_offsets(scale_applied_local_offset,scale_applied_local_offset_bepuik_internal,pchan_controlled->bone->length,BEPUIK_DATA(pchan_controlled)->rest_pose_size,bepuik_control->pulled_point);
 	
 	float effective_orientation_rigidity = bepuik_control->orientation_rigidity;
 	float effective_position_rigidity = constraint->bepuik_rigidity;
@@ -456,17 +459,23 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			float target_to_control_bepuik_rest[4][4];
 			mul_m4_m4m4(target_to_control_bepuik_rest,target_inverse_no_scale_bepuik_rest,controlled_no_scale_bepuik_rest_mat);
 			
-			float absolute_destination_mat[4][4];
+			float bone_destination_mat[4][4];//bone destination mat is the mat of the bone assuming it reaches its ideal destination
 			float normalized_target_pose_mat[4][4];
 			normalize_m4_m4(normalized_target_pose_mat,pchan_target->pose_mat);
-			mul_m4_m4m4(absolute_destination_mat,normalized_target_pose_mat,target_to_control_bepuik_rest);
+			mul_m4_m4m4(bone_destination_mat,normalized_target_pose_mat,target_to_control_bepuik_rest);
 			
-			float destination_position[3];
-			float destination_orientation[4];
-			mat4_to_loc_quat(destination_position,destination_orientation,absolute_destination_mat);
+			float scale_applied_local_offset_mat[4][4];
+			unit_m4(scale_applied_local_offset_mat);
+			copy_v3_v3(scale_applied_local_offset_mat[3],scale_applied_local_offset);
 
-			setup_bepuik_control_mats(constraint,absolute_destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
+			float motor_target_mat[4][4]; //motor target mat is the mat that gives statecontrols their goal target
+			mul_m4_m4m4(motor_target_mat,bone_destination_mat,scale_applied_local_offset_mat);
+
+			float motor_target_position[3];
+			float motor_target_orientation[4];
+			mat4_to_loc_quat(motor_target_position,motor_target_orientation,motor_target_mat);
 			
+			setup_bepuik_control_drawinfo(constraint,pchan_controlled,bone_destination_mat,scale_applied_local_offset,motor_target_position,pchan_target->pose_mat[3],motor_target_position);
 
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
 			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
@@ -476,10 +485,10 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			{
 				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL;
 				
-				copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
-				copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
+				copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,bone_destination_mat[3]);
+				mat4_to_quat(pchan_controlled_bepuik->hard_controlled_orientation,bone_destination_mat);
 				
-				effective_orientation_rigidity += 10.0f;
+				effective_orientation_rigidity += 1000.0f;
 				effective_position_rigidity += 1000.0f;
 			}
 			
@@ -490,64 +499,15 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			
 			if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
 			{
-				if(pchan_target)
-					pchan_target->bepuikflag |= BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET;
+				pchan_target->bepuikflag |= BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET;
 				
-				StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_control->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
+				StateControl * statecontrol = new_statecontrol(ikbone,scale_applied_local_offset_bepuik_internal,motor_target_position,motor_target_orientation,effective_position_rigidity,effective_orientation_rigidity);
 				
 				controls.push_back(statecontrol);
 			}
 
 		}
-		else //targeting a bone in a different armature
-		{
-			float destination_mat[4][4];
-			float destination_position[3];
-			float destination_orientation[4];
-	//		BKE_armature_mat_world_to_pose(ob,bepuik_control->connection_target->obmat,destination_mat); this function is exactly opposite of what it says it does???
-			
 
-			mul_m4_m4m4(destination_mat, bepuik_control->connection_target->obmat, pchan_target->pose_mat);
-			
-			float imat[4][4];
-			invert_m4_m4(imat, ob->obmat);
-			
-			mul_m4_m4m4(destination_mat,imat,destination_mat);
-			
-			
-			normalize_m4(destination_mat);
-	
-			mat4_to_loc_quat(destination_position,destination_orientation,destination_mat);
-	
-			setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
-			
-			//if an absolute target was previously created for this bone, then we dont need to create any other targets
-			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
-			
-			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
-			{
-				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL;
-				
-				copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
-				copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
-				
-				effective_orientation_rigidity += 10.0f;
-				effective_position_rigidity += 1000.0f;
-			}
-			
-			if(effective_orientation_rigidity >= FLT_EPSILON)
-			{
-				ikbone->SetInertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN);
-			}
-			
-			if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
-			{
-				
-				StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_control->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
-				
-				controls.push_back(statecontrol);
-			}
-		}
 	}
 	else //targeting a different object completely, use objects worldspace to drive the target
 	{
@@ -565,8 +525,8 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 
 		mat4_to_loc_quat(destination_position,destination_orientation,destination_mat);
 
-		setup_bepuik_control_mats(constraint,destination_mat,destination_position,destination_orientation,local_offset,BEPUIK_DATA(pchan_controlled)->rest_pose_size);
-		
+		setup_bepuik_control_drawinfo(constraint,pchan_controlled,destination_mat,scale_applied_local_offset,destination_position,destination_position,destination_position);
+
 		//if an absolute target was previously created for this bone, then we dont need to create any other targets
 		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
 		
@@ -577,7 +537,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			copy_v3_v3(pchan_controlled_bepuik->hard_controlled_position,destination_position);
 			copy_qt_qt(pchan_controlled_bepuik->hard_controlled_orientation,destination_orientation);
 			
-			effective_orientation_rigidity += 10.0f;
+			effective_orientation_rigidity += 1000.0f;
 			effective_position_rigidity += 1000.0f;
 		}
 		
@@ -589,7 +549,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 		if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
 		{
 			
-			StateControl * statecontrol = new_statecontrol(ikbone,local_offset_bepuik_internal,bepuik_control->pulled_destination_pose_space,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
+			StateControl * statecontrol = new_statecontrol(ikbone,scale_applied_local_offset_bepuik_internal,destination_position,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
 			
 			controls.push_back(statecontrol);
 		}
@@ -1065,20 +1025,16 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		{
 			if(constraint->type == CONSTRAINT_TYPE_BEPUIK_CONTROL)
 			{
-				
 				bBEPUikControl * bepuik_control = (bBEPUikControl *)constraint->data;
-				bPoseChannel * pchan_target = BKE_pose_channel_find_name(ob->pose,bepuik_control->connection_subtarget);
-				
-				if(pchan_target)
-				{
-					float quat[4];
-					mat4_to_quat(quat,pchan->pose_mat);
-					
-					//by now, pchan_pulled_point is the scale applied local offset
-					mul_qt_v3(quat,bepuik_control->pulled_start_pose_space);
-					add_v3_v3(bepuik_control->pulled_start_pose_space,pchan->pose_mat[3]);
-					
-				}
+
+
+				float quat[4];
+				mat4_to_quat(quat,pchan->pose_mat);
+
+				//In the main constraint creation loop, string start was set to the scale applied local offset.
+				//Now, we update the graphical effect of the "pulling string" to attach to the post-solve bone position.
+				mul_qt_v3(quat,bepuik_control->string_start);
+				add_v3_v3(bepuik_control->string_start,pchan->pose_mat[3]);
 			}
 		}
 	

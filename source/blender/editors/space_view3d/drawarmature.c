@@ -537,60 +537,47 @@ static void draw_bepuik_control(bConstraint * constraint, Bone * bone, float * r
 	
 	if((bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD) || constraint->bepuik_rigidity >= FLT_EPSILON)
 	{
-		float scale = bone->length;
-		float size[3] = {scale,scale,scale};
-		float mat[4][4];
-		size_to_mat4(mat,size);
-		copy_v3_v3(mat[3],bepuik_control->pulled_start_pose_space);
-		
-		/*draw the offset line*/
+		/*draw the armature offset line*/
 		glLineWidth(3.0);
 		glColor3fv(bepuik_rigidity_outline_color);
-		glPushMatrix();
 		
 		glBegin(GL_LINES);
-		glVertex3fv(bepuik_control->pulled_destination_pose_space);
-		glVertex3fv(bepuik_control->destination_mat[3]);
+		glVertex3fv(bepuik_control->offset_start);
+		glVertex3fv(bepuik_control->offset_end);
 		glEnd();
 		
 		glLineWidth(1.0);
 		glColor3fv(rigidity_color);
 		glBegin(GL_LINES);
-		glVertex3fv(bepuik_control->pulled_destination_pose_space);
-		glVertex3fv(bepuik_control->destination_mat[3]);
+		glVertex3fv(bepuik_control->offset_start);
+		glVertex3fv(bepuik_control->offset_end);
 		glEnd();
-		
+
 		glPopMatrix();
 		
 		/* draw the pulling "string" */
 		glEnable(GL_LINE_STIPPLE);
 		glLineWidth(1.0);
 		glColor3fv(rigidity_color);
-		glPushMatrix();
 		
 		glBegin(GL_LINES);
-		glVertex3fv(bepuik_control->pulled_destination_pose_space);
-		glVertex3fv(bepuik_control->pulled_start_pose_space);
+		glVertex3fv(bepuik_control->string_start);
+		glVertex3fv(bepuik_control->string_end);
 		glEnd();
 		
 		glDisable(GL_LINE_STIPPLE);
-		glPopMatrix();
-		
-		glPushMatrix();
-		glMultMatrixf(mat);
-		
 
 		glPointSize(8.0f);
 		glColor3fv(bepuik_rigidity_outline_color);
 		/*draw rigidity bone vert */
 		glBegin(GL_POINTS);
-		glVertex3f(0.0f, 0.0f, 0.0f);
+		glVertex3fv(bepuik_control->string_start);
 		glEnd();
 		
 		glPointSize(6.0f);
 		glColor3fv(rigidity_color);
 		glBegin(GL_POINTS);
-		glVertex3f(0.0f, 0.0f, 0.0f);
+		glVertex3fv(bepuik_control->string_start);
 		glEnd();
 		
 		glPopMatrix();

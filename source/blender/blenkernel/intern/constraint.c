@@ -4481,8 +4481,10 @@ static void func_target_new_data(void * cdata)
 	bBEPUikControl *data = (bBEPUikControl *)cdata;
 	data->orientation_rigidity = BEPUIK_CONTROL_ORIENTATION_RIGIDITY_DEFAULT;
 	unit_m4(data->destination_mat);
-	zero_v3(data->pulled_start_pose_space);
-	zero_v3(data->pulled_destination_pose_space);
+	zero_v3(data->string_start);
+	zero_v3(data->string_end);
+	zero_v3(data->offset_start);
+	zero_v3(data->offset_end);
 	zero_v3(data->pulled_point);
 }
 

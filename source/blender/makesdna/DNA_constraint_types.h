@@ -652,8 +652,10 @@ typedef struct bBEPUikControl {
 	int bepuikflag;
 	float destination_mat[4][4];
 	float pulled_point[3];
-	float pulled_start_pose_space[3];
-	float pulled_destination_pose_space[3];
+	float string_start[3];
+	float string_end[3];
+	float offset_start[3];
+	float offset_end[3];
 	int pad;
 }bBEPUikControl;
 
