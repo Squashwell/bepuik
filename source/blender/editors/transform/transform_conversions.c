@@ -786,14 +786,17 @@ static bPoseChannel * get_best_bepuik_target(int transform_mode, bPoseChannel * 
 			if(!bepuik_control->connection_target->pose) continue;
 			pchan_target = BKE_pose_channel_find_name(bepuik_control->connection_target->pose,bepuik_control->connection_subtarget);
 			if(!pchan_target) continue;
-			
-			//always prefer the first found absolute target
+
+			//always prefer the first found hard target
 			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD) return pchan_target;
-			
+
 			if(transform_mode == TFM_TRANSLATION)
 			{
 				if(tbepuikflags & T_BEPUIK_DRAG)
 				{
+					/* While bepuik dragging, require orientation rigidity to find a good target.
+					 * For example, the user might want to drag the tail of a bone when another
+					 * position-only control affects the head */
 					if(bepuik_control->orientation_rigidity >= FLT_EPSILON)
 						return pchan_target;
 				}
