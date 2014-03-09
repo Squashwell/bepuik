@@ -518,7 +518,7 @@ static void draw_bepuik_control(bConstraint * constraint, Bone * bone, float * r
 	{
 		/*draw flag lines */
 		glPushMatrix();
-		glMultMatrixf(bepuik_control->mat);
+		glMultMatrixf(bepuik_control->destination_mat);
 		glScalef(bone->length, bone->length, bone->length);
 		
 		glColor3fv(rigidity_color);
@@ -550,14 +550,14 @@ static void draw_bepuik_control(bConstraint * constraint, Bone * bone, float * r
 		
 		glBegin(GL_LINES);
 		glVertex3fv(bepuik_control->pulled_destination_pose_space);
-		glVertex3fv(bepuik_control->mat[3]);
+		glVertex3fv(bepuik_control->destination_mat[3]);
 		glEnd();
 		
 		glLineWidth(1.0);
 		glColor3fv(rigidity_color);
 		glBegin(GL_LINES);
 		glVertex3fv(bepuik_control->pulled_destination_pose_space);
-		glVertex3fv(bepuik_control->mat[3]);
+		glVertex3fv(bepuik_control->destination_mat[3]);
 		glEnd();
 		
 		glPopMatrix();

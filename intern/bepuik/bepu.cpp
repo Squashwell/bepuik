@@ -389,12 +389,12 @@ static StateControl * new_statecontrol(IKBone * ikbone, float local_offset_bepui
 static void setup_bepuik_control_mats(bConstraint * con, float pose_destination_mat[4][4], float pose_destination_position[3], float pose_destination_orientation[4], float bone_local_offset[3], float controlled_pose_size[3])
 {
 	bBEPUikControl * bepuik_control = (bBEPUikControl *)con->data;
-	copy_m4_m4(bepuik_control->mat,pose_destination_mat);
+	copy_m4_m4(bepuik_control->destination_mat,pose_destination_mat);
 	
 	//figure out the size for the bepuik target visualization mat
 	float size_mat[4][4];
 	size_to_mat4(size_mat,controlled_pose_size);
-	mul_m4_m4m4(bepuik_control->mat,bepuik_control->mat,size_mat);
+	mul_m4_m4m4(bepuik_control->destination_mat,bepuik_control->destination_mat,size_mat);
 	
 	copy_v3_v3(bepuik_control->pulled_start_pose_space,bone_local_offset);
 	copy_v3_v3(bepuik_control->pulled_destination_pose_space,bone_local_offset);

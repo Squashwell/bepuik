@@ -650,7 +650,7 @@ typedef struct bBEPUikControl {
 	
 	float orientation_rigidity;
 	int bepuikflag;
-	float mat[4][4];
+	float destination_mat[4][4];
 	float pulled_point[3];
 	float pulled_start_pose_space[3];
 	float pulled_destination_pose_space[3];
