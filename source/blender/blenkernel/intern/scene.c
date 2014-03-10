@@ -1434,28 +1434,39 @@ static bool bepuik_is_valid_dynamic_poseob(Object * ob)
 	return 	(ob && (ob->type == OB_ARMATURE) && (ob->pose) && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC));
 }
 
-static void bepuik_update_hack(Scene * scene)
+static bool is_deformed_by_dynamic_bepuik_armature(Object * ob)
 {
-	Base *base;
-
-	for (base = scene->base.first; base; base = base->next) {
-		Object *object = base->object;
-		if(object) {
-			if(bepuik_is_valid_dynamic_poseob(object)) {
-				DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
-			}
-			else if(object->type == OB_MESH)
-			{
-				ModifierData * mod;
-				for (mod = object->modifiers.first; mod; mod = mod->next) {
-					if (mod->type == eModifierType_Armature) {
-						Object * object_armature = ((ArmatureModifierData *)mod)->object;
-						if(bepuik_is_valid_dynamic_poseob(object_armature))
-							DAG_id_tag_update(&object->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
-					}
-				}
+	ModifierData * mod;
+	for (mod = ob->modifiers.first; mod; mod = mod->next) {
+		if (mod->type == eModifierType_Armature) {
+			Object * ob_armature = ((ArmatureModifierData *)mod)->object;
+			if(bepuik_is_valid_dynamic_poseob(ob_armature)|| bepuik_is_valid_dynamic_poseob(ob_armature->proxy_from)) {
+				return true;
 			}
 		}
+	}
+
+	return false;
+}
+
+static void bepuik_tag(Object * ob)
+{
+	if(ob) DAG_id_tag_update(&ob->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
+}
+
+static void bepuik_update_hack(Main * bmain)
+{
+	Object * ob;
+
+	for (ob = bmain->object.first; ob; ob = ob->id.next) {
+		if(bepuik_is_valid_dynamic_poseob(ob))
+		{
+			bepuik_tag(ob);
+			bepuik_tag(ob->proxy);
+		}
+		else if(ob->type == OB_MESH)
+			if(is_deformed_by_dynamic_bepuik_armature(ob))
+				bepuik_tag(ob);
 	}
 }
 
@@ -1468,7 +1479,7 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 
 	/* TODO:BEPUIK XXX disgusting hack ensures that BEPUik will be solved continuously during "Dynamic" mode
 	 * during modal operators. What's a better way to do this?*/
-	bepuik_update_hack(scene);
+	bepuik_update_hack(bmain);
 
 	/* Early check for whether we need to invoke all the task-based
 	 * tihngs (spawn new ppol, traverse dependency graph and so on).
