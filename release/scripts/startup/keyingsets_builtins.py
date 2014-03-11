@@ -380,10 +380,10 @@ class BUILTIN_KSI_WholeCharacter(KeyingSetInfo):
     def generate(ksi, context, ks, bone):
         if bone.use_bepuik:
             for con in bone.constraints:
-                if con.type == 'BEPUIK_TARGET':
+                if con.type == 'BEPUIK_CONTROL':
                     ksi.addProp(ks,con,'bepuik_rigidity')
                     ksi.addProp(ks,con,'orientation_rigidity')
-                    ksi.addProp(ks,con,'use_bepuik_absolute_target')
+                    ksi.addProp(ks,con,'use_hard_rigidity')
         
         # loc, rot, scale - only include unlocked ones
         ksi.doLoc(ks, bone)
