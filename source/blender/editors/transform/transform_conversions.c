@@ -933,9 +933,11 @@ static void bepu_transpose_data_setup(TransInfo *t)
 			}
 		}
 		
-		if(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW)
-			pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+
 	}
+
+	if(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW)
+		pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
 }
 
 static int count_set_bepuik_target_constraints(Object * ob, int bepuikflags)
