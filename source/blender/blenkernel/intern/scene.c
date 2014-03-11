@@ -1440,8 +1440,10 @@ static bool is_deformed_by_dynamic_bepuik_armature(Object * ob)
 	for (mod = ob->modifiers.first; mod; mod = mod->next) {
 		if (mod->type == eModifierType_Armature) {
 			Object * ob_armature = ((ArmatureModifierData *)mod)->object;
-			if(bepuik_is_valid_dynamic_poseob(ob_armature)|| bepuik_is_valid_dynamic_poseob(ob_armature->proxy_from)) {
-				return true;
+			if(ob_armature) {
+				if(bepuik_is_valid_dynamic_poseob(ob_armature)|| bepuik_is_valid_dynamic_poseob(ob_armature->proxy_from)) {
+					return true;
+				}
 			}
 		}
 	}
