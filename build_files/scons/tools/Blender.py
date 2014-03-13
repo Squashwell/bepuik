@@ -595,17 +595,13 @@ def my_winpybundle_print(target, source, env):
 
 def WinPyBundle(target=None, source=None, env=None):
     import re
-    py_tar= env.subst( env['LCGDIR'] )
-    if py_tar[0]=='#':
-        py_tar= py_tar[1:]
+    py_tar = env.subst(env['LCGDIR']).lstrip("#")
     if env['BF_DEBUG']:
         py_tar+= '/release/python' + env['BF_PYTHON_VERSION'].replace('.','') + '_d.tar.gz'
     else:
         py_tar+= '/release/python' + env['BF_PYTHON_VERSION'].replace('.','') + '.tar.gz'
 
-    py_target = env.subst( env['BF_INSTALLDIR'] )
-    if py_target[0]=='#':
-        py_target=py_target[1:]
+    py_target = env.subst(env['BF_INSTALLDIR']).lstrip("#")
     py_target = os.path.join(py_target, VERSION, 'python', 'lib')
     def printexception(func,path,ex):
         if os.path.exists(path): #do not report if path does not exist. eg on a fresh build.
@@ -625,6 +621,33 @@ def WinPyBundle(target=None, source=None, env=None):
 
     print "Unpacking '" + py_tar + "' to '" + py_target + "'"
     untar_pybundle(py_tar,py_target,exclude_re)
+
+    # -------------
+    # Extract Numpy
+    py_tar = env.subst(env['LCGDIR']).lstrip("#")
+    py_tar += '/release/python' + env['BF_PYTHON_VERSION'].replace('.','') + '_numpy_1.8.tar.gz'
+
+    py_target = env.subst(env['BF_INSTALLDIR']).lstrip("#")
+    py_target = os.path.join(py_target, VERSION, 'python', 'lib', 'site-packages')
+    # rmtree handled above
+    # files are cleaned up in their archive
+    exclude_re = []
+    print("Unpacking '" + py_tar + "' to '" + py_target + "'")
+    untar_pybundle(py_tar, py_target, exclude_re)
+
+    # --------------------
+    # Copy 'site-packages'
+    py_dir = env.subst(env['LCGDIR']).lstrip("#")
+    py_dir += '/release/site-packages'
+    # grr, we have to do one by one because the dir exists
+    for f in os.listdir(py_dir):
+        fn_src = os.path.join(py_dir, f)
+        fn_dst = os.path.join(py_target, f)
+
+        shutil.rmtree(fn_dst, False, printexception)
+        shutil.copytree(fn_src, fn_dst)
+
+
 
 def  my_appit_print(target, source, env):
     a = '%s' % (target[0])
@@ -727,6 +750,8 @@ def AppIt(target=None, source=None, env=None):
         cmd = 'mkdir %s/%s.app/Contents/MacOS/%s/python/'%(installdir,binary, VERSION)
         commands.getoutput(cmd)
         cmd = 'unzip -q %s/release/%s -d %s/%s.app/Contents/MacOS/%s/python/'%(libdir,python_zip,installdir,binary,VERSION)
+        commands.getoutput(cmd)
+        cmd = 'cp -R %s/release/site-packages/ %s/%s.app/Contents/MacOS/%s/python/lib/python%s/site-packages/'%(libdir,installdir,binary,VERSION,env['BF_PYTHON_VERSION'])
         commands.getoutput(cmd)
 
     cmd = 'chmod +x  %s/%s.app/Contents/MacOS/%s'%(installdir,binary, binary)
@@ -843,6 +868,17 @@ def UnixPyBundle(target=None, source=None, env=None):
             run("find '%s' -type d -name '*.a' -prune -exec rm -rf {} ';'" % numpy_target)
         else:
             print 'Failed to find numpy at %s, skipping copying' % numpy_src
+        del numpy_src, numpy_target
+
+    if env['WITH_BF_PYTHON_INSTALL_REQUESTS']:
+        requests_src = py_src + "/site-packages/requests"
+        requests_target = py_target + "/site-packages/requests"
+        if os.path.exists(requests_src):
+            run("cp -R '%s' '%s'" % (requests_src, os.path.dirname(requests_target)))
+            run("find '%s' -type d -name '*.pem -prune -exec rm -rf {} ';'" % requests_target)
+        else:
+            print('Failed to find requests at %s, skipping copying' % requests_src)
+        del requests_src, requests_target
 
     run("find '%s' -type d -name 'test' -prune -exec rm -rf {} ';'" % py_target)
     run("find '%s' -type d -name '__pycache__' -exec rm -rf {} ';'" % py_target)

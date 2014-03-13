@@ -522,7 +522,19 @@ if(UNIX AND NOT APPLE)
 					PATTERN "*.a" EXCLUDE                   # ./core/lib/libnpymath.a - for linking, we dont need.
 				)
 			endif()
-			
+
+			# Copy requests, we need to generalize site-packages
+			if(WITH_PYTHON_INSTALL_REQUESTS)
+				install(
+					DIRECTORY ${PYTHON_LIBPATH}/python${PYTHON_VERSION}/site-packages/requests
+					DESTINATION ${TARGETDIR_VER}/python/${_target_LIB}/python${PYTHON_VERSION}/site-packages
+					PATTERN ".svn" EXCLUDE
+					PATTERN "__pycache__" EXCLUDE           # * any cache *
+					PATTERN "*.pyc" EXCLUDE                 # * any cache *
+					PATTERN "*.pyo" EXCLUDE                 # * any cache *
+					PATTERN "cacert.pem" EXCLUDE            # for now we don't deal with security
+				)
+			endif()
 			unset(_target_LIB)
 			
 		endif()
@@ -575,6 +587,27 @@ elseif(WIN32)
 				endif()
 				"
 			)
+
+			if(WITH_PYTHON_INSTALL_NUMPY)
+				install(
+					CODE
+					"
+					execute_process(COMMAND \"${CMAKE_COMMAND}\" -E chdir \"${TARGETDIR_VER}/python/lib/site-packages\"
+						\"${CMAKE_COMMAND}\" -E tar xzfv \"${LIBDIR}/release/python${_PYTHON_VERSION_NO_DOTS}_numpy_1.8.tar.gz\")
+					"
+				)
+			endif()
+
+			# release/site-packages
+			install(
+				CODE
+				"
+				execute_process(COMMAND \"${CMAKE_COMMAND}\" -E copy_directory
+					${LIBDIR}/release/site-packages
+					\"${TARGETDIR_VER}/python/lib/site-packages\")
+				"
+			)
+
 
 			# doesnt work, todo
 			# install(CODE "execute_process(COMMAND find ${TARGETDIR}/${BLENDER_VERSION}/python/lib/ -name '*.so' -exec strip -s {} '\;')")
@@ -805,6 +838,11 @@ elseif(APPLE)
 		install_dir(
 			${CMAKE_CURRENT_BINARY_DIR}/python
 			\${TARGETDIR_VER}
+		)
+		# copy site-packages files
+		install_dir(
+			${LIBDIR}/release/site-packages
+			${CMAKE_CURRENT_BINARY_DIR}/python/lib/python${PYTHON_VERSION}/site-packages
 		)
 
 	endif()

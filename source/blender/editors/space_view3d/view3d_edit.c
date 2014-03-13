@@ -550,12 +550,14 @@ static void viewops_data_create_ex(bContext *C, wmOperator *op, const wmEvent *e
 	vod->origx = vod->oldx = event->x;
 	vod->origy = vod->oldy = event->y;
 	vod->origkey = event->type; /* the key that triggered the operator.  */
-	vod->use_dyn_ofs = use_orbit_select;
+	vod->use_dyn_ofs = false;
 	copy_v3_v3(vod->ofs, rv3d->ofs);
 
-	if (vod->use_dyn_ofs) {
+	if (use_orbit_select) {
 		Scene *scene = CTX_data_scene(C);
 		Object *ob = OBACT;
+
+		vod->use_dyn_ofs = true;
 
 		if (ob && (ob->mode & OB_MODE_ALL_PAINT) && (BKE_object_pose_armature_get(ob) == NULL)) {
 			/* in case of sculpting use last average stroke position as a rotation
@@ -798,6 +800,24 @@ void viewrotate_modal_keymap(wmKeyConfig *keyconf)
 
 }
 
+static void viewrotate_apply_dyn_ofs(ViewOpsData *vod, const float viewquat[4])
+{
+	RegionView3D *rv3d = vod->rv3d;
+
+	if (vod->use_dyn_ofs) {
+		float q1[4];
+		conjugate_qt_qt(q1, vod->oldquat);
+		mul_qt_qtqt(q1, q1, viewquat);
+
+		conjugate_qt(q1); /* conj == inv for unit quat */
+
+		copy_v3_v3(rv3d->ofs, vod->ofs);
+		sub_v3_v3(rv3d->ofs, vod->dyn_ofs);
+		mul_qt_v3(q1, rv3d->ofs);
+		add_v3_v3(rv3d->ofs, vod->dyn_ofs);
+	}
+}
+
 static void viewrotate_apply(ViewOpsData *vod, int x, int y)
 {
 	RegionView3D *rv3d = vod->rv3d;
@@ -832,21 +852,11 @@ static void viewrotate_apply(ViewOpsData *vod, int x, int y)
 		mul_v3_fl(q1 + 1, sin(phi));
 		mul_qt_qtqt(vod->viewquat, q1, vod->oldquat);
 
-		if (vod->use_dyn_ofs) {
-			/* compute the post multiplication quat, to rotate the offset correctly */
-			conjugate_qt_qt(q1, vod->oldquat);
-			mul_qt_qtqt(q1, q1, vod->viewquat);
-
-			conjugate_qt(q1); /* conj == inv for unit quat */
-			copy_v3_v3(rv3d->ofs, vod->ofs);
-			sub_v3_v3(rv3d->ofs, vod->dyn_ofs);
-			mul_qt_v3(q1, rv3d->ofs);
-			add_v3_v3(rv3d->ofs, vod->dyn_ofs);
-		}
+		viewrotate_apply_dyn_ofs(vod, vod->viewquat);
 	}
 	else {
 		/* New turntable view code by John Aughey */
-		float q1[4];
+		float quat_local_x[4], quat_global_z[4];
 		float m[3][3];
 		float m_inv[3][3];
 		const float zvec_global[3] = {0.0f, 0.0f, 1.0f};
@@ -886,29 +896,25 @@ static void viewrotate_apply(ViewOpsData *vod, int x, int y)
 		/* This can likely be computed directly from the quaternion. */
 
 		/* Perform the up/down rotation */
-		axis_angle_to_quat(q1, xaxis, sensitivity * -(y - vod->oldy));
-		mul_qt_qtqt(vod->viewquat, vod->viewquat, q1);
-
-		if (vod->use_dyn_ofs) {
-			conjugate_qt(q1); /* conj == inv for unit quat */
-			sub_v3_v3(rv3d->ofs, vod->dyn_ofs);
-			mul_qt_v3(q1, rv3d->ofs);
-			add_v3_v3(rv3d->ofs, vod->dyn_ofs);
-		}
+		axis_angle_to_quat(quat_local_x, xaxis, sensitivity * -(y - vod->oldy));
+		mul_qt_qtqt(quat_local_x, vod->viewquat, quat_local_x);
 
 		/* Perform the orbital rotation */
-		axis_angle_normalized_to_quat(q1, zvec_global, sensitivity * vod->reverse * (x - vod->oldx));
-		mul_qt_qtqt(vod->viewquat, vod->viewquat, q1);
+		axis_angle_normalized_to_quat(quat_global_z, zvec_global, sensitivity * vod->reverse * (x - vod->oldx));
+		mul_qt_qtqt(vod->viewquat, quat_local_x, quat_global_z);
 
-		if (vod->use_dyn_ofs) {
-			conjugate_qt(q1);
-			sub_v3_v3(rv3d->ofs, vod->dyn_ofs);
-			mul_qt_v3(q1, rv3d->ofs);
-			add_v3_v3(rv3d->ofs, vod->dyn_ofs);
-		}
+		viewrotate_apply_dyn_ofs(vod, vod->viewquat);
 	}
 
-	/* check for view snap */
+	/* avoid precision loss over time */
+	normalize_qt(vod->viewquat);
+
+	/* use a working copy so view rotation locking doesnt overwrite the locked
+	 * rotation back into the view we calculate with */
+	copy_qt_qt(rv3d->viewquat, vod->viewquat);
+
+	/* check for view snap,
+	 * note: don't apply snap to vod->viewquat so the view wont jam up */
 	if (vod->axis_snap) {
 		int i;
 		float viewquat_inv[4];
@@ -968,8 +974,10 @@ static void viewrotate_apply(ViewOpsData *vod, int x, int y)
 					}
 				}
 
-				copy_qt_qt(vod->viewquat, quat_best);
+				copy_qt_qt(rv3d->viewquat, quat_best);
 				rv3d->view = view; /* if we snap to a rolled camera the grid is invalid */
+
+				viewrotate_apply_dyn_ofs(vod, rv3d->viewquat);
 
 				break;
 			}
@@ -977,13 +985,6 @@ static void viewrotate_apply(ViewOpsData *vod, int x, int y)
 	}
 	vod->oldx = x;
 	vod->oldy = y;
-
-	/* avoid precision loss over time */
-	normalize_qt(vod->viewquat);
-
-	/* use a working copy so view rotation locking doesnt overwrite the locked
-	 * rotation back into the view we calculate with */
-	copy_qt_qt(rv3d->viewquat, vod->viewquat);
 
 	ED_view3d_camera_lock_sync(vod->v3d, rv3d);
 
@@ -1168,17 +1169,45 @@ void VIEW3D_OT_rotate(wmOperatorType *ot)
 #define NDOF_HAS_TRANSLATE ((!ED_view3d_offset_lock_check(v3d, rv3d)) && !is_zero_v3(ndof->tvec))
 #define NDOF_HAS_ROTATE    (((rv3d->viewlock & RV3D_LOCKED) == 0) && !is_zero_v3(ndof->rvec))
 
-static float view3d_ndof_pan_speed_calc(RegionView3D *rv3d)
+/**
+ * \param depth_pt: A point to calculate the depth (in perspective mode)
+ */
+static float view3d_ndof_pan_speed_calc_ex(RegionView3D *rv3d, const float depth_pt[3])
 {
 	float speed = rv3d->pixsize * NDOF_PIXELS_PER_SECOND;
 
 	if (rv3d->is_persp) {
-		float tvec[3];
-		negate_v3_v3(tvec, rv3d->ofs);
-		speed *= ED_view3d_calc_zfac(rv3d, tvec, NULL);
+		speed *= ED_view3d_calc_zfac(rv3d, depth_pt, NULL);
 	}
 
 	return speed;
+}
+
+static float view3d_ndof_pan_speed_calc_from_dist(RegionView3D *rv3d, const float dist)
+{
+	float viewinv[4];
+	float tvec[3];
+
+	BLI_assert(dist >= 0.0f);
+
+	copy_v3_fl3(tvec, 0.0f, 0.0f, dist);
+	/* rv3d->viewinv isn't always valid */
+#if 0
+	mul_mat3_m4_v3(rv3d->viewinv, tvec);
+#else
+	invert_qt_qt(viewinv, rv3d->viewquat);
+	mul_qt_v3(viewinv, tvec);
+#endif
+
+	return view3d_ndof_pan_speed_calc_ex(rv3d, tvec);
+}
+
+static float view3d_ndof_pan_speed_calc(RegionView3D *rv3d)
+{
+	float tvec[3];
+	negate_v3_v3(tvec, rv3d->ofs);
+
+	return view3d_ndof_pan_speed_calc_ex(rv3d, tvec);
 }
 
 /**
@@ -1318,19 +1347,8 @@ static void view3d_ndof_orbit(const struct wmNDOFMotionData *ndof, ScrArea *sa, 
 		mul_qt_qtqt(rv3d->viewquat, rv3d->viewquat, quat);
 	}
 
-	/* rotate around custom center */
-	if (vod && vod->use_dyn_ofs) {
-		float q1[4];
-
-		/* compute the post multiplication quat, to rotate the offset correctly */
-		conjugate_qt_qt(q1, vod->oldquat);
-		mul_qt_qtqt(q1, q1, rv3d->viewquat);
-
-		conjugate_qt(q1); /* conj == inv for unit quat */
-		copy_v3_v3(rv3d->ofs, vod->ofs);
-		sub_v3_v3(rv3d->ofs, vod->dyn_ofs);
-		mul_qt_v3(q1, rv3d->ofs);
-		add_v3_v3(rv3d->ofs, vod->dyn_ofs);
+	if (vod) {
+		viewrotate_apply_dyn_ofs(vod, rv3d->viewquat);
 	}
 }
 
@@ -1352,7 +1370,9 @@ void view3d_ndof_fly(
 	rv3d->rot_angle = 0.0f;  /* disable onscreen rotation doo-dad */
 
 	if (has_translate) {
-		float speed = view3d_ndof_pan_speed_calc(rv3d);
+		/* ignore real 'dist' since fly has its own speed settings,
+		 * also its overwritten at this point. */
+		float speed = view3d_ndof_pan_speed_calc_from_dist(rv3d, 1.0f);
 		float trans[3], trans_orig_y;
 
 		if (use_precision)
