@@ -725,7 +725,7 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
 
 class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
     bl_category = "BEPUik"
-    bl_label = "BEPUik Tools"
+    bl_label = "BEPUik"
     
     @classmethod
     def poll(cls,context):
