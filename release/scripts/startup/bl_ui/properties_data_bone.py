@@ -238,22 +238,19 @@ class BONE_PT_bepuik(BoneButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         ob = context.object
-        return ob and ob.mode == 'POSE' and context.bone
+        return ob and ob.mode == 'POSE' and context.active_pose_bone
+
+    def draw_header(self, context):
+        self.layout.prop(context.active_pose_bone, "use_bepuik", text="")
 
     def draw(self, context):
         layout = self.layout
         pchan = context.active_pose_bone
         
-        layout.prop(pchan,"use_bepuik",text="Enable")
         col = layout.column()
         col.active = pchan.use_bepuik
         col.prop(pchan,'bepuik_ball_socket_rigidity',text="Ball Socket Rigidity")
         col.prop(pchan,'bepuik_rotational_heaviness')
-        
-#        debugcol = layout.column()
-#        debugcol.prop(pchan,"bepuik_will_be_solved")
-#        debugcol.prop(pchan,"is_bepuik_target")
-        
 
 class BONE_PT_inverse_kinematics(BoneButtonsPanel, Panel):
     bl_label = "Inverse Kinematics"

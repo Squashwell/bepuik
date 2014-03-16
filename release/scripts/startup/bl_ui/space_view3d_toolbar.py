@@ -743,7 +743,7 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
     def draw(self,context):        
         layout = self.layout
         
-        layout.label("Selected bones BEPUik state:")
+        layout.label("BEPUik Selected Bones:")
         col = layout.row(align=True)
         op = col.operator("wm.context_collection_boolean_set", text="Enable")
         op.data_path_iter="selected_pose_bones"
