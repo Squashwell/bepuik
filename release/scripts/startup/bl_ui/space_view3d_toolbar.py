@@ -743,22 +743,22 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
     def draw(self,context):        
         layout = self.layout
         
-        col = self.layout.column(align=True)
+        layout.label("Set BEPUik bones:")
+        col = layout.row(align=True)
+        op = col.operator("wm.context_collection_boolean_set", text="Add")
+        op.data_path_iter="selected_pose_bones"
+        op.data_path_item="use_bepuik"
+        op.type = 'ENABLE'
         
-        col = layout.column(align=True)
-        col.label("Set BEPUik state:")
-        op = col.operator("pose.bepuik_set_bone", text="Add BEPUik")
-        op.only_selected = True
-        op.use_bepuik = True 
-        
-        op = col.operator("pose.bepuik_set_bone", text="Remove BEPUik")
-        op.only_selected = True
-        op.use_bepuik = False 
+        op = col.operator("wm.context_collection_boolean_set", text="Remove")
+        op.data_path_iter="selected_pose_bones"
+        op.data_path_item="use_bepuik"
+        op.type = 'DISABLE'
         
         layout.separator()
         
         col = layout.column(align=True)
-        col.label("Set Target Rigidity:")
+        col.label("Set Control Rigidity:")
         op = col.operator("transform.bepuik_control_rigidity_modify", text="Soft Position")
         op.value = 1
         op.set = True
@@ -778,7 +778,6 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
         op.rigidity_types = {'HARD'}
         
         col = layout.column(align=True)
-        col.label("Remove Target Rigidity:")
         op = col.operator("transform.bepuik_control_rigidity_modify", text="No Position")
         op.value = 0
         op.set = True
@@ -798,6 +797,8 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
         op.value = 0
         op.set = True
         op.rigidity_types = {'HARD','POSITION','ORIENTATION'}
+        
+        layout.separator()
         
         col = layout.column()
         col.operator("pose.bepuik_visual_transform_apply")
