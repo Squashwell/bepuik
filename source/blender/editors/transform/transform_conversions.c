@@ -770,52 +770,6 @@ static void bone_children_clear_transflag(int mode, short around, ListBase *lb)
 	}
 }
 
-static bPoseChannel * get_best_bepuik_target(int transform_mode, bPoseChannel * pchan, int tbepuikflags)
-{
-	float zero3[3];
-	bConstraint * constraint;
-	bPoseChannel * pchan_target;
-	bBEPUikControl * bepuik_control;
-	zero_v3(zero3);
-	
-	for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
-		if((constraint->type == CONSTRAINT_TYPE_BEPUIK_CONTROL) && !(constraint->flag & (CONSTRAINT_OFF|CONSTRAINT_DISABLE))) {
-			bepuik_control = constraint->data;
-			
-			if(!bepuik_control->connection_target) continue;
-			if(!bepuik_control->connection_target->pose) continue;
-			pchan_target = BKE_pose_channel_find_name(bepuik_control->connection_target->pose,bepuik_control->connection_subtarget);
-			if(!pchan_target) continue;
-
-			//always prefer the first found hard target
-			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD) return pchan_target;
-
-			if(transform_mode == TFM_TRANSLATION)
-			{
-				if(tbepuikflags & T_BEPUIK_DRAG)
-				{
-					/* While bepuik dragging, require orientation rigidity to find a good target.
-					 * For example, the user might want to drag the tail of a bone when another
-					 * position-only control affects the head */
-					if(bepuik_control->orientation_rigidity >= FLT_EPSILON)
-						return pchan_target;
-				}
-				else if(constraint->bepuik_rigidity >= FLT_EPSILON)
-				{
-					return pchan_target;
-				}
-			}
-			else if(ELEM(transform_mode,TFM_TRACKBALL,TFM_ROTATION))
-			{
-				if(bepuik_control->orientation_rigidity >= FLT_EPSILON)
-					return pchan_target;
-			}
-		}
-	}
-	
-	return NULL;
-}
-
 static void bepu_tweak_controls_get_depth_head_tail( Object * ob, float depth_head[3], float depth_center[3], float depth_tail[3])
 {
 	bPoseChannel * pchan;
@@ -1015,14 +969,7 @@ int count_set_pose_transflags(int *out_mode, short around, int tbepuikflags, Obj
 			bone = pchan->bone;
 			if((bone->flag & BONE_SELECTED) && PBONE_VISIBLE(arm, bone) && (pchan->bepuikflag & BONE_BEPUIK))
 			{
-				/* Redirect the transform to its target bone, if it exists.*/
-				bPoseChannel * best_target = get_best_bepuik_target(mode,pchan,tbepuikflags);
-				if(best_target)
-				{
-					best_target->bone->flag |= BONE_TRANSFORM;
-					pchan->bone->flag &= ~BONE_TRANSFORM;
-				}
-				else
+
 					pchan->bone->flag |= BONE_TRANSFORM;
 			}
 		}
