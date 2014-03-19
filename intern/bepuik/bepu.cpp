@@ -125,7 +125,6 @@ static void bepuv3_v3(Vector3 & vector3, float * v3)
 
 static void get_offset_along_quat(float rpos[3],float qt[4],float offset)
 {
-	//TODO:BEPUIK Which of these is better?
  rpos[0] = 0;
  rpos[1] = offset;
  rpos[2] = 0;
