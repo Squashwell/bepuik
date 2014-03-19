@@ -298,6 +298,10 @@ static bPose *g_posebuf = NULL;
 
 void ED_clipboard_posebuf_free(void)
 {
+	BKE_pose_free(g_posebuf);
+	/* TODO:BEPUIK is there a reason to do specialized freeing when constraints were copied too because of bepuik ?
+	 * seems like BKE_pose_free gets the job done propertly... */
+#if 0
 	if (g_posebuf) {
 		bPoseChannel *pchan;
 		
@@ -312,6 +316,7 @@ void ED_clipboard_posebuf_free(void)
 		BLI_freelistN(&g_posebuf->chanbase);
 		MEM_freeN(g_posebuf);
 	}
+#endif
 	
 	g_posebuf = NULL;
 }
@@ -513,7 +518,7 @@ static int pose_copy_exec(bContext *C, wmOperator *op)
 	
 	/* sets chan->flag to POSE_KEY if bone selected, then copy those bones to the buffer */
 	set_pose_keys(ob);  
-	BKE_pose_copy_data(&g_posebuf, ob->pose, 0);
+	BKE_pose_copy_data(&g_posebuf, ob->pose, 1); /* need to copy constraints too for bepuik controls*/
 	
 	
 	return OPERATOR_FINISHED;
