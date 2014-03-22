@@ -4391,82 +4391,111 @@ static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func
 }
 
 BEPUIK_1_TARGET(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint)
-BEPUIK_CTI(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint,BEPUik Angular Joint,NULL)
+static void bepuik_angular_joint_new_data(void *cdata)
+{
+
+}
+BEPUIK_CTI(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint,BEPUik Angular Joint,bepuik_angular_joint_new_data)
 
 BEPUIK_2_TARGET(ball_socket_joint,BALL_SOCKET_JOINT,bBEPUikBallSocketJoint,anchor)
-BEPUIK_CTI(ball_socket_joint,BALL_SOCKET_JOINT,bBEPUikBallSocketJoint,BEPUik Ball Socket Joint,NULL)
+static void bepuik_ball_socket_joint_new_data(void *cdata)
+{
+	bBEPUikBallSocketJoint *data = (bBEPUikBallSocketJoint *)cdata;
+	data->anchor_head_tail = 0;
+}
+BEPUIK_CTI(ball_socket_joint,BALL_SOCKET_JOINT,bBEPUikBallSocketJoint,BEPUik Ball Socket Joint,bepuik_ball_socket_joint_new_data)
 
 BEPUIK_3_TARGET(distance_joint,DISTANCE_JOINT,bBEPUikDistanceJoint,anchor_a,anchor_b)
-BEPUIK_CTI(distance_joint,DISTANCE_JOINT,bBEPUikDistanceJoint,BEPUik Distance Joint,NULL)
+static void bepuik_distance_joint_new_data(void * cdata)
+{
+	bBEPUikDistanceJoint *data = (bBEPUikDistanceJoint *)cdata;
+	data->anchor_a_head_tail = 0;
+	data->anchor_b_head_tail = 0;
+}
+BEPUIK_CTI(distance_joint,DISTANCE_JOINT,bBEPUikDistanceJoint,BEPUik Distance Joint,bepuik_distance_joint_new_data)
 
 BEPUIK_3_TARGET(distance_limit,DISTANCE_LIMIT,bBEPUikDistanceLimit,anchor_a,anchor_b)
-BEPUIK_CTI(distance_limit,DISTANCE_LIMIT,bBEPUikDistanceLimit,BEPUik Distance Limit,NULL)
+static void bepuik_distance_limit_new_data(void *cdata)
+{
+	bBEPUikDistanceLimit *data = (bBEPUikDistanceLimit *)cdata;
+	data->anchor_a_head_tail = 0;
+	data->anchor_b_head_tail = 0;
+	data->min_distance = 0;
+	data->max_distance = 1.0f;
+}
+BEPUIK_CTI(distance_limit,DISTANCE_LIMIT,bBEPUikDistanceLimit,BEPUik Distance Limit,bepuik_distance_limit_new_data)
 
 BEPUIK_4_TARGET(linear_axis_limit,LINEAR_AXIS_LIMIT,bBEPUikLinearAxisLimit,line_anchor,line_direction,anchor_b)
-static void func_linear_axis_limit_new_data(void *cdata)
+static void bepuik_linear_axis_limit_new_data(void *cdata)
 {
 	bBEPUikLinearAxisLimit *data = (bBEPUikLinearAxisLimit *)cdata;
 	data->line_direction = TRACK_Y;
 	data->min_distance = 0;
 	data->max_distance = 1;
+	data->line_anchor_head_tail = 0;
+	data->anchor_b_head_tail = 0;
 } 	
-BEPUIK_CTI(linear_axis_limit,LINEAR_AXIS_LIMIT,bBEPUikLinearAxisLimit,BEPUik Linear Axis Limit,func_linear_axis_limit_new_data)
+BEPUIK_CTI(linear_axis_limit,LINEAR_AXIS_LIMIT,bBEPUikLinearAxisLimit,BEPUik Linear Axis Limit,bepuik_linear_axis_limit_new_data)
 
 BEPUIK_4_TARGET(point_on_line_joint,POINT_ON_LINE_JOINT,bBEPUikPointOnLineJoint,line_anchor,line_direction,anchor_b)
-static void func_point_on_line_joint_new_data(void *cdata)
+static void bepuik_point_on_line_joint_new_data(void *cdata)
 {
 	bBEPUikPointOnLineJoint *data = (bBEPUikPointOnLineJoint *)cdata;
 	data->line_direction = TRACK_Y;
+	data->anchor_b_head_tail = 0;
+	data->line_anchor_head_tail = 0;
 } 	
-BEPUIK_CTI(point_on_line_joint,POINT_ON_LINE_JOINT,bBEPUikPointOnLineJoint,BEPUik Point on Line Joint,func_point_on_line_joint_new_data)
+BEPUIK_CTI(point_on_line_joint,POINT_ON_LINE_JOINT,bBEPUikPointOnLineJoint,BEPUik Point on Line Joint,bepuik_point_on_line_joint_new_data)
 
 BEPUIK_4_TARGET(point_on_plane_joint,POINT_ON_PLANE_JOINT,bBEPUikPointOnPlaneJoint,plane_anchor,plane_normal,anchor_b)
-static void func_point_on_plane_joint_new_data(void *cdata)
+static void bepuik_point_on_plane_joint_new_data(void *cdata)
 {
 	bBEPUikPointOnPlaneJoint *data = (bBEPUikPointOnPlaneJoint *)cdata;
 	data->plane_normal = TRACK_Y;
+	data->anchor_b_head_tail = 0;
+	data->plane_anchor_head_tail = 0;
 }
-BEPUIK_CTI(point_on_plane_joint,POINT_ON_PLANE_JOINT,bBEPUikPointOnPlaneJoint,BEPUik Point on Plane Joint,func_point_on_plane_joint_new_data)
+BEPUIK_CTI(point_on_plane_joint,POINT_ON_PLANE_JOINT,bBEPUikPointOnPlaneJoint,BEPUik Point on Plane Joint,bepuik_point_on_plane_joint_new_data)
 
 BEPUIK_2_TARGET(revolute_joint,REVOLUTE_JOINT,bBEPUikRevoluteJoint,free_axis)
-static void func_revolute_joint_new_data(void *cdata)
+static void bepuik_revolute_joint_new_data(void *cdata)
 {
 	bBEPUikRevoluteJoint *data = (bBEPUikRevoluteJoint *)cdata;
 	data->free_axis = TRACK_Y;
 }
-BEPUIK_CTI(revolute_joint,REVOLUTE_JOINT,bBEPUikRevoluteJoint,BEPUik Revolute Joint,func_revolute_joint_new_data)
+BEPUIK_CTI(revolute_joint,REVOLUTE_JOINT,bBEPUikRevoluteJoint,BEPUik Revolute Joint,bepuik_revolute_joint_new_data)
 
 BEPUIK_3_TARGET(swing_limit,SWING_LIMIT,bBEPUikSwingLimit,axis_a,axis_b)
-static void func_swing_limit_new_data(void *cdata)
+static void bepuik_swing_limit_new_data(void *cdata)
 {
 	bBEPUikSwingLimit *data = (bBEPUikSwingLimit *)cdata;
 	data->axis_a = TRACK_Y;
 	data->axis_b = TRACK_Y;
 	data->max_swing = M_PI_2;
 }
-BEPUIK_CTI(swing_limit,SWING_LIMIT,bBEPUikSwingLimit,BEPUik Swing Limit,func_swing_limit_new_data)
+BEPUIK_CTI(swing_limit,SWING_LIMIT,bBEPUikSwingLimit,BEPUik Swing Limit,bepuik_swing_limit_new_data)
 
 BEPUIK_3_TARGET(swivel_hinge_joint,SWIVEL_HINGE_JOINT,bBEPUikSwivelHingeJoint,hinge_axis,twist_axis)
-static void func_swivel_hinge_joint_new_data(void *cdata)
+static void bepuik_swivel_hinge_joint_new_data(void *cdata)
 {
 	bBEPUikSwivelHingeJoint *data = (bBEPUikSwivelHingeJoint *)cdata;
 	data->hinge_axis = TRACK_Y;
 	data->twist_axis = TRACK_Y;
 }
-BEPUIK_CTI(swivel_hinge_joint,SWIVEL_HINGE_JOINT,bBEPUikSwivelHingeJoint,BEPUik Swivel Hinge Joint,func_swivel_hinge_joint_new_data)
+BEPUIK_CTI(swivel_hinge_joint,SWIVEL_HINGE_JOINT,bBEPUikSwivelHingeJoint,BEPUik Swivel Hinge Joint,bepuik_swivel_hinge_joint_new_data)
 
 BEPUIK_3_TARGET(twist_joint,TWIST_JOINT,bBEPUikTwistJoint,axis_a,axis_b)
-static void func_twist_joint_new_data(void *cdata)
+static void bepuik_twist_joint_new_data(void *cdata)
 {
 	bBEPUikTwistJoint *data = (bBEPUikTwistJoint *)cdata;
 	data->axis_a = TRACK_Y;
 	data->axis_b = TRACK_Y;
 }
-BEPUIK_CTI(twist_joint,TWIST_JOINT,bBEPUikTwistJoint,BEPUik Twist Joint,func_twist_joint_new_data)
+BEPUIK_CTI(twist_joint,TWIST_JOINT,bBEPUikTwistJoint,BEPUik Twist Joint,bepuik_twist_joint_new_data)
 
 
 BEPUIK_5_TARGET(twist_limit,TWIST_LIMIT,bBEPUikTwistLimit,axis_a,axis_b,measurement_axis_a,measurement_axis_b)
-static void func_twist_limit_new_data(void *cdata)
+static void bepuik_twist_limit_new_data(void *cdata)
 {
 	bBEPUikTwistLimit *data = (bBEPUikTwistLimit *)cdata;
 	data->axis_a = TRACK_Y;
@@ -4475,11 +4504,15 @@ static void func_twist_limit_new_data(void *cdata)
 	data->measurement_axis_b = TRACK_Y;
 	data->max_twist = M_PI_4;
 }
-BEPUIK_CTI(twist_limit,TWIST_LIMIT,bBEPUikTwistLimit,BEPUik Twist Limit,func_twist_limit_new_data)
-static void func_target_new_data(void * cdata)
+BEPUIK_CTI(twist_limit,TWIST_LIMIT,bBEPUikTwistLimit,BEPUik Twist Limit,bepuik_twist_limit_new_data)
+
+
+BEPUIK_1_TARGET(control,CONTROL,bBEPUikControl)
+static void bepuik_control_new_data(void * cdata)
 {
 	bBEPUikControl *data = (bBEPUikControl *)cdata;
 	data->orientation_rigidity = BEPUIK_CONTROL_ORIENTATION_RIGIDITY_DEFAULT;
+	data->bepuikflag = 0;
 	unit_m4(data->destination_mat);
 	zero_v3(data->string_start);
 	zero_v3(data->string_end);
@@ -4487,9 +4520,7 @@ static void func_target_new_data(void * cdata)
 	zero_v3(data->offset_end);
 	zero_v3(data->pulled_point);
 }
-
-BEPUIK_1_TARGET(target,TARGET,bBEPUikControl)
-BEPUIK_CTI(target,CONTROL,bBEPUikControl,BEPUik Control,func_target_new_data)
+BEPUIK_CTI(control,CONTROL,bBEPUikControl,BEPUik Control,bepuik_control_new_data)
 
 /* ************************* Constraints Type-Info *************************** */
 /* All of the constraints api functions use bConstraintTypeInfo structs to carry out
