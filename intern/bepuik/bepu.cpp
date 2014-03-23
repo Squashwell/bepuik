@@ -941,7 +941,8 @@ void bepu_solve(Scene * scene, Object * ob,float ctime)
 		}
 	}
 	
-	iksolver->Solve(controls_to_solve);
+	if(controls_to_solve.size()>0)
+		iksolver->Solve(controls_to_solve);
 	
 	for(bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
 	{
