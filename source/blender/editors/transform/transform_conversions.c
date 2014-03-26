@@ -919,10 +919,10 @@ static int count_set_bepuik_target_constraints(Object * ob, int bepuikflags)
  *
  * tbepuikflags are the T_BEPUIK_XXX flags from transform.h
  * Also, T_BEPUIK_DYNAMIC should be passed into the tbepuikflags parameter
- * when (scene->toolsettings->bepuikflag & SCE_BEPUIK_DYNAMIC) != 0
+ * when (ob->bepuikflag & ob_BEPUIK_DYNAMIC) != 0
  *
  * Example from transform_manipulator.c:
- *   totsel = count_set_pose_transflags(&mode, 0, (scene->toolsettings->bepuikflag & SCE_BEPUIK_DYNAMIC) ? T_BEPUIK_DYNAMIC : 0, ob); 
+ *   totsel = count_set_pose_transflags(&mode, 0, (ob->bepuikflag & OB_BEPUIK_DYNAMIC) ? T_BEPUIK_DYNAMIC : 0, ob);
 */
 int count_set_pose_transflags(int *out_mode, short around, int tbepuikflags, Object *ob)
 {
@@ -1280,6 +1280,9 @@ static void createTransPose(TransInfo *t, Object *ob)
 
 	if(ob->bepuikflag & OB_BEPUIK_DYNAMIC)
 		t->bepuikflag |= T_BEPUIK_DYNAMIC;
+
+	if(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW)
+		t->bepuikflag |= T_BEPUIK_INACTIVE_TARGETS_FOLLOW;
 
 	/* do we need to add temporal IK chains? */
 	else if ((arm->flag & ARM_AUTO_IK) && t->mode == TFM_TRANSLATION) {

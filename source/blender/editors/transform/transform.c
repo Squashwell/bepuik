@@ -2329,7 +2329,7 @@ int transformEnd(bContext *C, TransInfo *t)
 			if (t->mode == TFM_EDGE_SLIDE)
 				doEdgeSlide(t, 0.0f);
 			
-			if (t->bepuikflag & T_BEPUIK_DYNAMIC)
+			if (t->bepuikflag & T_BEPUIK_DYNAMIC || t->bepuikflag & T_BEPUIK_INACTIVE_TARGETS_FOLLOW)
 				bepu_restore_pchans(t);
 						
 			exit_code = OPERATOR_CANCELLED;

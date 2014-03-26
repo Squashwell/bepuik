@@ -463,6 +463,7 @@ typedef struct TransInfo {
 #define T_BEPUIK_DRAG       (1 << 5)
 #define T_BEPUIK_TOP_TARGET (1 << 6)
 #define T_BEPUIK_DYNAMIC	(1 << 7)
+#define T_BEPUIK_INACTIVE_TARGETS_FOLLOW (1 << 8)
 
 /* TransInfo->modifiers */
 #define	MOD_CONSTRAINT_SELECT	0x01
