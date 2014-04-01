@@ -2164,7 +2164,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 					bone = pchan->bone;
 				
 					if(arm->bepuikflag & ARM_BEPUIK_DRAWPREPOSE) {
-						if(pchan->bepuikflag & BONE_BEPUIK_HAS_PREPOSE) {
+						if((pchan->bepuikflag & BONE_BEPUIK)) {
 							if (!(pchan->bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG))) {
 								if (pchan->bone->layer & arm->layer) {
 									if(bone->flag & BONE_SELECTED)

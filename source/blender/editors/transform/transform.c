@@ -69,6 +69,7 @@
 #include "BKE_pointcache.h"
 #include "BKE_unit.h"
 #include "BKE_mask.h"
+#include "BKE_armature.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
@@ -2316,6 +2317,16 @@ static void drawTransformApply(const bContext *C, ARegion *UNUSED(ar), void *arg
 	}
 }
 
+static void bepuik_match_finished(TransInfo * t)
+{
+	Object * ob  = t->poseobj;
+	bool visual_transform_apply = t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM;
+	bool all_targets_follow = visual_transform_apply;
+	bool inactive_targets_follow = t->bepuikflag & T_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+	BKE_pose_bepuik_visual_transform_apply(t->scene,ob,visual_transform_apply,all_targets_follow,inactive_targets_follow);
+}
+
+
 int transformEnd(bContext *C, TransInfo *t)
 {
 	int exit_code = OPERATOR_RUNNING_MODAL;
@@ -2329,13 +2340,16 @@ int transformEnd(bContext *C, TransInfo *t)
 			if (t->mode == TFM_EDGE_SLIDE)
 				doEdgeSlide(t, 0.0f);
 			
-			if (t->bepuikflag & T_BEPUIK_DYNAMIC || t->bepuikflag & T_BEPUIK_INACTIVE_TARGETS_FOLLOW)
+			if ((t->bepuikflag & T_BEPUIK_DYNAMIC) || (t->bepuikflag & T_BEPUIK_INACTIVE_TARGETS_FOLLOW))
 				bepu_restore_pchans(t);
 						
 			exit_code = OPERATOR_CANCELLED;
 			restoreTransObjects(t); // calls recalcData()
 		}
 		else {
+			if((t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM) || (t->bepuikflag & T_BEPUIK_INACTIVE_TARGETS_FOLLOW))
+				bepuik_match_finished(t);
+
 			exit_code = OPERATOR_FINISHED;
 		}
 
@@ -7796,12 +7810,23 @@ void bepu_restore_pchans(TransInfo * t)
 
 void bepu_transinfo_free(TransInfo * t)
 {
+	bPoseChannel * pchan;
 	Object * ob = t->poseobj;
 	BEPUikUndoData *ud = t->customData;
-	G.bepuik_feedback = false;
-	
-	ob->pose->bepuikflag = 0;
-	
+	G.bepuik_modal_solving = false;
+
+	ob->pose->bepuikflag &= ~(POSE_BEPUIK_SELECTION_AS_DRAGCONTROL |
+							  POSE_BEPUIK_SELECTION_AS_STATECONTROL |
+							  POSE_BEPUIK_DYNAMIC |
+							  POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW |
+							  POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT |
+							  POSE_BEPUIK_FEEDBACK);
+
+	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next)
+	{
+		pchan->bepuikflag &= ~BONE_BEPUIK_FEEDBACK;
+	}
+
 	if (ud) {
 		MEM_freeN(ud);
 		t->customData = NULL;

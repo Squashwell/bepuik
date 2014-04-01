@@ -2192,7 +2192,7 @@ void wm_event_do_handlers(bContext *C)
 			Scene *scene = win->screen->scene;
 			
             /* BEPUIK:TODO XXX hack to redraw all 3d view areas when bepuik is solving.... gross. */
-            if(G.bepuik_feedback)
+            if(G.bepuik_modal_solving)
             {
                 ScrArea *sa;
                 ARegion *ar;

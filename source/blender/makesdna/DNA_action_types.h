@@ -252,7 +252,19 @@ typedef struct bPoseChannel {
 	float bepuik_prepose_mat[4][4];
 	float bepuik_dynamic_stiffness_orientation[4];
 
-	void *bepuik;
+	void *bepuik; /* stores internal bepuik solving data that doesn't need to persist in other areas of blender */
+
+	/* bepuik soultions for above rotation vaules.  These are used when bepuik needs to pass its solved values back
+	 * into the pose data for dynamic solving */
+	float bepuik_loc[3];
+	float bepuik_size[3];
+
+	float bepuik_eul[3];                       /* euler rotation */
+	float bepuik_quat[4];                      /* quaternion rotation */
+	float bepuik_rotAxis[3], bepuik_rotAngle;         /* axis-angle rotation */
+
+	float bepuik_target_follow_mat[4][4];
+	char pad3[4];
 } bPoseChannel;
 
 
@@ -321,8 +333,8 @@ typedef enum ePchan_BEPUikFlag {
 	BONE_BEPUIK_IN_SOLVING_PARTITION = (1<<1),
 	BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL = (1<<2),
 	BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET = (1<<4),
-	BONE_BEPUIK_FEEDBACK = (1<<5),
-	BONE_BEPUIK_HAS_PREPOSE = (1<<7)
+	BONE_BEPUIK_FEEDBACK = (1<<8),
+	BONE_BEPUIK_AUTOKEY = (1<<9)
 	
 } ePchan_BEPUikFlag;
 
@@ -406,7 +418,9 @@ typedef enum ePose_BEPUik_Flags{
 	POSE_BEPUIK_SELECTION_AS_STATECONTROL = (1 << 3),
 	POSE_BEPUIK_DYNAMIC = (1 << 4),
 	POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW = (1 << 5),
-	POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT = (1 << 6)
+	POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT = (1 << 6),
+	POSE_BEPUIK_FEEDBACK = (1 << 7),
+	POSE_BEPUIK_IGNORE_CONTROLS = (1 << 8)
 }ePose_BEPUikFlags;
 
 /* IK Solvers ------------------------------------ */

@@ -2498,7 +2498,10 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 			pchan->flag &= ~(POSE_DONE | POSE_CHAIN | POSE_IKTREE | POSE_IKSPLINE);
 
-			pchan->bepuikflag &= ~(BONE_BEPUIK_IN_SOLVING_PARTITION | BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL | BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET | BONE_BEPUIK_FEEDBACK | BONE_BEPUIK_HAS_PREPOSE );
+			pchan->bepuikflag &= ~(BONE_BEPUIK_IN_SOLVING_PARTITION |
+								   BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL |
+								   BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET |
+								   BONE_BEPUIK_AUTOKEY);
 			
 #ifdef WITH_BEPUIK
 			if(pchan->bepuikflag & BONE_BEPUIK)
@@ -2513,7 +2516,7 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 #ifdef WITH_BEPUIK
 		if(has_bepuik_bones)
 		{
-			bepu_solve(scene,ob,ctime);
+			bepu_solve(ob);
 		}
 #endif
 
@@ -2550,7 +2553,7 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 
 #ifdef WITH_BEPUIK
 	if(has_bepuik_bones)
-		bepu_end(scene,ob,ctime);
+		bepu_end(ob);
 #endif
 	
 	/* calculating deform matrices */
@@ -2676,4 +2679,65 @@ void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_
 			}				
 		}
 	}	
+}
+
+
+void BKE_pose_bepuik_visual_transform_apply(Scene * scene, Object * ob, bool visual_transform_apply, bool all_targets_follow, bool inactive_targets_follow)
+{
+	int previous_bepuikflags = ob->pose->bepuikflag;
+	bPoseChannel * pchan;
+
+	int pchanflags[BLI_countlist(&ob->pose->chanbase)];
+	int p = 0;
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+		pchanflags[p] = pchan->bepuikflag;
+		p++;
+	}
+
+	ob->pose->bepuikflag = 0;
+
+	if(visual_transform_apply) {
+		for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+			float delta_mat[4][4];
+			float size[3];
+			copy_v3_v3(size,pchan->size);
+			BKE_armature_mat_pose_to_bone(pchan, pchan->pose_mat, delta_mat);
+
+			BKE_pchan_apply_mat4(pchan, delta_mat, TRUE);
+			copy_v3_v3(pchan->size,size);
+		}
+	}
+
+	if(all_targets_follow) {
+		ob->pose->bepuikflag |= POSE_BEPUIK_IGNORE_CONTROLS;
+		ob->pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+	}
+
+	if(inactive_targets_follow) {
+		ob->pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+	}
+
+	if(all_targets_follow || inactive_targets_follow) {
+		BKE_pose_where_is(scene,ob);
+
+		for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+			if(pchan->bepuikflag & BONE_BEPUIK_FEEDBACK) {
+				copy_v3_v3(pchan->loc,pchan->bepuik_loc);
+				copy_v3_v3(pchan->eul,pchan->bepuik_eul);
+				copy_qt_qt(pchan->quat,pchan->bepuik_quat);
+				copy_v3_v3(pchan->rotAxis,pchan->bepuik_rotAxis);
+				pchan->rotAngle = pchan->bepuik_rotAngle;
+				pchan->bepuikflag &= ~BONE_BEPUIK_FEEDBACK;
+				/* don't need size because size is never changed by bepuik*/
+			}
+		}
+	}
+
+	ob->pose->bepuikflag = previous_bepuikflags;
+	p = 0;
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+		pchan->bepuikflag = pchanflags[p];
+		p++;
+	}
+
 }

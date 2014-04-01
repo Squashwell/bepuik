@@ -86,6 +86,7 @@
 #include "BKE_sequencer.h"
 #include "BKE_sound.h"
 #include "BKE_world.h"
+#include "BKE_armature.h"
 
 #include "RE_engine.h"
 
@@ -1461,14 +1462,38 @@ static void bepuik_update_hack(Main * bmain)
 	Object * ob;
 
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if(bepuik_is_valid_dynamic_poseob(ob))
-		{
+		if(bepuik_is_valid_dynamic_poseob(ob)) {
 			bepuik_tag(ob);
 			bepuik_tag(ob->proxy);
 		}
 		else if(ob->type == OB_MESH)
 			if(is_deformed_by_dynamic_bepuik_armature(ob))
 				bepuik_tag(ob);
+	}
+}
+
+static void bepuik_feedback_hack(Main * bmain)
+{
+	Object * ob;
+	bPoseChannel * pchan;
+	for (ob = bmain->object.first; ob; ob = ob->id.next) {
+
+		if(ob->pose) {
+			if(ob->pose->bepuikflag & POSE_BEPUIK_FEEDBACK) {
+				for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+					if(pchan->bepuikflag & BONE_BEPUIK_FEEDBACK) {
+						copy_v3_v3(pchan->loc,pchan->bepuik_loc);
+						copy_v3_v3(pchan->eul,pchan->bepuik_eul);
+						copy_qt_qt(pchan->quat,pchan->bepuik_quat);
+						copy_v3_v3(pchan->rotAxis,pchan->bepuik_rotAxis);
+						pchan->rotAngle = pchan->bepuik_rotAngle;
+						pchan->bepuikflag &= ~BONE_BEPUIK_FEEDBACK;
+						/* don't need size because size is never changed by bepuik*/
+					}
+				}
+				ob->pose->bepuikflag &= ~POSE_BEPUIK_FEEDBACK;
+			}
+		}
 	}
 }
 
@@ -1479,8 +1504,12 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 	ThreadedObjectUpdateState state;
 	bool need_singlethread_pass;
 
-	/* TODO:BEPUIK XXX disgusting hack ensures that BEPUik will be solved continuously during "Dynamic" mode
-	 * during modal operators. What's a better way to do this?*/
+
+
+
+	/* TODO:BEPUIK XXX Ensures that BEPUik objects will be updated continuously in dynamic mode
+	 * during modal operators.
+     */
 	bepuik_update_hack(bmain);
 
 	/* Early check for whether we need to invoke all the task-based
@@ -1569,6 +1598,11 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 	if (need_singlethread_pass) {
 		scene_update_all_bases(eval_ctx, scene, scene_parent);
 	}
+
+	/* TODO:BEPUIK XXX During dynamic mode, feed the previous bepuik solution into the locrotsize
+	 * of the pchans
+     */
+	bepuik_feedback_hack(bmain);
 }
 
 static void scene_update_tagged_recursive(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Scene *scene_parent)

@@ -459,7 +459,7 @@ typedef struct TransInfo {
 #define T_BEPUIK_CONTROL_ORIENTATION (1 << 1)
 #define T_BEPUIK_CONTROL_HARD (1 << 2)
 #define T_BEPUIK_CONTROL_SET (1 << 3)
-#define T_BEPUIK			(1 << 4)
+#define T_BEPUIK_MATCH_FINISHED_TRANSFORM (1 << 4)
 #define T_BEPUIK_DRAG       (1 << 5)
 #define T_BEPUIK_TOP_TARGET (1 << 6)
 #define T_BEPUIK_DYNAMIC	(1 << 7)

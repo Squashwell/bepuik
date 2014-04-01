@@ -39,9 +39,8 @@ extern "C"
 #include "DNA_action_types.h"
 #include "DNA_anim_types.h"
 
-void bepu_solve(Scene * scene, Object * ob, float ctime);
-
-void bepu_end(Scene * scene, Object * ob, float ctime);
+void bepu_solve(Object * ob);
+void bepu_end(Object * ob);
 
 #define BEPUIK_BONE_LENGTH_TO_RADIUS(length) ((length)/5.0f)
 #define BEPUIK_DEFAULT_BONE_RADIUS 0.2f

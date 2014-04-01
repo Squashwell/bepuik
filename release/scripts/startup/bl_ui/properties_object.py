@@ -327,6 +327,7 @@ class BEPUikSolverSettings():
         col = layout.column()
         col.prop(ob,"use_bepuik_dynamic")
         col.prop(ob,"use_bepuik_inactive_targets_follow")
+        col.prop(ob,"use_bepuik_match_finished_transform")
         col.prop(ob,"use_bepuik_parented_peripheral_bones")
         
         col = layout.column()

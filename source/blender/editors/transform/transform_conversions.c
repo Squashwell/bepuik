@@ -834,15 +834,17 @@ static void bepu_transpose_data_setup(TransInfo *t)
 
 	t->customFree = bepu_transinfo_free;
 	bepu_store_pchans(t);
-	
-	if(t->mode == TFM_TRANSLATION || t->mode == TFM_ROTATION || t->mode == TFM_TRACKBALL)
+	G.bepuik_modal_solving = true;
+	if(ELEM3(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
 	{ 
 		if(t->bepuikflag & T_BEPUIK_DYNAMIC)
 		{
+			BKE_pose_bepuik_visual_transform_apply(t->scene,ob,true,false,false);
+
 			pose->bepuikflag |= POSE_BEPUIK_DYNAMIC;
 			pose->bepuikflag |= POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT;
 			
-			G.bepuik_feedback = true;
+
 			
 			if (t->bepuikflag & T_BEPUIK_DRAG)
 			{
@@ -890,8 +892,17 @@ static void bepu_transpose_data_setup(TransInfo *t)
 
 	}
 
-	if(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW)
+	if(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW) {
 		pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+		t->bepuikflag |= T_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+	}
+
+	if(ob->bepuikflag & OB_BEPUIK_MATCH_FINISHED_TRANSFORM)
+	{
+		if(ELEM4(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL,TFM_RESIZE)) {
+			t->bepuikflag |= T_BEPUIK_MATCH_FINISHED_TRANSFORM;
+		}
+	}
 }
 
 static int count_set_bepuik_target_constraints(Object * ob, int bepuikflags)
@@ -1281,8 +1292,7 @@ static void createTransPose(TransInfo *t, Object *ob)
 	if(ob->bepuikflag & OB_BEPUIK_DYNAMIC)
 		t->bepuikflag |= T_BEPUIK_DYNAMIC;
 
-	if(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW)
-		t->bepuikflag |= T_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+
 
 	/* do we need to add temporal IK chains? */
 	else if ((arm->flag & ARM_AUTO_IK) && t->mode == TFM_TRANSLATION) {
@@ -5558,10 +5568,10 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 		}
 		else {
 			for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-				if (pchan->bone->flag & BONE_TRANSFORM) {
+				if ((pchan->bone->flag & BONE_TRANSFORM) || (pchan->bepuikflag & BONE_BEPUIK_AUTOKEY)) {
 					ListBase dsources = {NULL, NULL};
 					
-					/* clear any 'unkeyed' flag it may have XXX BONE_UNKEYED is a useless flag now??*/
+					/* clear any 'unkeyed' flag it may have */
 					pchan->bone->flag &= ~BONE_UNKEYED;
 					
 					/* add datasource override for the temp pchan */
