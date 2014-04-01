@@ -947,7 +947,6 @@ void bepu_solve(Object * ob)
 				if(ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC)
 				{
 					pchan->bepuikflag |= BONE_BEPUIK_FEEDBACK;
-					pchan->bepuikflag |= BONE_BEPUIK_AUTOKEY;
 					ob->pose->bepuikflag |= POSE_BEPUIK_FEEDBACK;
 				}
 
@@ -1007,7 +1006,6 @@ void bepu_solve(Object * ob)
 
 				pchan->bepuikflag |= BONE_BEPUIK_FEEDBACK;
 				ob->pose->bepuikflag |= POSE_BEPUIK_FEEDBACK;
-				pchan->bepuikflag |= BONE_BEPUIK_AUTOKEY;
 			}
 			else
 			{

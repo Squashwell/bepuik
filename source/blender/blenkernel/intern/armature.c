@@ -2500,8 +2500,7 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 
 			pchan->bepuikflag &= ~(BONE_BEPUIK_IN_SOLVING_PARTITION |
 								   BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL |
-								   BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET |
-								   BONE_BEPUIK_AUTOKEY);
+								   BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET);
 			
 #ifdef WITH_BEPUIK
 			if(pchan->bepuikflag & BONE_BEPUIK)

@@ -5568,7 +5568,7 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 		}
 		else {
 			for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-				if ((pchan->bone->flag & BONE_TRANSFORM) || (pchan->bepuikflag & BONE_BEPUIK_AUTOKEY)) {
+				if ((pchan->bone->flag & BONE_TRANSFORM)) {
 					ListBase dsources = {NULL, NULL};
 					
 					/* clear any 'unkeyed' flag it may have */
