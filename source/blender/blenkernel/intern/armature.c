@@ -2681,19 +2681,12 @@ void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_
 }
 
 
-void BKE_pose_bepuik_visual_transform_apply(Scene * scene, Object * ob, bool visual_transform_apply, bool all_targets_follow, bool inactive_targets_follow)
+void BKE_pose_bepuik_visual_transform_apply(Scene * scene, Object * ob, bool visual_transform_apply, bool bepuik_solve, int bepuik_pose_flags)
 {
 	int previous_bepuikflags = ob->pose->bepuikflag;
 	bPoseChannel * pchan;
 
-	int pchanflags[BLI_countlist(&ob->pose->chanbase)];
-	int p = 0;
-	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-		pchanflags[p] = pchan->bepuikflag;
-		p++;
-	}
-
-	ob->pose->bepuikflag = 0;
+	ob->pose->bepuikflag = bepuik_pose_flags;
 
 	if(visual_transform_apply) {
 		for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
@@ -2707,16 +2700,7 @@ void BKE_pose_bepuik_visual_transform_apply(Scene * scene, Object * ob, bool vis
 		}
 	}
 
-	if(all_targets_follow) {
-		ob->pose->bepuikflag |= POSE_BEPUIK_IGNORE_CONTROLS;
-		ob->pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
-	}
-
-	if(inactive_targets_follow) {
-		ob->pose->bepuikflag |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
-	}
-
-	if(all_targets_follow || inactive_targets_follow) {
+	if(bepuik_solve) {
 		BKE_pose_where_is(scene,ob);
 
 		for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
@@ -2733,10 +2717,4 @@ void BKE_pose_bepuik_visual_transform_apply(Scene * scene, Object * ob, bool vis
 	}
 
 	ob->pose->bepuikflag = previous_bepuikflags;
-	p = 0;
-	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-		pchan->bepuikflag = pchanflags[p];
-		p++;
-	}
-
 }

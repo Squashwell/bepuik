@@ -2320,10 +2320,13 @@ static void drawTransformApply(const bContext *C, ARegion *UNUSED(ar), void *arg
 static void bepuik_match_finished(TransInfo * t)
 {
 	Object * ob  = t->poseobj;
-	bool visual_transform_apply = t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM;
-	bool all_targets_follow = visual_transform_apply;
-	bool inactive_targets_follow = t->bepuikflag & T_BEPUIK_INACTIVE_TARGETS_FOLLOW;
-	BKE_pose_bepuik_visual_transform_apply(t->scene,ob,visual_transform_apply,all_targets_follow,inactive_targets_follow);
+	int bepuikflags = ob->pose->bepuikflag;
+	if(t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM) {
+		bepuikflags |= POSE_BEPUIK_IGNORE_CONTROLS;
+		bepuikflags |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+	}
+
+	BKE_pose_bepuik_visual_transform_apply(t->scene,ob,(t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM),true,bepuikflags);
 }
 
 

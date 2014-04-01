@@ -255,7 +255,8 @@ static int pose_bepuik_visual_transform_apply_exec(bContext *C, wmOperator *UNUS
 	if (ob->type != OB_ARMATURE)
 		return OPERATOR_CANCELLED;
 
-	BKE_pose_bepuik_visual_transform_apply(CTX_data_scene(C),ob,true,true,true);
+	BKE_pose_bepuik_visual_transform_apply(CTX_data_scene(C),ob,true,true,(POSE_BEPUIK_IGNORE_CONTROLS |
+																		   POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW));
 
 	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
@@ -584,7 +585,8 @@ static int pose_paste_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	BKE_pose_bepuik_visual_transform_apply(scene,ob,false,false,(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW));
+	BKE_pose_bepuik_visual_transform_apply(scene,ob,false,true,
+										   (ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW ? POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW : 0));
 	
 	/* Update event for pose and deformation children */
 	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
@@ -789,7 +791,8 @@ static int pose_clear_transform_generic_exec(bContext *C, wmOperator *op,
 	}
 	CTX_DATA_END;
 
-	BKE_pose_bepuik_visual_transform_apply(scene,ob,false,false,(ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW));
+	BKE_pose_bepuik_visual_transform_apply(scene,ob,false,true,
+										   (ob->bepuikflag & OB_BEPUIK_INACTIVE_TARGETS_FOLLOW ? POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW : 0));
 
 	/* perform autokeying on the bones if needed */
 	if (autokey) {
