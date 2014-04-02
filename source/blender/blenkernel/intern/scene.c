@@ -1504,8 +1504,10 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 	ThreadedObjectUpdateState state;
 	bool need_singlethread_pass;
 
-
-
+	/* TODO:BEPUIK XXX During dynamic mode, feed the previous bepuik solution into the locrotsize
+	 * of the pchans
+     */
+	bepuik_feedback_hack(bmain);
 
 	/* TODO:BEPUIK XXX Ensures that BEPUik objects will be updated continuously in dynamic mode
 	 * during modal operators.
@@ -1599,10 +1601,7 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 		scene_update_all_bases(eval_ctx, scene, scene_parent);
 	}
 
-	/* TODO:BEPUIK XXX During dynamic mode, feed the previous bepuik solution into the locrotsize
-	 * of the pchans
-     */
-	bepuik_feedback_hack(bmain);
+
 }
 
 static void scene_update_tagged_recursive(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Scene *scene_parent)
