@@ -7822,13 +7822,7 @@ void bepu_transinfo_free(TransInfo * t)
 							  POSE_BEPUIK_SELECTION_AS_STATECONTROL |
 							  POSE_BEPUIK_DYNAMIC |
 							  POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW |
-							  POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT |
-							  POSE_BEPUIK_FEEDBACK);
-
-	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next)
-	{
-		pchan->bepuikflag &= ~BONE_BEPUIK_FEEDBACK;
-	}
+							  POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT);
 
 	if (ud) {
 		MEM_freeN(ud);
