@@ -75,6 +75,8 @@ int     BLI_system_thread_count(void); /* gets the number of threads the system 
 void    BLI_system_num_threads_override_set(int num);
 int     BLI_system_num_threads_override_get(void);
 
+int     BLI_system_thread_count_omp(void);
+	
 /* Global Mutex Locks
  * 
  * One custom lock available now. can be extended. */

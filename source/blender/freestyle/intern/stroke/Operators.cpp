@@ -38,10 +38,10 @@
 
 namespace Freestyle {
 
-LIB_STROKE_EXPORT Operators::I1DContainer Operators::_current_view_edges_set;
-LIB_STROKE_EXPORT Operators::I1DContainer Operators::_current_chains_set;
-LIB_STROKE_EXPORT Operators::I1DContainer *Operators::_current_set = NULL;
-LIB_STROKE_EXPORT Operators::StrokesContainer Operators::_current_strokes_set;
+Operators::I1DContainer Operators::_current_view_edges_set;
+Operators::I1DContainer Operators::_current_chains_set;
+Operators::I1DContainer *Operators::_current_set = NULL;
+Operators::StrokesContainer Operators::_current_strokes_set;
 
 int Operators::select(UnaryPredicate1D& pred)
 {
@@ -106,7 +106,7 @@ int Operators::chain(ViewEdgeInternal::ViewEdgeIterator& it, UnaryPredicate1D& p
 
 		Chain *new_chain = new Chain(id);
 		++id;
-		while (TRUE) {
+		while (true) {
 			new_chain->push_viewedge_back(*it, it.getOrientation());
 			if (modifier(**it) < 0) {
 				delete new_chain;
@@ -172,7 +172,7 @@ int Operators::chain(ViewEdgeInternal::ViewEdgeIterator& it, UnaryPredicate1D& p
 
 		Chain *new_chain = new Chain(id);
 		++id;
-		while (TRUE) {
+		while (true) {
 			new_chain->push_viewedge_back(*it, it.getOrientation());
 			ts(**it);
 			++it;
@@ -349,7 +349,7 @@ int Operators::bidirectionalChain(ChainingIterator& it, UnaryPredicate1D& pred)
 		ViewEdgeIterator it_back(it);
 		--it_back;
 #endif
-		while (TRUE) {
+		while (true) {
 			new_chain->push_viewedge_back(*it, it.getOrientation());
 			ts(**it);
 			if (it.increment() < 0) {

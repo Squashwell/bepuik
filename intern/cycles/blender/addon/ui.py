@@ -49,6 +49,13 @@ class CyclesButtonsPanel():
         return rd.engine in cls.COMPAT_ENGINES
 
 
+def use_cpu(context):
+    cscene = context.scene.cycles
+    device_type = context.user_preferences.system.compute_device_type
+
+    return (device_type == 'NONE' or cscene.device == 'CPU')
+
+
 def draw_samples_info(layout, cscene):
     integrator = cscene.progressive
 
@@ -103,7 +110,6 @@ class CyclesRender_PT_sampling(CyclesButtonsPanel, Panel):
 
         scene = context.scene
         cscene = scene.cycles
-        device_type = context.user_preferences.system.compute_device_type
 
         row = layout.row(align=True)
         row.menu("CYCLES_MT_sampling_presets", text=bpy.types.CYCLES_MT_sampling_presets.bl_label)
@@ -133,6 +139,9 @@ class CyclesRender_PT_sampling(CyclesButtonsPanel, Panel):
             sub.label(text="AA Samples:")
             sub.prop(cscene, "aa_samples", text="Render")
             sub.prop(cscene, "preview_aa_samples", text="Preview")
+            sub.separator()
+            sub.prop(cscene, "sample_all_lights_direct")
+            sub.prop(cscene, "sample_all_lights_indirect")
 
             col = split.column()
             sub = col.column(align=True)
@@ -145,7 +154,7 @@ class CyclesRender_PT_sampling(CyclesButtonsPanel, Panel):
             sub.prop(cscene, "subsurface_samples", text="Subsurface")
             sub.prop(cscene, "volume_samples", text="Volume")
 
-        if cscene.feature_set == 'EXPERIMENTAL' and (device_type == 'NONE' or cscene.device == 'CPU'):
+        if cscene.feature_set == 'EXPERIMENTAL' and use_cpu(context):
             layout.row().prop(cscene, "sampling_pattern", text="Pattern")
 
         for rl in scene.render.layers:
@@ -167,13 +176,16 @@ class CyclesRender_PT_volume_sampling(CyclesButtonsPanel, Panel):
         scene = context.scene
         cscene = scene.cycles
 
-        layout.prop(cscene, "volume_homogeneous_sampling", text="Homogeneous")
+        split = layout.split(align=True)
 
-        layout.label("Heterogeneous:")
+        sub = split.column(align=True)
+        sub.label("Heterogeneous:")
+        sub.prop(cscene, "volume_step_size")
+        sub.prop(cscene, "volume_max_steps")
 
-        split = layout.split()
-        split.prop(cscene, "volume_step_size")
-        split.prop(cscene, "volume_max_steps")
+        sub = split.column(align=True)
+        sub.label("Homogeneous:")
+        sub.prop(cscene, "volume_homogeneous_sampling", text="")
 
 
 class CyclesRender_PT_light_paths(CyclesButtonsPanel, Panel):
@@ -312,28 +324,6 @@ class CyclesRender_PT_performance(CyclesButtonsPanel, Panel):
 
         col.label(text="Acceleration structure:")
         col.prop(cscene, "debug_use_spatial_splits")
-
-
-class CyclesRender_PT_opengl(CyclesButtonsPanel, Panel):
-    bl_label = "OpenGL Render"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-
-        rd = context.scene.render
-
-        split = layout.split()
-
-        col = split.column()
-        col.prop(rd, "use_antialiasing")
-        sub = col.row()
-        sub.active = rd.use_antialiasing
-        sub.prop(rd, "antialiasing_samples", expand=True)
-
-        col = split.column()
-        col.label(text="Alpha:")
-        col.prop(rd, "alpha_mode", text="")
 
 
 class CyclesRender_PT_layer_options(CyclesButtonsPanel, Panel):
@@ -566,26 +556,48 @@ class Cycles_PT_mesh_displacement(CyclesButtonsPanel, Panel):
         layout.prop(cdata, "dicing_rate")
 
 
-class Cycles_PT_mesh_normals(CyclesButtonsPanel, Panel):
-    bl_label = "Normals"
-    bl_context = "data"
+class CyclesObject_PT_motion_blur(CyclesButtonsPanel, Panel):
+    bl_label = "Motion Blur"
+    bl_context = "object"
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
-        return CyclesButtonsPanel.poll(context) and context.mesh
+        ob = context.object
+        return CyclesButtonsPanel.poll(context) and ob and ob.type in {'MESH', 'CURVE', 'CURVE', 'SURFACE', 'FONT', 'META'}
+
+    def draw_header(self, context):
+        layout = self.layout
+
+        rd = context.scene.render
+        scene = context.scene
+        cscene = scene.cycles
+
+        layout.active = rd.use_motion_blur
+
+        ob = context.object
+        cob = ob.cycles
+
+        layout.prop(cob, "use_motion_blur", text="")
 
     def draw(self, context):
         layout = self.layout
 
-        mesh = context.mesh
+        rd = context.scene.render
+        scene = context.scene
+        cscene = scene.cycles
 
-        split = layout.split()
+        ob = context.object
+        cob = ob.cycles
 
-        col = split.column()
-        col.prop(mesh, "show_double_sided")
+        layout.active = (rd.use_motion_blur and cob.use_motion_blur)
 
-        col = split.column()
-        col.label()
+        row = layout.row()
+        row.prop(cob, "use_deform_motion", text="Deformation")
+
+        sub = row.row()
+        sub.active = cob.use_deform_motion
+        sub.prop(cob, "motion_steps", text="Steps")
 
 
 class CyclesObject_PT_ray_visibility(CyclesButtonsPanel, Panel):
@@ -851,9 +863,10 @@ class CyclesWorld_PT_mist(CyclesButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         if CyclesButtonsPanel.poll(context):
-            for rl in context.scene.render.layers:
-                if rl.use_pass_mist:
-                    return True
+            if context.world:
+                for rl in context.scene.render.layers:
+                    if rl.use_pass_mist:
+                        return True
 
         return False
 
@@ -1113,7 +1126,7 @@ class CyclesTexture_PT_colors(CyclesButtonsPanel, Panel):
     def poll(cls, context):
         # node = context.texture_node
         return False
-        #return node and CyclesButtonsPanel.poll(context)
+        # return node and CyclesButtonsPanel.poll(context)
 
     def draw(self, context):
         layout = self.layout
@@ -1280,7 +1293,7 @@ def draw_device(self, context):
         if device_type in {'CUDA', 'OPENCL', 'NETWORK'}:
             layout.prop(cscene, "device")
 
-        if engine.with_osl() and (cscene.device == 'CPU' or device_type == 'NONE'):
+        if engine.with_osl() and use_cpu(context):
             layout.prop(cscene, "shading_system")
 
 
@@ -1321,6 +1334,7 @@ def get_panels():
         "DATA_PT_context_camera",
         "DATA_PT_context_lamp",
         "DATA_PT_context_speaker",
+        "DATA_PT_normals",
         "DATA_PT_texture_space",
         "DATA_PT_curve_texture_space",
         "DATA_PT_mball_texture_space",

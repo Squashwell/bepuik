@@ -1393,7 +1393,7 @@ static bNodeType *rna_Node_register_base(Main *bmain, ReportList *reports, Struc
 	func = RNA_def_function_runtime(nt->ext.srna, "is_registered_node_type", rna_Node_is_registered_node_type_runtime);
 	RNA_def_function_ui_description(func, "True if a registered node type");
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_SELF_TYPE);
-	parm = RNA_def_boolean(func, "result", FALSE, "Result", "");
+	parm = RNA_def_boolean(func, "result", false, "Result", "");
 	RNA_def_function_return(func, parm);
 
 	/* XXX bad level call! needed to initialize the basic draw functions ... */
@@ -1532,13 +1532,13 @@ static int rna_Node_parent_poll(PointerRNA *ptr, PointerRNA value)
 	 * in the future should have a poll function or so to test possible attachment.
 	 */
 	if (parent->type != NODE_FRAME)
-		return FALSE;
+		return false;
 	
 	/* make sure parent is not attached to the node */
 	if (nodeAttachNodeCheck(parent, node))
-		return FALSE;
+		return false;
 	
-	return TRUE;
+	return true;
 }
 
 static void rna_Node_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
@@ -2414,7 +2414,7 @@ static StructRNA *rna_NodeCustomGroup_register(
 
 static void rna_CompositorNode_tag_need_exec(bNode *node)
 {
-	node->need_exec = TRUE;
+	node->need_exec = true;
 }
 
 static void rna_Node_tex_image_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
@@ -2482,7 +2482,7 @@ static StructRNA *rna_NodeGroup_interface_typef(PointerRNA *ptr)
 	bNodeTree *ngroup = (bNodeTree *)node->id;
 
 	if (ngroup) {
-		StructRNA *srna = ntreeInterfaceTypeGet(ngroup, TRUE);
+		StructRNA *srna = ntreeInterfaceTypeGet(ngroup, true);
 		if (srna)
 			return srna;
 	}
@@ -2494,7 +2494,7 @@ static StructRNA *rna_NodeGroupInputOutput_interface_typef(PointerRNA *ptr)
 	bNodeTree *ntree = ptr->id.data;
 	
 	if (ntree) {
-		StructRNA *srna = ntreeInterfaceTypeGet(ntree, TRUE);
+		StructRNA *srna = ntreeInterfaceTypeGet(ntree, true);
 		if (srna)
 			return srna;
 	}
@@ -3428,6 +3428,17 @@ static void def_sh_tex_image(StructRNA *srna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+	static const EnumPropertyItem prop_interpolation_items[] = {
+		{SHD_INTERP_LINEAR,  "Linear", 0, "Linear",
+		                     "Linear interpolation"},
+		{SHD_INTERP_CLOSEST, "Closest", 0, "Closest",
+		                     "No interpolation (sample closest texel)"},
+		{SHD_INTERP_CUBIC,   "Cubic", 0, "Cubic",
+		                     "Cubic interpolation (OSL only)"},
+		{SHD_INTERP_SMART,   "Smart", 0, "Smart",
+		                     "Bicubic when magnifying, else bilinear (OSL only)"},
+		{0, NULL, 0, NULL, NULL}
+	};
 
 	PropertyRNA *prop;
 
@@ -3449,6 +3460,11 @@ static void def_sh_tex_image(StructRNA *srna)
 	prop = RNA_def_property(srna, "projection", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, prop_projection_items);
 	RNA_def_property_ui_text(prop, "Projection", "Method to project 2D image on object with a 3D texture vector");
+	RNA_def_property_update(prop, 0, "rna_Node_update");
+
+	prop = RNA_def_property(srna, "interpolation", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, prop_interpolation_items);
+	RNA_def_property_ui_text(prop, "Interpolation", "Texture interpolation");
 	RNA_def_property_update(prop, 0, "rna_Node_update");
 
 	prop = RNA_def_property(srna, "projection_blend", PROP_FLOAT, PROP_FACTOR);
@@ -3714,6 +3730,24 @@ static void def_hair(StructRNA *srna)
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
+static void def_sh_uvmap(StructRNA *srna)
+{
+	PropertyRNA *prop;
+
+	prop = RNA_def_property(srna, "from_dupli", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "custom1", 1);
+	RNA_def_property_ui_text(prop, "From Dupli", "Use the parent of the dupli object if possible");
+	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+
+	RNA_def_struct_sdna_from(srna, "NodeShaderUVMap", "storage");
+
+	prop = RNA_def_property(srna, "uv_map", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "UV Map", "UV coordinates to be used for mapping");
+	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+
+	RNA_def_struct_sdna_from(srna, "bNode", NULL);
+}
+
 static void def_sh_normal_map(StructRNA *srna)
 {
 	static EnumPropertyItem prop_space_items[] = {
@@ -3843,7 +3877,7 @@ static void def_sh_script(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Find a socket by name");
 	parm = RNA_def_string(func, "name", NULL, 0, "Socket name", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED);
-	/*parm =*/ RNA_def_boolean(func, "is_output", FALSE, "Output", "Whether the socket is an output");
+	/*parm =*/ RNA_def_boolean(func, "is_output", false, "Output", "Whether the socket is an output");
 	parm = RNA_def_pointer(func, "result", "NodeSocket", "", "");
 	RNA_def_function_return(func, parm);
 	
@@ -3854,7 +3888,7 @@ static void def_sh_script(StructRNA *srna)
 	RNA_def_property_flag(parm, PROP_REQUIRED);
 	parm = RNA_def_enum(func, "type", node_socket_type_items, SOCK_FLOAT, "Type", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED);
-	/*parm =*/ RNA_def_boolean(func, "is_output", FALSE, "Output", "Whether the socket is an output");
+	/*parm =*/ RNA_def_boolean(func, "is_output", false, "Output", "Whether the socket is an output");
 	parm = RNA_def_pointer(func, "result", "NodeSocket", "", "");
 	RNA_def_function_return(func, parm);
 	
@@ -5722,19 +5756,19 @@ static void def_cmp_colorcorrection(StructRNA *srna)
 	PropertyRNA *prop;
 	prop = RNA_def_property(srna, "red", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "custom1", 1);
-	RNA_def_property_boolean_default(prop, TRUE);
+	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Red", "Red channel active");
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 	
 	prop = RNA_def_property(srna, "green", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "custom1", 2);
-	RNA_def_property_boolean_default(prop, TRUE);
+	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Green", "Green channel active");
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 	
 	prop = RNA_def_property(srna, "blue", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "custom1", 4);
-	RNA_def_property_boolean_default(prop, TRUE);
+	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Blue", "Blue channel active");
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 	
@@ -6913,13 +6947,13 @@ static void rna_def_internal_node(BlenderRNA *brna)
 	func = RNA_def_function(srna, "poll", "rna_NodeInternal_poll");
 	RNA_def_function_ui_description(func, "If non-null output is returned, the node type can be added to the tree");
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_SELF_TYPE);
-	RNA_def_function_return(func, RNA_def_boolean(func, "visible", FALSE, "", ""));
+	RNA_def_function_return(func, RNA_def_boolean(func, "visible", false, "", ""));
 	parm = RNA_def_pointer(func, "node_tree", "NodeTree", "Node Tree", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED);
 	
 	func = RNA_def_function(srna, "poll_instance", "rna_NodeInternal_poll_instance");
 	RNA_def_function_ui_description(func, "If non-null output is returned, the node can be added to the tree");
-	RNA_def_function_return(func, RNA_def_boolean(func, "visible", FALSE, "", ""));
+	RNA_def_function_return(func, RNA_def_boolean(func, "visible", false, "", ""));
 	parm = RNA_def_pointer(func, "node_tree", "NodeTree", "Node Tree", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED);
 	
@@ -7145,7 +7179,7 @@ static void rna_def_node(BlenderRNA *brna)
 	func = RNA_def_function(srna, "is_registered_node_type", "rna_Node_is_registered_node_type");
 	RNA_def_function_ui_description(func, "True if a registered node type");
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_SELF_TYPE);
-	parm = RNA_def_boolean(func, "result", FALSE, "Result", "");
+	parm = RNA_def_boolean(func, "result", false, "Result", "");
 	RNA_def_function_return(func, parm);
 
 	/* registration */
@@ -7207,14 +7241,14 @@ static void rna_def_node(BlenderRNA *brna)
 	func = RNA_def_function(srna, "poll", NULL);
 	RNA_def_function_ui_description(func, "If non-null output is returned, the node type can be added to the tree");
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER);
-	RNA_def_function_return(func, RNA_def_boolean(func, "visible", FALSE, "", ""));
+	RNA_def_function_return(func, RNA_def_boolean(func, "visible", false, "", ""));
 	parm = RNA_def_pointer(func, "node_tree", "NodeTree", "Node Tree", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED);
 	
 	func = RNA_def_function(srna, "poll_instance", NULL);
 	RNA_def_function_ui_description(func, "If non-null output is returned, the node can be added to the tree");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	RNA_def_function_return(func, RNA_def_boolean(func, "visible", FALSE, "", ""));
+	RNA_def_function_return(func, RNA_def_boolean(func, "visible", false, "", ""));
 	parm = RNA_def_pointer(func, "node_tree", "NodeTree", "Node Tree", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED);
 	
@@ -7378,7 +7412,7 @@ static void rna_def_nodetree_link_api(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
 	parm = RNA_def_pointer(func, "output", "NodeSocket", "", "The output socket");
 	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
-	RNA_def_boolean(func, "verify_limits", TRUE, "Verify Limits", "Remove existing links if connection limit is exceeded");
+	RNA_def_boolean(func, "verify_limits", true, "Verify Limits", "Remove existing links if connection limit is exceeded");
 	/* return */
 	parm = RNA_def_pointer(func, "link", "NodeLink", "", "New node link");
 	RNA_def_function_return(func, parm);
@@ -7555,7 +7589,7 @@ static void rna_def_nodetree(BlenderRNA *brna)
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
-	RNA_def_function_return(func, RNA_def_boolean(func, "visible", FALSE, "", ""));
+	RNA_def_function_return(func, RNA_def_boolean(func, "visible", false, "", ""));
 
 	/* update */
 	func = RNA_def_function(srna, "update", NULL);
@@ -7660,7 +7694,7 @@ static StructRNA *define_specific_node(BlenderRNA *brna, const char *struct_name
 	func = RNA_def_function(srna, "is_registered_node_type", "rna_Node_is_registered_node_type");
 	RNA_def_function_ui_description(func, "True if a registered node type");
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_SELF_TYPE);
-	parm = RNA_def_boolean(func, "result", FALSE, "Result", "");
+	parm = RNA_def_boolean(func, "result", false, "Result", "");
 	RNA_def_function_return(func, parm);
 
 	/* Exposes the socket template type lists in RNA for use in scripts

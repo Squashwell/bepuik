@@ -80,9 +80,9 @@ typedef struct TransSnap {
 	short	modePoint;
 	short	modeSelect;
 	bool	align;
-	char	project;
-	char	snap_self;
-	short	peel;
+	bool	project;
+	bool	snap_self;
+	bool	peel;
 	short  	status;
 	float	snapPoint[3]; /* snapping from this point */
 	float	snapTarget[3]; /* to this point */
@@ -96,7 +96,8 @@ typedef struct TransSnap {
 	void  (*applySnap)(struct TransInfo *, float *);
 	void  (*calcSnap)(struct TransInfo *, float *);
 	void  (*targetSnap)(struct TransInfo *);
-	float  (*distance)(struct TransInfo *, float p1[3], float p2[3]); // Get the transform distance between two points (used by Closest snap)
+	/* Get the transform distance between two points (used by Closest snap) */
+	float  (*distance)(struct TransInfo *, const float p1[3], const float p2[3]);
 } TransSnap;
 
 typedef struct TransCon {
@@ -302,7 +303,7 @@ typedef struct MouseInput {
 	void	(*post)(struct TransInfo *t, float values[3]);
 
 	int     imval[2];       	/* initial mouse position                */
-	char	precision;
+	bool	precision;
 	int     precision_mval[2];	/* mouse position when precision key was pressed */
 	float	center[2];
 	float	factor;
@@ -377,7 +378,7 @@ typedef struct TransInfo {
 	float		axis[3];
 	float		axis_orig[3];	/* TransCon can change 'axis', store the original value here */
 
-	short		remove_on_cancel; /* remove elements if operator is canceled */
+	bool		remove_on_cancel; /* remove elements if operator is canceled */
 
 	void		*view;
 	struct bContext *context; /* Only valid (non null) during an operator called function. */
@@ -524,7 +525,7 @@ typedef struct TransInfo {
 #define POINT_INIT		4
 #define MULTI_POINTS	8
 
-int initTransform(struct bContext *C, struct TransInfo *t, struct wmOperator *op, const struct wmEvent *event, int mode);
+bool initTransform(struct bContext *C, struct TransInfo *t, struct wmOperator *op, const struct wmEvent *event, int mode);
 void saveTransform(struct bContext *C, struct TransInfo *t, struct wmOperator *op);
 int  transformEvent(TransInfo *t, const struct wmEvent *event);
 void transformApply(struct bContext *C, TransInfo *t);
@@ -537,8 +538,8 @@ void projectIntView(TransInfo *t, const float vec[3], int adr[2]);
 void projectFloatViewEx(TransInfo *t, const float vec[3], float adr[2], const eV3DProjTest flag);
 void projectFloatView(TransInfo *t, const float vec[3], float adr[2]);
 
-void applyAspectRatio(TransInfo *t, float *vec);
-void removeAspectRatio(TransInfo *t, float *vec);
+void applyAspectRatio(TransInfo *t, float vec[2]);
+void removeAspectRatio(TransInfo *t, float vec[2]);
 
 void drawPropCircle(const struct bContext *C, TransInfo *t);
 
@@ -564,7 +565,7 @@ void flushTransTracking(TransInfo *t);
 void flushTransMasking(TransInfo *t);
 
 /*********************** exported from transform_manipulator.c ********** */
-int gimbal_axis(struct Object *ob, float gmat[3][3]); /* return 0 when no gimbal for selection */
+bool gimbal_axis(struct Object *ob, float gmat[3][3]); /* return 0 when no gimbal for selection */
 int calc_manipulator_stats(const struct bContext *C);
 
 /*********************** TransData Creation and General Handling *********** */

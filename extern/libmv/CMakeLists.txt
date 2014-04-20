@@ -44,6 +44,8 @@ if(WITH_LIBMV)
 	)
 
 	list(APPEND INC
+		third_party/gflags
+		third_party/glog/src
 		third_party/ceres/include
 		../../intern/guardedalloc
 	)
@@ -56,6 +58,7 @@ if(WITH_LIBMV)
 
 	list(APPEND SRC
 		libmv-capi.cc
+		libmv-util.cc
 		libmv/image/array_nd.cc
 		libmv/image/convolve.cc
 		libmv/multiview/conditioning.cc
@@ -70,6 +73,7 @@ if(WITH_LIBMV)
 		libmv/simple_pipeline/bundle.cc
 		libmv/simple_pipeline/camera_intrinsics.cc
 		libmv/simple_pipeline/detect.cc
+		libmv/simple_pipeline/distortion_models.cc
 		libmv/simple_pipeline/initialize_reconstruction.cc
 		libmv/simple_pipeline/intersect.cc
 		libmv/simple_pipeline/keyframe_selection.cc
@@ -91,6 +95,7 @@ if(WITH_LIBMV)
 		third_party/gflags/gflags_completions.cc
 		third_party/gflags/gflags_reporting.cc
 
+		libmv-util.h
 		libmv/base/id_generator.h
 		libmv/base/scoped_ptr.h
 		libmv/base/vector.h
@@ -121,7 +126,9 @@ if(WITH_LIBMV)
 		libmv/simple_pipeline/bundle.h
 		libmv/simple_pipeline/callbacks.h
 		libmv/simple_pipeline/camera_intrinsics.h
+		libmv/simple_pipeline/camera_intrinsics_impl.h
 		libmv/simple_pipeline/detect.h
+		libmv/simple_pipeline/distortion_models.h
 		libmv/simple_pipeline/initialize_reconstruction.h
 		libmv/simple_pipeline/intersect.h
 		libmv/simple_pipeline/keyframe_selection.h
@@ -217,10 +224,6 @@ if(WITH_LIBMV)
 			third_party/glog/src/stacktrace_x86-inl.h
 			third_party/glog/src/symbolize.h
 			third_party/glog/src/utilities.h
-		)
-
-		list(APPEND INC
-			third_party/glog/src
 		)
 	endif()
 else()

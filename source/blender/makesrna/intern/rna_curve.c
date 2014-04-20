@@ -34,6 +34,8 @@
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
 
+#include "BLF_translation.h"
+
 #include "BKE_font.h"
 
 #include "RNA_access.h"
@@ -67,9 +69,29 @@ EnumPropertyItem keyframe_handle_type_items[] = {
 };
 
 EnumPropertyItem beztriple_interpolation_mode_items[] = {
+	/* interpolation */
+	{0, "", 0, N_("Interpolation"), "Standard transitions between keyframes"},
 	{BEZT_IPO_CONST, "CONSTANT", 0, "Constant", "No interpolation, value of A gets held until B is encountered"},
 	{BEZT_IPO_LIN, "LINEAR", 0, "Linear", "Straight-line interpolation between A and B (i.e. no ease in/out)"},
 	{BEZT_IPO_BEZ, "BEZIER", 0, "Bezier", "Smooth interpolation between A and B, with some control over curve shape"},
+	
+	/* easing */
+	{0, "", 0, N_("Easing (by strength)"), "Predefined inertial transitions, useful for motion graphics (from least to most ''dramatic'')"},
+	{BEZT_IPO_QUAD, "QUAD", 0, "Quadratic", "Quadratic easing (weakest)"},
+	{BEZT_IPO_CUBIC, "CUBIC", 0, "Cubic", "Cubic easing"},
+	{BEZT_IPO_QUART, "QUART", 0, "Quartic", "Quartic easing"},
+	{BEZT_IPO_QUINT, "QUINT", 0, "Quintic", "Quintic easing"},
+	{BEZT_IPO_EXPO, "EXPO", 0, "Exponential", "Exponential easing (strongest)"},
+	
+	{0, "", 0, N_("Dynamic Effects"), "Simple physics-inspired easing effects"},
+	{BEZT_IPO_BACK, "BACK", 0, "Back", "Cubic easing with overshoot and settle"},
+	{BEZT_IPO_BOUNCE, "BOUNCE", 0, "Bounce", "Exponentially decaying parabolic bounce, like when objects collide"},
+	{BEZT_IPO_ELASTIC, "ELASTIC", 0, "Elastic", "Exponentially decaying sine wave, like an elastic band"},
+	
+	{0, "", 0, N_("Other"), "Other easing equations"},
+	{BEZT_IPO_SINE, "SINE", 0, "Sinusoidal", "Sinusoidal easing"},
+	{BEZT_IPO_CIRC, "CIRC", 0, "Circular", "Circular easing"},
+	
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -92,6 +114,7 @@ static const EnumPropertyItem curve3d_fill_mode_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+#ifdef RNA_RUNTIME
 static const EnumPropertyItem curve2d_fill_mode_items[] = {
 	{0, "NONE", 0, "None", ""},
 	{CU_BACK, "BACK", 0, "Back", ""},
@@ -99,6 +122,7 @@ static const EnumPropertyItem curve2d_fill_mode_items[] = {
 	{CU_FRONT | CU_BACK, "BOTH", 0, "Both", ""},
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
 #ifdef RNA_RUNTIME
 
@@ -604,7 +628,7 @@ static void rna_Curve_spline_remove(Curve *cu, ReportList *reports, PointerRNA *
 	Nurb *nu = nu_ptr->data;
 	ListBase *nurbs = BKE_curve_nurbs_get(cu);
 
-	if (BLI_remlink_safe(nurbs, nu) == FALSE) {
+	if (BLI_remlink_safe(nurbs, nu) == false) {
 		BKE_reportf(reports, RPT_ERROR, "Curve '%s' does not contain spline given", cu->id.name + 2);
 		return;
 	}
@@ -1302,7 +1326,14 @@ static void rna_def_curve(BlenderRNA *brna)
 		 "Allow editing on the Z axis of this curve, also allows tilt and curve radius to be used"},
 		{0, NULL, 0, NULL, NULL}
 	};
-			
+
+	static EnumPropertyItem bevfac_mapping_items[] = {
+		{CU_BEVFAC_MAP_RESOLU, "RESOLUTION", 0, "Resolution", "Map the bevel factor to the number of subdivisions of a spline (U resolution)"},
+		{CU_BEVFAC_MAP_SEGMENT, "SEGMENTS", 0, "Segments", "Map the bevel factor to the length of a segment and to the number of subdivisions of a segment"},
+		{CU_BEVFAC_MAP_SPLINE, "SPLINE", 0, "Spline", "Map the bevel factor to the length of a spline"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 	srna = RNA_def_struct(brna, "Curve", "ID");
 	RNA_def_struct_ui_text(srna, "Curve", "Curve datablock storing curves, splines and NURBS");
 	RNA_def_struct_ui_icon(srna, ICON_CURVE_DATA);
@@ -1443,6 +1474,18 @@ static void rna_def_curve(BlenderRNA *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "twist_mode");
 	RNA_def_property_enum_items(prop, curve_twist_mode_items);
 	RNA_def_property_ui_text(prop, "Twist Method", "The type of tilt calculation for 3D Curves");
+	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
+	prop = RNA_def_property(srna, "bevel_factor_mapping_start", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "bevfac1_mapping");
+	RNA_def_property_enum_items(prop, bevfac_mapping_items);
+	RNA_def_property_ui_text(prop, "Start Mapping Type", "Determines how the start bevel factor is mapped to a spline");
+	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
+	prop = RNA_def_property(srna, "bevel_factor_mapping_end", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "bevfac2_mapping");
+	RNA_def_property_enum_items(prop, bevfac_mapping_items);
+	RNA_def_property_ui_text(prop, "End Mapping Type", "Determines how the end bevel factor is mapped to a spline");
 	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
 
 	/* XXX - would be nice to have a better way to do this, only add for testing. */

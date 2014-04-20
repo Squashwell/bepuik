@@ -122,7 +122,6 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
 	kintegrator->sample_clamp_indirect = (sample_clamp_indirect == 0.0f)? FLT_MAX: sample_clamp_indirect*3.0f;
 
 	kintegrator->branched = (method == BRANCHED_PATH);
-	kintegrator->aa_samples = aa_samples;
 	kintegrator->diffuse_samples = diffuse_samples;
 	kintegrator->glossy_samples = glossy_samples;
 	kintegrator->transmission_samples = transmission_samples;
@@ -130,8 +129,11 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
 	kintegrator->mesh_light_samples = mesh_light_samples;
 	kintegrator->subsurface_samples = subsurface_samples;
 	kintegrator->volume_samples = volume_samples;
+	kintegrator->sample_all_lights_direct = sample_all_lights_direct;
+	kintegrator->sample_all_lights_indirect = sample_all_lights_indirect;
 
 	kintegrator->sampling_pattern = sampling_pattern;
+	kintegrator->aa_samples = aa_samples;
 
 	/* sobol directions table */
 	int max_samples = 1;
@@ -197,7 +199,9 @@ bool Integrator::modified(const Integrator& integrator)
 		subsurface_samples == integrator.subsurface_samples &&
 		volume_samples == integrator.volume_samples &&
 		motion_blur == integrator.motion_blur &&
-		sampling_pattern == integrator.sampling_pattern);
+		sampling_pattern == integrator.sampling_pattern &&
+		sample_all_lights_direct == integrator.sample_all_lights_direct &&
+		sample_all_lights_indirect == integrator.sample_all_lights_indirect);
 }
 
 void Integrator::tag_update(Scene *scene)

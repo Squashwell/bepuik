@@ -55,7 +55,7 @@ Object::~Object()
 {
 }
 
-void Object::compute_bounds(bool motion_blur, float shuttertime)
+void Object::compute_bounds(bool motion_blur)
 {
 	BoundBox mbounds = mesh->bounds;
 
@@ -68,10 +68,7 @@ void Object::compute_bounds(bool motion_blur, float shuttertime)
 		/* todo: this is really terrible. according to pbrt there is a better
 		 * way to find this iteratively, but did not find implementation yet
 		 * or try to implement myself */
-		float start_t = 0.5f - shuttertime*0.25f;
-		float end_t = 0.5f + shuttertime*0.25f;
-
-		for(float t = start_t; t < end_t; t += (1.0f/128.0f)*shuttertime) {
+		for(float t = 0.0f; t < 1.0f; t += (1.0f/128.0f)) {
 			Transform ttfm;
 
 			transform_motion_interpolate(&ttfm, &decomp, t);
@@ -86,25 +83,74 @@ void Object::apply_transform()
 {
 	if(!mesh || tfm == transform_identity())
 		return;
+	
+	/* triangles */
+	if(mesh->verts.size()) {
+		/* store matrix to transform later. when accessing these as attributes we
+		 * do not want the transform to be applied for consistency between static
+		 * and dynamic BVH, so we do it on packing. */
+		mesh->transform_normal = transform_transpose(transform_inverse(tfm));
 
-	float3 c0 = transform_get_column(&tfm, 0);
-	float3 c1 = transform_get_column(&tfm, 1);
-	float3 c2 = transform_get_column(&tfm, 2);
-	float scalar = pow(fabsf(dot(cross(c0, c1), c2)), 1.0f/3.0f);
+		/* apply to mesh vertices */
+		for(size_t i = 0; i < mesh->verts.size(); i++)
+			mesh->verts[i] = transform_point(&tfm, mesh->verts[i]);
 
-	for(size_t i = 0; i < mesh->verts.size(); i++)
-		mesh->verts[i] = transform_point(&tfm, mesh->verts[i]);
+		Attribute *attr = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+		if (attr) {
+			size_t steps_size = mesh->verts.size() * (mesh->motion_steps - 1);
+			float3 *vert_steps = attr->data_float3();
 
-	for(size_t i = 0; i < mesh->curve_keys.size(); i++) {
-		mesh->curve_keys[i].co = transform_point(&tfm, mesh->curve_keys[i].co);
-		/* scale for strand radius - only correct for uniform transforms*/
-		mesh->curve_keys[i].radius *= scalar;
+			for (size_t i = 0; i < steps_size; i++)
+				vert_steps[i] = transform_point(&tfm, vert_steps[i]);
+		}
+
+		Attribute *attr_N = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_NORMAL);
+
+		if(attr_N) {
+			Transform ntfm = mesh->transform_normal;
+			size_t steps_size = mesh->verts.size() * (mesh->motion_steps - 1);
+			float3 *normal_steps = attr_N->data_float3();
+
+			for (size_t i = 0; i < steps_size; i++)
+				normal_steps[i] = normalize(transform_direction(&ntfm, normal_steps[i]));
+		}
 	}
 
-	/* store matrix to transform later. when accessing these as attributes we
-	 * do not want the transform to be applied for consistency between static
-	 * and dynamic BVH, so we do it on packing. */
-	mesh->transform_normal = transform_transpose(transform_inverse(tfm));
+	/* curves */
+	if(mesh->curve_keys.size()) {
+		/* compute uniform scale */
+		float3 c0 = transform_get_column(&tfm, 0);
+		float3 c1 = transform_get_column(&tfm, 1);
+		float3 c2 = transform_get_column(&tfm, 2);
+		float scalar = pow(fabsf(dot(cross(c0, c1), c2)), 1.0f/3.0f);
+
+		/* apply transform to curve keys */
+		for(size_t i = 0; i < mesh->curve_keys.size(); i++) {
+			float3 co = transform_point(&tfm, float4_to_float3(mesh->curve_keys[i]));
+			float radius = mesh->curve_keys[i].w * scalar;
+
+			/* scale for curve radius is only correct for uniform scale */
+			mesh->curve_keys[i] = float3_to_float4(co);
+			mesh->curve_keys[i].w = radius;
+		}
+
+		Attribute *curve_attr = mesh->curve_attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+
+		if (curve_attr) {
+			/* apply transform to motion curve keys */
+			size_t steps_size = mesh->curve_keys.size() * (mesh->motion_steps - 1);
+			float4 *key_steps = curve_attr->data_float4();
+
+			for (size_t i = 0; i < steps_size; i++) {
+				float3 co = transform_point(&tfm, float4_to_float3(key_steps[i]));
+				float radius = key_steps[i].w * scalar;
+
+				/* scale for curve radius is only correct for uniform scale */
+				key_steps[i] = float3_to_float4(co);
+				key_steps[i].w = radius;
+			}
+		}
+	}
 
 	/* we keep normals pointing in same direction on negative scale, notify
 	 * mesh about this in it (re)calculates normals */
@@ -113,7 +159,7 @@ void Object::apply_transform()
 
 	if(bounds.valid()) {
 		mesh->compute_bounds();
-		compute_bounds(false, 0.0f);
+		compute_bounds(false);
 	}
 
 	/* tfm is not reset to identity, all code that uses it needs to check the
@@ -137,6 +183,25 @@ void Object::tag_update(Scene *scene)
 	scene->curve_system_manager->need_update = true;
 	scene->mesh_manager->need_update = true;
 	scene->object_manager->need_update = true;
+}
+
+vector<float> Object::motion_times()
+{
+	/* compute times at which we sample motion for this object */
+	vector<float> times;
+	int motion_steps = mesh->motion_steps;
+
+	if(!mesh || motion_steps == 1)
+		return times;
+
+	for(int step = 0; step < motion_steps; step++) {
+		if(step != motion_steps / 2) {
+			float time = 2.0f * step / (motion_steps - 1) - 1.0f;
+			times.push_back(time);
+		}
+	}
+
+	return times;
 }
 
 /* Object Manager */
@@ -203,20 +268,6 @@ void ObjectManager::device_update_transforms(Device *device, DeviceScene *dscene
 					surface_area += triangle_area(p1, p2, p3);
 				}
 
-				foreach(Mesh::Curve& curve, mesh->curves) {
-					int first_key = curve.first_key;
-
-					for(int i = 0; i < curve.num_segments(); i++) {
-						float3 p1 = mesh->curve_keys[first_key + i].co;
-						float r1 = mesh->curve_keys[first_key + i].radius;
-						float3 p2 = mesh->curve_keys[first_key + i + 1].co;
-						float r2 = mesh->curve_keys[first_key + i + 1].radius;
-
-						/* currently ignores segment overlaps*/
-						surface_area += M_PI_F *(r1 + r2) * len(p1 - p2);
-					}
-				}
-
 				surface_area_map[mesh] = surface_area;
 			}
 			else
@@ -231,23 +282,6 @@ void ObjectManager::device_update_transforms(Device *device, DeviceScene *dscene
 				float3 p3 = transform_point(&tfm, mesh->verts[t.v[2]]);
 
 				surface_area += triangle_area(p1, p2, p3);
-			}
-
-			foreach(Mesh::Curve& curve, mesh->curves) {
-				int first_key = curve.first_key;
-
-				for(int i = 0; i < curve.num_segments(); i++) {
-					float3 p1 = mesh->curve_keys[first_key + i].co;
-					float r1 = mesh->curve_keys[first_key + i].radius;
-					float3 p2 = mesh->curve_keys[first_key + i + 1].co;
-					float r2 = mesh->curve_keys[first_key + i + 1].radius;
-
-					p1 = transform_point(&tfm, p1);
-					p2 = transform_point(&tfm, p2);
-
-					/* currently ignores segment overlaps*/
-					surface_area += M_PI_F *(r1 + r2) * len(p1 - p2);
-				}
 			}
 		}
 
@@ -265,10 +299,10 @@ void ObjectManager::device_update_transforms(Device *device, DeviceScene *dscene
 			Transform mtfm_pre = ob->motion.pre;
 			Transform mtfm_post = ob->motion.post;
 
-			if(!(mesh->attributes.find(ATTR_STD_MOTION_PRE) || mesh->curve_attributes.find(ATTR_STD_MOTION_PRE)))
+			if(!mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION)) {
 				mtfm_pre = mtfm_pre * itfm;
-			if(!(mesh->attributes.find(ATTR_STD_MOTION_POST) || mesh->curve_attributes.find(ATTR_STD_MOTION_POST)))
 				mtfm_post = mtfm_post * itfm;
+			}
 
 			memcpy(&objects_vector[i*OBJECT_VECTOR_SIZE+0], &mtfm_pre, sizeof(float4)*3);
 			memcpy(&objects_vector[i*OBJECT_VECTOR_SIZE+3], &mtfm_post, sizeof(float4)*3);
@@ -287,9 +321,14 @@ void ObjectManager::device_update_transforms(Device *device, DeviceScene *dscene
 		}
 #endif
 
-		/* dupli object coords */
-		objects[offset+9] = make_float4(ob->dupli_generated[0], ob->dupli_generated[1], ob->dupli_generated[2], 0.0f);
-		objects[offset+10] = make_float4(ob->dupli_uv[0], ob->dupli_uv[1], 0.0f, 0.0f);
+		/* dupli object coords and motion info */
+		int totalsteps = mesh->motion_steps;
+		int numsteps = (totalsteps - 1)/2;
+		int numverts = mesh->verts.size();
+		int numkeys = mesh->curve_keys.size();
+
+		objects[offset+9] = make_float4(ob->dupli_generated[0], ob->dupli_generated[1], ob->dupli_generated[2], __int_as_float(numkeys));
+		objects[offset+10] = make_float4(ob->dupli_uv[0], ob->dupli_uv[1], __int_as_float(numsteps), __int_as_float(numverts));
 
 		/* object flag */
 		if(ob->use_holdout)

@@ -396,7 +396,7 @@ static void rna_SpaceView3D_layer_set(PointerRNA *ptr, const int *values)
 
 static void rna_SpaceView3D_layer_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
-	DAG_on_visible_update(bmain, FALSE);
+	DAG_on_visible_update(bmain, false);
 }
 
 static void rna_SpaceView3D_viewport_shade_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
@@ -472,22 +472,33 @@ static PointerRNA rna_SpaceView3D_region_3d_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_RegionView3D, regiondata);
 }
 
-static PointerRNA rna_SpaceView3D_region_quadview_get(PointerRNA *ptr)
+static void rna_SpaceView3D_region_quadviews_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
 	View3D *v3d = (View3D *)(ptr->data);
 	ScrArea *sa = rna_area_from_space(ptr);
-	void *regiondata = NULL;
-	if (sa) {
-		ListBase *regionbase = (sa->spacedata.first == v3d) ? &sa->regionbase : &v3d->regionbase;
-		ARegion *ar = regionbase->last; /* always before last in list, weak .. */
+	int i = 3;
 
-		ar = (ar->alignment == RGN_ALIGN_QSPLIT) ? ar->prev : NULL;
-		if (ar) {
-			regiondata = ar->regiondata;
+	ARegion *ar = ((sa && sa->spacedata.first == v3d) ? &sa->regionbase : &v3d->regionbase)->last;
+	ListBase lb = {NULL, NULL};
+
+	if (ar && ar->alignment == RGN_ALIGN_QSPLIT) {
+		while (i-- && ar) {
+			ar = ar->prev;
+		}
+
+		if (i < 0) {
+			lb.first = ar;
 		}
 	}
 
-	return rna_pointer_inherit_refine(ptr, &RNA_RegionView3D, regiondata);
+	rna_iterator_listbase_begin(iter, &lb, NULL);
+}
+
+static PointerRNA rna_SpaceView3D_region_quadviews_get(CollectionPropertyIterator *iter)
+{
+	void *regiondata = ((ARegion *)rna_iterator_listbase_get(iter))->regiondata;
+
+	return rna_pointer_inherit_refine(&iter->parent, &RNA_RegionView3D, regiondata);
 }
 
 static void rna_RegionView3D_quadview_update(Main *UNUSED(main), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -497,10 +508,10 @@ static void rna_RegionView3D_quadview_update(Main *UNUSED(main), Scene *UNUSED(s
 
 	rna_area_region_from_regiondata(ptr, &sa, &ar);
 	if (sa && ar && ar->alignment == RGN_ALIGN_QSPLIT)
-		ED_view3d_quadview_update(sa, ar, FALSE);
+		ED_view3d_quadview_update(sa, ar, false);
 }
 
-/* same as above but call clip==TRUE */
+/* same as above but call clip==true */
 static void rna_RegionView3D_quadview_clip_update(Main *UNUSED(main), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	ScrArea *sa;
@@ -508,7 +519,7 @@ static void rna_RegionView3D_quadview_clip_update(Main *UNUSED(main), Scene *UNU
 
 	rna_area_region_from_regiondata(ptr, &sa, &ar);
 	if (sa && ar && ar->alignment == RGN_ALIGN_QSPLIT)
-		ED_view3d_quadview_update(sa, ar, TRUE);
+		ED_view3d_quadview_update(sa, ar, true);
 }
 
 static void rna_RegionView3D_view_location_get(PointerRNA *ptr, float *values)
@@ -1184,7 +1195,7 @@ static int rna_SpaceNodeEditor_tree_type_poll(void *Cv, bNodeTreeType *type)
 	if (type->poll)
 		return type->poll(C, type);
 	else
-		return TRUE;
+		return true;
 }
 static EnumPropertyItem *rna_SpaceNodeEditor_tree_type_itemf(bContext *C, PointerRNA *UNUSED(ptr),
                                                              PropertyRNA *UNUSED(prop), bool *r_free)
@@ -1216,7 +1227,7 @@ void rna_SpaceNodeEditor_path_start(SpaceNode *snode, bContext *C, PointerRNA *n
 	ED_node_tree_update(C);
 }
 
-void rna_SpaceNodeEditor_path_push(SpaceNode *snode, bContext *C, PointerRNA *node_tree, PointerRNA *node)
+void rna_SpaceNodeEditor_path_append(SpaceNode *snode, bContext *C, PointerRNA *node_tree, PointerRNA *node)
 {
 	ED_node_tree_push(snode, node_tree->data, node->data);
 	ED_node_tree_update(C);
@@ -2033,10 +2044,13 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_pointer_funcs(prop, "rna_SpaceView3D_region_3d_get", NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "3D Region", "3D region in this space, in case of quad view the camera region");
 
-	prop = RNA_def_property(srna, "region_quadview", PROP_POINTER, PROP_NONE);
+	prop = RNA_def_property(srna, "region_quadviews", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_struct_type(prop, "RegionView3D");
-	RNA_def_property_pointer_funcs(prop, "rna_SpaceView3D_region_quadview_get", NULL, NULL, NULL);
-	RNA_def_property_ui_text(prop, "Quad View Region", "3D region that defines the quad view settings");
+	RNA_def_property_collection_funcs(prop, "rna_SpaceView3D_region_quadviews_begin", "rna_iterator_listbase_next",
+	                                  "rna_iterator_listbase_end", "rna_SpaceView3D_region_quadviews_get",
+	                                  NULL, NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Quad View Regions", "3D regions (the third one defines quad view settings, "
+	                                                    "the forth one is same as 'region_3d')");
 
 	prop = RNA_def_property(srna, "show_reconstruction", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag2", V3D_SHOW_RECONSTRUCTION);
@@ -3303,7 +3317,7 @@ static void rna_def_space_node_path_api(BlenderRNA *brna, PropertyRNA *cprop)
 	parm = RNA_def_pointer(func, "node_tree", "NodeTree", "Node Tree", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_RNAPTR);
 
-	func = RNA_def_function(srna, "push", "rna_SpaceNodeEditor_path_push");
+	func = RNA_def_function(srna, "append", "rna_SpaceNodeEditor_path_append");
 	RNA_def_function_ui_description(func, "Append a node group tree to the path");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 	parm = RNA_def_pointer(func, "node_tree", "NodeTree", "Node Tree", "Node tree to append to the node editor path");

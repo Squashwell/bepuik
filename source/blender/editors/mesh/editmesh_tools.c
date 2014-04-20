@@ -823,27 +823,24 @@ static int edbm_mark_sharp_exec(bContext *C, wmOperator *op)
 	BMEdge *eed;
 	BMIter iter;
 	const bool clear = RNA_boolean_get(op->ptr, "clear");
+	const bool use_verts = RNA_boolean_get(op->ptr, "use_verts");
 
 	/* auto-enable sharp edge drawing */
 	if (clear == 0) {
 		me->drawflag |= ME_DRAWSHARP;
 	}
 
-	if (!clear) {
-		BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
-			if (!BM_elem_flag_test(eed, BM_ELEM_SELECT) || BM_elem_flag_test(eed, BM_ELEM_HIDDEN))
+	BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
+		if (use_verts) {
+			if (!(BM_elem_flag_test(eed->v1, BM_ELEM_SELECT) || BM_elem_flag_test(eed->v2, BM_ELEM_SELECT))) {
 				continue;
-			
-			BM_elem_flag_disable(eed, BM_ELEM_SMOOTH);
+			}
 		}
-	}
-	else {
-		BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
-			if (!BM_elem_flag_test(eed, BM_ELEM_SELECT) || BM_elem_flag_test(eed, BM_ELEM_HIDDEN))
-				continue;
-			
-			BM_elem_flag_enable(eed, BM_ELEM_SMOOTH);
+		else if (!BM_elem_flag_test(eed, BM_ELEM_SELECT)) {
+			continue;
 		}
+
+		BM_elem_flag_set(eed, BM_ELEM_SMOOTH, clear);
 	}
 
 	EDBM_update_generic(em, true, false);
@@ -867,10 +864,12 @@ void MESH_OT_mark_sharp(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
-	prop = RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
+	prop = RNA_def_boolean(ot->srna, "clear", false, "Clear", "");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+	prop = RNA_def_boolean(ot->srna, "use_verts", false, "Vertices",
+	                       "Consider vertices instead of edges to select which edges to (un)tag as sharp");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
-
 
 static int edbm_vert_connect_exec(bContext *C, wmOperator *op)
 {
@@ -887,7 +886,7 @@ static int edbm_vert_connect_exec(bContext *C, wmOperator *op)
 		}
 	}
 	else {
-		if (!EDBM_op_init(em, &bmop, op, "connect_verts verts=%hv", BM_ELEM_SELECT)) {
+		if (!EDBM_op_init(em, &bmop, op, "connect_verts verts=%hv check_degenerate=%b", BM_ELEM_SELECT, true)) {
 			return OPERATOR_CANCELLED;
 		}
 	}
@@ -1285,7 +1284,7 @@ static int edbm_do_smooth_vertex_exec(bContext *C, wmOperator *op)
 	Mesh *me = obedit->data;
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	ModifierData *md;
-	int mirrx = false, mirry = false, mirrz = false;
+	bool mirrx = false, mirry = false, mirrz = false;
 	int i, repeat;
 	float clip_dist = 0.0f;
 	bool use_topology = (me->editflag & ME_EDIT_MIRROR_TOPO) != 0;
@@ -1370,7 +1369,7 @@ static int edbm_do_smooth_laplacian_vertex_exec(bContext *C, wmOperator *op)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	Mesh *me = obedit->data;
 	bool use_topology = (me->editflag & ME_EDIT_MIRROR_TOPO) != 0;
-	int usex = true, usey = true, usez = true, preserve_volume = true;
+	bool usex = true, usey = true, usez = true, preserve_volume = true;
 	int i, repeat;
 	float lambda_factor;
 	float lambda_border;
@@ -3883,7 +3882,7 @@ static void sort_bmelem_flag(Scene *scene, Object *ob,
 	/* Just to mark protected elements. */
 	char *pblock[3] = {NULL, NULL, NULL}, *pb;
 	BMElemSort *sblock[3] = {NULL, NULL, NULL}, *sb;
-	int *map[3] = {NULL, NULL, NULL}, *mp;
+	unsigned int *map[3] = {NULL, NULL, NULL}, *mp;
 	int totelem[3] = {0, 0, 0};
 	int affected[3] = {0, 0, 0};
 	int i, j;
@@ -4055,7 +4054,7 @@ static void sort_bmelem_flag(Scene *scene, Object *ob,
 	}
 
 	else if (action == SRT_SELECTED) {
-		int *tbuf[3] = {NULL, NULL, NULL}, *tb;
+		unsigned int *tbuf[3] = {NULL, NULL, NULL}, *tb;
 
 		if (totelem[0]) {
 			tb = tbuf[0] = MEM_callocN(sizeof(int) * totelem[0], "sort_bmelem vert tbuf");

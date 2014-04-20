@@ -52,6 +52,7 @@
 enum {
 	/* (1 << 8) and below are reserved for public flags! */
 	NUM_EDIT_FULL       = (1 << 9),   /* Enable full editing, with units and math operators support. */
+	NUM_FAKE_EDITED     = (1 << 10),  /* Fake edited state (temp, avoids issue with backspace). */
 };
 
 /* NumInput.val_flag[] */
@@ -148,6 +149,10 @@ bool hasNumInput(const NumInput *n)
 {
 	short i;
 
+	if (n->flag & NUM_FAKE_EDITED) {
+		return true;
+	}
+
 	for (i = 0; i <= n->idx_max; i++) {
 		if (n->val_flag[i] & NUM_EDITED) {
 			return true;
@@ -160,31 +165,45 @@ bool hasNumInput(const NumInput *n)
 /**
  * \warning \a vec must be set beforehand otherwise we risk uninitialized vars.
  */
-void applyNumInput(NumInput *n, float *vec)
+bool applyNumInput(NumInput *n, float *vec)
 {
 	short i, j;
 	float val;
 
 	if (hasNumInput(n)) {
 		for (j = 0; j <= n->idx_max; j++) {
-			/* if AFFECTALL and no number typed and cursor not on number, use first number */
-			i = (n->flag & NUM_AFFECT_ALL && n->idx != j && !(n->val_flag[j] & NUM_EDITED)) ? 0 : j;
-			val = (!(n->val_flag[i] & NUM_EDITED) && n->val_flag[i] & NUM_NULL_ONE) ? 1.0f : n->val[i];
+			if (n->flag & NUM_FAKE_EDITED) {
+				val = n->val[j];
+			}
+			else {
+				/* if AFFECTALL and no number typed and cursor not on number, use first number */
+				i = (n->flag & NUM_AFFECT_ALL && n->idx != j && !(n->val_flag[j] & NUM_EDITED)) ? 0 : j;
+				val = (!(n->val_flag[i] & NUM_EDITED) && n->val_flag[i] & NUM_NULL_ONE) ? 1.0f : n->val[i];
 
-			if (n->val_flag[i] & NUM_NO_NEGATIVE && val < 0.0f) {
-				val = 0.0f;
-			}
-			if (n->val_flag[i] & NUM_NO_ZERO && val == 0.0f) {
-				val = 0.0001f;
-			}
-			if (n->val_flag[i] & NUM_NO_FRACTION && val != floorf(val)) {
-				val = floorf(val + 0.5f);
+				if (n->val_flag[i] & NUM_NO_NEGATIVE && val < 0.0f) {
+					val = 0.0f;
+				}
 				if (n->val_flag[i] & NUM_NO_ZERO && val == 0.0f) {
-					val = 1.0f;
+					val = 0.0001f;
+				}
+				if (n->val_flag[i] & NUM_NO_FRACTION && val != floorf(val)) {
+					val = floorf(val + 0.5f);
+					if (n->val_flag[i] & NUM_NO_ZERO && val == 0.0f) {
+						val = 1.0f;
+					}
 				}
 			}
 			vec[j] = val;
 		}
+		n->flag &= ~NUM_FAKE_EDITED;
+		return true;
+	}
+	else {
+		/* Else, we set the 'org' values for numinput! */
+		for (j = 0; j <= n->idx_max; j++) {
+			n->val[j] = n->val_org[j] = vec[j];
+		}
+		return false;
 	}
 }
 
@@ -257,6 +276,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 				n->val_flag[0] &= ~NUM_EDITED;
 				n->val_flag[1] &= ~NUM_EDITED;
 				n->val_flag[2] &= ~NUM_EDITED;
+				n->flag |= NUM_FAKE_EDITED;
 				updated = true;
 				break;
 			}
@@ -285,6 +305,9 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 					}
 					memmove(&n->str[cur], &n->str[t_cur], strlen(&n->str[t_cur]) + 1);  /* +1 for trailing '\0'. */
 					updated = true;
+				}
+				if (!n->str[0]) {
+					n->val[idx] = n->val_org[idx];
 				}
 			}
 			else {
@@ -318,13 +341,10 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 			}
 			return false;
 		case TABKEY:
-			n->val_org[idx] = n->val[idx];
 			n->val_flag[idx] &= ~(NUM_NEGATE | NUM_INVERSE);
 
-			idx += event->ctrl ? -1 : 1;
-			idx %= idx_max + 1;
+			idx = (idx + idx_max + (event->ctrl ? 0 : 2)) % (idx_max + 1);
 			n->idx = idx;
-			n->val[idx] = n->val_org[idx];
 			if (n->val_flag[idx] & NUM_EDITED) {
 				value_to_editstr(n, idx);
 			}
@@ -334,42 +354,48 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 			}
 			return true;
 		case PADPERIOD:
+		case PERIODKEY:
 			/* Force numdot, some OSs/countries generate a comma char in this case, sic...  (T37992) */
 			ascii[0] = '.';
 			utf8_buf = ascii;
 			break;
+#if 0  /* Those keys are not directly accessible in all layouts, preventing to generate matching events.
+        * So we use a hack (ascii value) instead, see below.
+        */
 		case EQUALKEY:
-			/* XXX Advanced mode toggle, hack around keyboards without direct access to '=' nor '*'... */
-			ascii[0] = '=';
-			break;
 		case PADASTERKEY:
-			/* XXX Advanced mode toggle, hack around keyboards without direct access to '=' nor '*'... */
-			ascii[0] = '*';
+			if (!(n->flag & NUM_EDIT_FULL)) {
+				n->flag |= NUM_EDIT_FULL;
+				n->val_flag[idx] |= NUM_EDITED;
+				return true;
+			}
+			else if (event->ctrl) {
+				n->flag &= ~NUM_EDIT_FULL;
+				return true;
+			}
 			break;
+#endif
 		case PADMINUS:
 		case MINUSKEY:
 			if (event->ctrl || !(n->flag & NUM_EDIT_FULL)) {
 				n->val_flag[idx] ^= NUM_NEGATE;
 				updated = true;
-				break;
 			}
-			/* fall-through */
+			break;
 		case PADSLASHKEY:
 		case SLASHKEY:
 			if (event->ctrl || !(n->flag & NUM_EDIT_FULL)) {
 				n->val_flag[idx] ^= NUM_INVERSE;
 				updated = true;
-				break;
 			}
-			/* fall-through */
+			break;
 		case CKEY:
 			if (event->ctrl) {
 				/* Copy current str to the copypaste buffer. */
 				WM_clipboard_text_set(n->str, 0);
 				updated = true;
-				break;
 			}
-			/* fall-through */
+			break;
 		case VKEY:
 			if (event->ctrl) {
 				/* extract the first line from the clipboard */
@@ -377,9 +403,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 				char *pbuf = WM_clipboard_text_get_firstline(false, &pbuf_len);
 
 				if (pbuf) {
-					bool success;
-
-					success = editstr_insert_at_cursor(n, pbuf, pbuf_len);
+					const bool success = editstr_insert_at_cursor(n, pbuf, pbuf_len);
 
 					MEM_freeN(pbuf);
 					if (!success) {
@@ -389,13 +413,15 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 					n->val_flag[idx] |= NUM_EDITED;
 				}
 				updated = true;
-				break;
 			}
-			/* fall-through */
-		default:
-			utf8_buf = event->utf8_buf;
-			ascii[0] = event->ascii;
 			break;
+		default:
+			break;
+	}
+
+	if (!updated && !utf8_buf && (event->utf8_buf[0] || event->ascii)) {
+		utf8_buf = event->utf8_buf;
+		ascii[0] = event->ascii;
 	}
 
 	/* XXX Hack around keyboards without direct access to '=' nor '*'... */
@@ -411,7 +437,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 		}
 	}
 
-	if (utf8_buf && !utf8_buf[0] && ascii[0]) {
+	if ((!utf8_buf || !utf8_buf[0]) && ascii[0]) {
 		/* Fallback to ascii. */
 		utf8_buf = ascii;
 	}

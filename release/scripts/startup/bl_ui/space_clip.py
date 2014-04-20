@@ -123,9 +123,9 @@ class CLIP_HT_header(Header):
         row = layout.row()
         row.template_ID(sc, "clip", open="clip.open")
 
-        layout.prop(sc, "mode", text="")
-
         if clip:
+            layout.prop(sc, "mode", text="")
+
             row = layout.row()
             row.template_ID(sc, "mask", new="mask.new")
 
@@ -371,10 +371,10 @@ class CLIP_PT_tools_tracking(CLIP_PT_tracking_panel, Panel):
         row.label(text="Clear:")
         row.scale_x = 2.0
 
-        props = row.operator("clip.clear_track_path", icon="BACK", text="")
+        props = row.operator("clip.clear_track_path", text="", icon='BACK')
         props.action = 'UPTO'
 
-        props = row.operator("clip.clear_track_path", icon="FORWARD", text="")
+        props = row.operator("clip.clear_track_path", text="", icon='FORWARD')
         props.action = 'REMAINED'
 
         col = layout.column()
@@ -382,10 +382,10 @@ class CLIP_PT_tools_tracking(CLIP_PT_tracking_panel, Panel):
         row.label(text="Refine:")
         row.scale_x = 2.0
 
-        props = row.operator("clip.refine_markers", icon='LOOP_BACK', text="")
+        props = row.operator("clip.refine_markers", text="", icon='LOOP_BACK')
         props.backwards = True
 
-        props = row.operator("clip.refine_markers", icon='LOOP_FORWARDS', text="")
+        props = row.operator("clip.refine_markers", text="", icon='LOOP_FORWARDS')
         props.backwards = False
 
         col = layout.column(align=True)
@@ -769,11 +769,19 @@ class CLIP_PT_tracking_lens(Panel):
             sub.prop(clip.tracking.camera, "focal_length_pixels")
         sub.prop(clip.tracking.camera, "units", text="")
 
-        col = layout.column(align=True)
+        col = layout.column()
         col.label(text="Lens Distortion:")
-        col.prop(clip.tracking.camera, "k1")
-        col.prop(clip.tracking.camera, "k2")
-        col.prop(clip.tracking.camera, "k3")
+        camera = clip.tracking.camera
+        col.prop(camera, "distortion_model", text="")
+        if camera.distortion_model == 'POLYNOMIAL':
+            col = layout.column(align=True)
+            col.prop(camera, "k1")
+            col.prop(camera, "k2")
+            col.prop(camera, "k3")
+        elif camera.distortion_model == 'DIVISION':
+            col = layout.column(align=True)
+            col.prop(camera, "division_k1")
+            col.prop(camera, "division_k2")
 
 
 class CLIP_PT_display(CLIP_PT_clip_view_panel, Panel):
@@ -794,7 +802,7 @@ class CLIP_PT_display(CLIP_PT_clip_view_panel, Panel):
         row.separator()
         row.prop(sc, "use_grayscale_preview", text="B/W", toggle=True)
         row.separator()
-        row.prop(sc, "use_mute_footage", text="", icon="VISIBLE_IPO_ON", toggle=True)
+        row.prop(sc, "use_mute_footage", text="", icon='VISIBLE_IPO_ON', toggle=True)
 
         col = layout.column(align=True)
         col.prop(sc.clip_user, "use_render_undistorted", text="Render Undistorted")
@@ -1330,17 +1338,6 @@ class CLIP_MT_tracking_specials(Menu):
 
         layout.operator("clip.lock_tracks",
                         text="Unlock Tracks").action = 'UNLOCK'
-
-
-class CLIP_MT_select_mode(Menu):
-    bl_label = "Select Mode"
-
-    def draw(self, context):
-        layout = self.layout
-
-        layout.operator_context = 'INVOKE_REGION_WIN'
-
-        layout.operator_enum("clip.mode_set", "mode")
 
 
 class CLIP_MT_camera_presets(Menu):

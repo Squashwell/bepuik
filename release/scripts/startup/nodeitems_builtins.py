@@ -167,6 +167,7 @@ shader_node_categories = [
         NodeItem("ShaderNodeHairInfo"),
         NodeItem("ShaderNodeParticleInfo"),
         NodeItem("ShaderNodeCameraData"),
+        NodeItem("ShaderNodeUVMap"),
         NodeItem("NodeGroupInput", poll=group_input_output_item_poll),
         ]),
     ShaderNewNodeCategory("SH_NEW_OUTPUT", "Output", items=[
@@ -349,6 +350,7 @@ compositor_node_categories = [
         NodeItem("CompositorNodeTransform"),
         NodeItem("CompositorNodeStabilize"),
         NodeItem("CompositorNodePlaneTrackDeform"),
+        NodeItem("CompositorNodeCornerPin"),
         ]),
     CompositorNodeCategory("CMP_GROUP", "Group", items=node_group_items),
     CompositorNodeCategory("CMP_LAYOUT", "Layout", items=[

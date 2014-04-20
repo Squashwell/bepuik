@@ -1142,7 +1142,7 @@ int BKE_ffmpeg_append(RenderData *rd, int start_frame, int frame, int *pixels, i
 
 		if (ffmpeg_autosplit) {
 			if (avio_tell(outfile->pb) > FFMPEG_AUTOSPLIT_SIZE) {
-				end_ffmpeg_impl(TRUE);
+				end_ffmpeg_impl(true);
 				ffmpeg_autosplit_count++;
 				success &= start_ffmpeg_impl(rd, rectx, recty, reports);
 			}
@@ -1168,7 +1168,7 @@ static void end_ffmpeg_impl(int is_autosplit)
 #endif
 
 #ifdef WITH_AUDASPACE
-	if (is_autosplit == FALSE) {
+	if (is_autosplit == false) {
 		if (audio_mixdown_device) {
 			AUD_closeReadDevice(audio_mixdown_device);
 			audio_mixdown_device = 0;
@@ -1240,7 +1240,7 @@ static void end_ffmpeg_impl(int is_autosplit)
 
 void BKE_ffmpeg_end(void)
 {
-	end_ffmpeg_impl(FALSE);
+	end_ffmpeg_impl(false);
 }
 
 /* properties */
@@ -1438,20 +1438,26 @@ static void ffmpeg_set_expert_options(RenderData *rd)
 		BKE_ffmpeg_property_add_string(rd, "video", "bf:3");
 		BKE_ffmpeg_property_add_string(rd, "video", "refs:2");
 		BKE_ffmpeg_property_add_string(rd, "video", "qcomp:0.6");
-		BKE_ffmpeg_property_add_string(rd, "video", "directpred:3");  // Deprecated.
 
 		BKE_ffmpeg_property_add_string(rd, "video", "trellis:0");
-		BKE_ffmpeg_property_add_string(rd, "video", "flags2:wpred");  // Deprecated.
 		BKE_ffmpeg_property_add_string(rd, "video", "weightb:1");
-		BKE_ffmpeg_property_add_string(rd, "video", "flags2:dct8x8");  // Deprecated.
+#ifdef FFMPEG_HAVE_DEPRECATED_FLAGS2
+		BKE_ffmpeg_property_add_string(rd, "video", "flags2:dct8x8");
+		BKE_ffmpeg_property_add_string(rd, "video", "directpred:3");
+		BKE_ffmpeg_property_add_string(rd, "video", "flags2:fastpskip");
+		BKE_ffmpeg_property_add_string(rd, "video", "flags2:wpred");
+#else
 		BKE_ffmpeg_property_add_string(rd, "video", "8x8dct:1");
-		BKE_ffmpeg_property_add_string(rd, "video", "flags2:fastpskip");  // Deprecated.
 		BKE_ffmpeg_property_add_string(rd, "video", "fast-pskip:1");
 		BKE_ffmpeg_property_add_string(rd, "video", "wpredp:2");
+#endif
 
 		if (rd->ffcodecdata.flags & FFMPEG_LOSSLESS_OUTPUT) {
-			BKE_ffmpeg_property_add_string(rd, "video", "cqp:0");  // Deprecated.
+#ifdef FFMPEG_HAVE_DEPRECATED_FLAGS2
+			BKE_ffmpeg_property_add_string(rd, "video", "cqp:0");
+#else
 			BKE_ffmpeg_property_add_string(rd, "video", "qp:0");
+#endif
 		}
 	}
 	else if (codec_id == AV_CODEC_ID_DNXHD) {
@@ -1609,17 +1615,17 @@ bool BKE_ffmpeg_alpha_channel_is_supported(RenderData *rd)
 	int codec = rd->ffcodecdata.codec;
 
 	if (codec == AV_CODEC_ID_QTRLE)
-		return TRUE;
+		return true;
 
 	if (codec == AV_CODEC_ID_PNG)
-		return TRUE;
+		return true;
 
 #ifdef FFMPEG_FFV1_ALPHA_SUPPORTED
 	if (codec == AV_CODEC_ID_FFV1)
-		return TRUE;
+		return true;
 #endif
 
-	return FALSE;
+	return false;
 }
 
 #endif

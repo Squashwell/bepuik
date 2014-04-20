@@ -127,7 +127,7 @@ int  DAG_id_type_tagged(struct Main *bmain, short idtype);
 
 void DAG_scene_flush_update(struct Main *bmain, struct Scene *sce, unsigned int lay, const short do_time);
 void DAG_ids_flush_tagged(struct Main *bmain);
-void DAG_ids_check_recalc(struct Main *bmain, struct Scene *scene, int time);
+void DAG_ids_check_recalc(struct Main *bmain, struct Scene *scene, bool time);
 void DAG_ids_clear_recalc(struct Main *bmain);
 
 /* Armature: sorts the bones according to dependencies between them */
@@ -157,7 +157,7 @@ void DAG_print_dependencies(struct Main *bmain, struct Scene *scene, struct Obje
 /* ************************ DAG querying ********************* */
 
 struct Object *DAG_get_node_object(void *node_v);
-const char *DAG_get_node_name(void *node_v);
+const char *DAG_get_node_name(struct Scene *scene, void *node_v);
 short DAG_get_eval_flags_for_object(struct Scene *scene, void *object);
 bool DAG_is_acyclic(struct Scene *scene);
 

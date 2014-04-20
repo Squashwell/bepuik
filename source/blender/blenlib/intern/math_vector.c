@@ -68,6 +68,103 @@ void interp_v4_v4v4(float target[4], const float a[4], const float b[4], const f
 	target[3] = s * a[3] + t * b[3];
 }
 
+/**
+ * slerp, treat vectors as spherical coordinates
+ * \see #interp_qt_qtqt
+ *
+ * \return success
+ */
+bool interp_v3_v3v3_slerp(float target[3], const float a[3], const float b[3], const float t)
+{
+	float cosom, w[2];
+
+	BLI_ASSERT_UNIT_V3(a);
+	BLI_ASSERT_UNIT_V3(b);
+
+	cosom = dot_v3v3(a, b);
+
+	/* direct opposites */
+	if (UNLIKELY(cosom < (-1.0f + FLT_EPSILON))) {
+		return false;
+	}
+
+	interp_dot_slerp(t, cosom, w);
+
+	target[0] = w[0] * a[0] + w[1] * b[0];
+	target[1] = w[0] * a[1] + w[1] * b[1];
+	target[2] = w[0] * a[2] + w[1] * b[2];
+
+	return true;
+}
+bool interp_v2_v2v2_slerp(float target[2], const float a[2], const float b[2], const float t)
+{
+	float cosom, w[2];
+
+	BLI_ASSERT_UNIT_V2(a);
+	BLI_ASSERT_UNIT_V2(b);
+
+	cosom = dot_v2v2(a, b);
+
+	/* direct opposites */
+	if (UNLIKELY(cosom < (1.0f + FLT_EPSILON))) {
+		return false;
+	}
+
+	interp_dot_slerp(t, cosom, w);
+
+	target[0] = w[0] * a[0] + w[1] * b[0];
+	target[1] = w[0] * a[1] + w[1] * b[1];
+
+	return true;
+}
+
+/**
+ * Same as #interp_v3_v3v3_slerp buy uses fallback values
+ * for opposite vectors.
+ */
+void interp_v3_v3v3_slerp_safe(float target[3], const float a[3], const float b[3], const float t)
+{
+	if (UNLIKELY(!interp_v3_v3v3_slerp(target, a, b, t))) {
+		/* axis are aligned so any otho vector is acceptable */
+		float ab_ortho[3];
+		ortho_v3_v3(ab_ortho, a);
+		normalize_v3(ab_ortho);
+		if (t < 0.5f) {
+			if (UNLIKELY(!interp_v3_v3v3_slerp(target, a, ab_ortho, t * 2.0f))) {
+				BLI_assert(0);
+				copy_v3_v3(target, a);
+			}
+		}
+		else {
+			if (UNLIKELY(!interp_v3_v3v3_slerp(target, ab_ortho, b, (t - 0.5f) * 2.0f))) {
+				BLI_assert(0);
+				copy_v3_v3(target, b);
+			}
+		}
+	}
+}
+void interp_v2_v2v2_slerp_safe(float target[2], const float a[2], const float b[2], const float t)
+{
+	if (UNLIKELY(!interp_v2_v2v2_slerp(target, a, b, t))) {
+		/* axis are aligned so any otho vector is acceptable */
+		float ab_ortho[2];
+		ortho_v2_v2(ab_ortho, a);
+		// normalize_v2(ab_ortho);
+		if (t < 0.5f) {
+			if (UNLIKELY(!interp_v2_v2v2_slerp(target, a, ab_ortho, t * 2.0f))) {
+				BLI_assert(0);
+				copy_v2_v2(target, a);
+			}
+		}
+		else {
+			if (UNLIKELY(!interp_v2_v2v2_slerp(target, ab_ortho, b, (t - 0.5f) * 2.0f))) {
+				BLI_assert(0);
+				copy_v2_v2(target, b);
+			}
+		}
+	}
+}
+
 /* weight 3 vectors,
  * 'w' must be unit length but is not a vector, just 3 weights */
 void interp_v3_v3v3v3(float p[3], const float v1[3], const float v2[3], const float v3[3], const float w[3])
@@ -471,47 +568,90 @@ void bisect_v3_v3v3v3(float out[3], const float v1[3], const float v2[3], const 
 	normalize_v3(out);
 }
 
-/* Returns a reflection vector from a vector and a normal vector
+/**
+ * Returns a reflection vector from a vector and a normal vector
  * reflect = vec - ((2 * DotVecs(vec, mirror)) * mirror)
  */
-void reflect_v3_v3v3(float out[3], const float v1[3], const float v2[3])
+void reflect_v3_v3v3(float out[3], const float vec[3], const float normal[3])
 {
-	float vec[3], normal[3];
-	float reflect[3] = {0.0f, 0.0f, 0.0f};
-	float dot2;
+	const float dot2 = 2.0f * dot_v3v3(vec, normal);
 
-	copy_v3_v3(vec, v1);
-	copy_v3_v3(normal, v2);
+	BLI_ASSERT_UNIT_V3(normal);
 
-	dot2 = 2 * dot_v3v3(vec, normal);
-
-	reflect[0] = vec[0] - (dot2 * normal[0]);
-	reflect[1] = vec[1] - (dot2 * normal[1]);
-	reflect[2] = vec[2] - (dot2 * normal[2]);
-
-	copy_v3_v3(out, reflect);
+	out[0] = vec[0] - (dot2 * normal[0]);
+	out[1] = vec[1] - (dot2 * normal[1]);
+	out[2] = vec[2] - (dot2 * normal[2]);
 }
 
-void ortho_basis_v3v3_v3(float v1[3], float v2[3], const float v[3])
+/**
+ * Takes a vector and computes 2 orthogonal directions.
+ *
+ * \note if \a n is n unit length, computed values will be too.
+ */
+void ortho_basis_v3v3_v3(float r_n1[3], float r_n2[3], const float n[3])
 {
-	const float f = (float)sqrt(v[0] * v[0] + v[1] * v[1]);
+	const float eps = FLT_EPSILON;
+	const float f = len_squared_v2(n);
 
-	if (f < 1e-35f) {
-		// degenerate case
-		v1[0] = (v[2] < 0.0f) ? -1.0f : 1.0f;
-		v1[1] = v1[2] = v2[0] = v2[2] = 0.0f;
-		v2[1] = 1.0f;
+	if (f > eps) {
+		const float d = 1.0f / sqrtf(f);
+
+		BLI_assert(finite(d));
+
+		r_n1[0] =  n[1] * d;
+		r_n1[1] = -n[0] * d;
+		r_n1[2] =  0.0f;
+		r_n2[0] = -n[2] * r_n1[1];
+		r_n2[1] =  n[2] * r_n1[0];
+		r_n2[2] =  n[0] * r_n1[1] - n[1] * r_n1[0];
 	}
 	else {
-		const float d = 1.0f / f;
-
-		v1[0] = v[1] * d;
-		v1[1] = -v[0] * d;
-		v1[2] = 0.0f;
-		v2[0] = -v[2] * v1[1];
-		v2[1] = v[2] * v1[0];
-		v2[2] = v[0] * v1[1] - v[1] * v1[0];
+		/* degenerate case */
+		r_n1[0] = (n[2] < 0.0f) ? -1.0f : 1.0f;
+		r_n1[1] = r_n1[2] = r_n2[0] = r_n2[2] = 0.0f;
+		r_n2[1] = 1.0f;
 	}
+}
+
+/**
+ * Calculates \a p - a perpendicular vector to \a v
+ *
+ * \note return vector won't maintain same length.
+ */
+void ortho_v3_v3(float p[3], const float v[3])
+{
+	const int axis = axis_dominant_v3_single(v);
+
+	BLI_assert(p != v);
+
+	switch (axis) {
+		case 0:
+			p[0] = -v[1] - v[2];
+			p[1] =  v[0];
+			p[2] =  v[0];
+			break;
+		case 1:
+			p[0] =  v[1];
+			p[1] = -v[0] - v[2];
+			p[2] =  v[1];
+			break;
+		case 2:
+			p[0] =  v[2];
+			p[1] =  v[2];
+			p[2] = -v[0] - v[1];
+			break;
+	}
+}
+
+/**
+ * no brainer compared to v3, just have for consistency.
+ */
+void ortho_v2_v2(float p[3], const float v[3])
+{
+	BLI_assert(p != v);
+
+	p[0] = -v[1];
+	p[1] =  v[0];
 }
 
 /* Rotate a point p by angle theta around an arbitrary axis r
@@ -641,6 +781,11 @@ void axis_sort_v3(const float axis_values[3], int r_axis_order[3])
 
 /***************************** Array Functions *******************************/
 
+MINLINE double sqr_db(double f)
+{
+	return f * f;
+}
+
 double dot_vn_vn(const float *array_src_a, const float *array_src_b, const int size)
 {
 	double d = 0.0f;
@@ -653,9 +798,20 @@ double dot_vn_vn(const float *array_src_a, const float *array_src_b, const int s
 	return d;
 }
 
+double len_squared_vn(const float *array, const int size)
+{
+	double d = 0.0f;
+	const float *array_pt = array + (size - 1);
+	int i = size;
+	while (i--) {
+		d += sqr_db((double)(*(array_pt--)));
+	}
+	return d;
+}
+
 float normalize_vn_vn(float *array_tar, const float *array_src, const int size)
 {
-	double d = dot_vn_vn(array_tar, array_src, size);
+	double d = len_squared_vn(array_src, size);
 	float d_sqrt;
 	if (d > 1.0e-35) {
 		d_sqrt = (float)sqrt(d);

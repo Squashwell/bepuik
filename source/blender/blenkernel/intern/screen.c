@@ -261,7 +261,7 @@ void BKE_spacedata_draw_locks(int set)
 			if (set) 
 				art->do_lock = art->lock;
 			else 
-				art->do_lock = FALSE;
+				art->do_lock = false;
 		}
 	}
 }
@@ -308,6 +308,7 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 		}
 	}
 	BLI_freelistN(&ar->ui_lists);
+	BLI_freelistN(&ar->ui_previews);
 	BLI_freelistN(&ar->panels_category);
 	BLI_freelistN(&ar->panels_category_active);
 }

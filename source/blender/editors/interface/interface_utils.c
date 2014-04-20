@@ -99,7 +99,7 @@ uiBut *uiDefAutoButR(uiBlock *block, PointerRNA *ptr, PropertyRNA *prop, int ind
 			else if (icon)
 				but = uiDefIconTextButR_prop(block, MENU, 0, icon, NULL, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
 			else
-				but = uiDefButR_prop(block, MENU, 0, NULL, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+				but = uiDefButR_prop(block, MENU, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
 			break;
 		case PROP_STRING:
 			if (icon && name && name[0] == '\0')
@@ -172,15 +172,13 @@ int uiDefAutoButsRNA(uiLayout *layout, PointerRNA *ptr,
 				if (!is_boolean)
 					uiItemL(col, name, ICON_NONE);
 			}
-			else if (label_align == 'H') {
+			else {  /* (label_align == 'H') */
+				BLI_assert(label_align == 'H');
 				split = uiLayoutSplit(layout, 0.5f, false);
 
 				col = uiLayoutColumn(split, false);
 				uiItemL(col, (is_boolean) ? "" : name, ICON_NONE);
 				col = uiLayoutColumn(split, false);
-			}
-			else {
-				col = NULL;
 			}
 
 			/* may meed to add more cases here.
@@ -325,7 +323,7 @@ struct uiButStoreElem {
 };
 
 /**
- * Create a new button sture, the caller must manage and run #UI_butstore_free
+ * Create a new button store, the caller must manage and run #UI_butstore_free
  */
 uiButStore *UI_butstore_create(uiBlock *block)
 {

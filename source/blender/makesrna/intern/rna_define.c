@@ -382,7 +382,7 @@ static int rna_find_sdna_member(SDNA *sdna, const char *structname, const char *
 	return 0;
 }
 
-static int rna_validate_identifier(const char *identifier, char *error, int property)
+static int rna_validate_identifier(const char *identifier, char *error, bool property)
 {
 	int a = 0;
 	
@@ -706,7 +706,7 @@ StructRNA *RNA_def_struct_ptr(BlenderRNA *brna, const char *identifier, StructRN
 	if (DefRNA.preprocess) {
 		char error[512];
 
-		if (rna_validate_identifier(identifier, error, FALSE) == 0) {
+		if (rna_validate_identifier(identifier, error, false) == 0) {
 			fprintf(stderr, "%s: struct identifier \"%s\" error - %s\n", __func__, identifier, error);
 			DefRNA.error = 1;
 		}
@@ -1000,7 +1000,7 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_, const char *identifier
 	if (DefRNA.preprocess) {
 		char error[512];
 		
-		if (rna_validate_identifier(identifier, error, TRUE) == 0) {
+		if (rna_validate_identifier(identifier, error, true) == 0) {
 			fprintf(stderr, "%s: property identifier \"%s.%s\" - %s\n", __func__,
 			        CONTAINER_RNA_ID(cont), identifier, error);
 			DefRNA.error = 1;
@@ -1020,7 +1020,7 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_, const char *identifier
 	else {
 #ifdef DEBUG
 		char error[512];
-		if (rna_validate_identifier(identifier, error, TRUE) == 0) {
+		if (rna_validate_identifier(identifier, error, true) == 0) {
 			fprintf(stderr, "%s: runtime property identifier \"%s.%s\" - %s\n", __func__,
 			        CONTAINER_RNA_ID(cont), identifier, error);
 			DefRNA.error = 1;
@@ -1068,7 +1068,7 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_, const char *identifier
 			fprop->hardmax = FLT_MAX;
 
 			if (ELEM(subtype, PROP_COLOR, PROP_COLOR_GAMMA)) {
-				fprop->softmin = 0.0f;
+				fprop->softmin = fprop->hardmin = 0.0f;
 				fprop->softmax = 1.0f;
 			}
 			else if (subtype == PROP_FACTOR) {
@@ -2990,7 +2990,7 @@ static FunctionRNA *rna_def_function(StructRNA *srna, const char *identifier)
 	if (DefRNA.preprocess) {
 		char error[512];
 
-		if (rna_validate_identifier(identifier, error, FALSE) == 0) {
+		if (rna_validate_identifier(identifier, error, false) == 0) {
 			fprintf(stderr, "%s: function identifier \"%s\" - %s\n", __func__, identifier, error);
 			DefRNA.error = 1;
 		}

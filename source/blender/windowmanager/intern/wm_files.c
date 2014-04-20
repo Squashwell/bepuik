@@ -46,10 +46,7 @@
 #  endif
 #  include <shlobj.h>  /* for SHGetSpecialFolderPath, has to be done before BLI_winstuff
                         * because 'near' is disabled through BLI_windstuff */
-#  include <process.h> /* getpid */
 #  include "BLI_winstuff.h"
-#else
-#  include <unistd.h> /* getpid */
 #endif
 
 #include "MEM_guardedalloc.h"
@@ -60,6 +57,8 @@
 #include "BLI_utildefines.h"
 #include "BLI_threads.h"
 #include "BLI_callbacks.h"
+#include "BLI_system.h"
+#include BLI_SYSTEM_PID_H
 
 #include "BLF_translation.h"
 
@@ -71,6 +70,7 @@
 #include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "BKE_utildefines.h"
 #include "BKE_autoexec.h"
 #include "BKE_blender.h"
 #include "BKE_context.h"
@@ -294,14 +294,12 @@ static void wm_init_userdef(bContext *C, const bool from_memory)
 	sound_init(CTX_data_main(C));
 
 	/* needed so loading a file from the command line respects user-pref [#26156] */
-	if (U.flag & USER_FILENOUI) G.fileflags |= G_FILE_NO_UI;
-	else G.fileflags &= ~G_FILE_NO_UI;
+	BKE_BIT_TEST_SET(G.fileflags, U.flag & USER_FILENOUI, G_FILE_NO_UI);
 
 	/* set the python auto-execute setting from user prefs */
 	/* enabled by default, unless explicitly enabled in the command line which overrides */
 	if ((G.f & G_SCRIPT_OVERRIDE_PREF) == 0) {
-		if ((U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0) G.f |=  G_SCRIPT_AUTOEXEC;
-		else G.f &= ~G_SCRIPT_AUTOEXEC;
+		BKE_BIT_TEST_SET(G.f, (U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0, G_SCRIPT_AUTOEXEC);
 	}
 
 	/* avoid re-saving for every small change to our prefs, allow overrides */
@@ -352,7 +350,7 @@ static int wm_read_exotic(Scene *UNUSED(scene), const char *name)
 			}
 			else {
 #if 0           /* historic stuff - no longer used */
-				WM_cursor_wait(TRUE);
+				WM_cursor_wait(true);
 
 				if (is_foo_format(name)) {
 					read_foo(name);
@@ -364,7 +362,7 @@ static int wm_read_exotic(Scene *UNUSED(scene), const char *name)
 					retval = BKE_READ_EXOTIC_FAIL_FORMAT;
 				}
 #if 0
-				WM_cursor_wait(FALSE);
+				WM_cursor_wait(false);
 #endif
 			}
 		}
@@ -413,7 +411,7 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 		ListBase wmbase;
 
 		/* assume automated tasks with background, don't write recent file list */
-		const bool do_history = (G.background == FALSE) && (CTX_wm_manager(C)->op_undo_depth == 0);
+		const bool do_history = (G.background == false) && (CTX_wm_manager(C)->op_undo_depth == 0);
 
 		/* put aside screens to match with persistent windows later */
 		/* also exit screens and editors */
@@ -460,7 +458,7 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 		CTX_wm_window_set(C, CTX_wm_manager(C)->windows.first);
 
 		ED_editors_init(C);
-		DAG_on_visible_update(CTX_data_main(C), TRUE);
+		DAG_on_visible_update(CTX_data_main(C), true);
 
 #ifdef WITH_PYTHON
 		/* run any texts that were loaded in and flagged as modules */
@@ -536,7 +534,7 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	char prefstr[FILE_MAX];
 	int success = 0;
 
-	/* Indicates whether user prefereneces were really load from memory.
+	/* Indicates whether user preferences were really load from memory.
 	 *
 	 * This is used for versioning code, and for this we can not rely on from_memory
 	 * passed via argument. This is because there might be configuration folder
@@ -577,9 +575,6 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 			from_memory = 1;
 		}
 	}
-	
-	/* prevent loading no UI */
-	G.fileflags &= ~G_FILE_NO_UI;
 	
 	/* put aside screens to match with persistent windows later */
 	wm_window_match_init(C, &wmbase);
@@ -650,7 +645,7 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	BKE_write_undo(C, "original");  /* save current state */
 
 	ED_editors_init(C);
-	DAG_on_visible_update(CTX_data_main(C), TRUE);
+	DAG_on_visible_update(CTX_data_main(C), true);
 
 #ifdef WITH_PYTHON
 	if (CTX_py_init_get(C)) {
@@ -671,7 +666,7 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 		CTX_wm_window_set(C, NULL); /* exits queues */
 	}
 
-	return TRUE;
+	return true;
 }
 
 int wm_history_read_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
@@ -689,6 +684,12 @@ int wm_homefile_read_exec(bContext *C, wmOperator *op)
 
 	if (!from_memory) {
 		PropertyRNA *prop = RNA_struct_find_property(op->ptr, "filepath");
+
+		/* This can be used when loading of a start-up file should only change
+		 * the scene content but keep the blender UI as it is. */
+		wm_open_init_load_ui(op, true);
+		BKE_BIT_TEST_SET(G.fileflags, !RNA_boolean_get(op->ptr, "load_ui"), G_FILE_NO_UI);
+
 		if (RNA_property_is_set(op->ptr, prop)) {
 			RNA_property_string_get(op->ptr, prop, filepath_buf);
 			filepath = filepath_buf;
@@ -823,11 +824,11 @@ static ImBuf *blend_file_thumb(Scene *scene, bScreen *screen, int **thumb_pt)
 	if (scene->camera) {
 		ibuf = ED_view3d_draw_offscreen_imbuf_simple(scene, scene->camera,
 		                                             BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
-		                                             IB_rect, OB_SOLID, FALSE, FALSE, R_ADDSKY, err_out);
+		                                             IB_rect, OB_SOLID, false, false, R_ADDSKY, err_out);
 	}
 	else {
 		ibuf = ED_view3d_draw_offscreen_imbuf(scene, v3d, ar, BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
-		                                      IB_rect, FALSE, R_ADDSKY, err_out);
+		                                      IB_rect, false, R_ADDSKY, err_out);
 	}
 
 	if (ibuf) {
@@ -955,11 +956,8 @@ int wm_file_write(bContext *C, const char *filepath, int fileflags, ReportList *
 			G.save_over = 1; /* disable untitled.blend convention */
 		}
 
-		if (fileflags & G_FILE_COMPRESS) G.fileflags |= G_FILE_COMPRESS;
-		else G.fileflags &= ~G_FILE_COMPRESS;
-		
-		if (fileflags & G_FILE_AUTOPLAY) G.fileflags |= G_FILE_AUTOPLAY;
-		else G.fileflags &= ~G_FILE_AUTOPLAY;
+		BKE_BIT_TEST_SET(G.fileflags, fileflags & G_FILE_COMPRESS, G_FILE_COMPRESS);
+		BKE_BIT_TEST_SET(G.fileflags, fileflags & G_FILE_AUTOPLAY, G_FILE_AUTOPLAY);
 
 		/* prevent background mode scripts from clobbering history */
 		if (!G.background) {
@@ -1156,3 +1154,39 @@ void wm_autosave_read(bContext *C, ReportList *reports)
 	WM_file_read(C, filename, reports);
 }
 
+
+/** \name Initialize WM_OT_open_xxx properties
+ *
+ * Check if load_ui was set by the caller.
+ * Fall back to user preference when file flags not specified.
+ *
+ * \{ */
+
+void wm_open_init_load_ui(wmOperator *op, bool use_prefs)
+{
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "load_ui");
+	if (!RNA_property_is_set(op->ptr, prop)) {
+		bool value = use_prefs ?
+		             ((U.flag & USER_FILENOUI) == 0) :
+		             ((G.fileflags & G_FILE_NO_UI) == 0);
+
+		RNA_property_boolean_set(op->ptr, prop, value);
+	}
+}
+
+void wm_open_init_use_scripts(wmOperator *op, bool use_prefs)
+{
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "use_scripts");
+	if (!RNA_property_is_set(op->ptr, prop)) {
+		/* use G_SCRIPT_AUTOEXEC rather than the userpref because this means if
+		 * the flag has been disabled from the command line, then opening
+		 * from the menu wont enable this setting. */
+		bool value = use_prefs ?
+		             ((U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0) :
+		             ((G.f & G_SCRIPT_AUTOEXEC) != 0);
+
+		RNA_property_boolean_set(op->ptr, prop, value);
+	}
+}
+
+/** \} */

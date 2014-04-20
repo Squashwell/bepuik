@@ -213,7 +213,7 @@ static void rna_Object_internal_update(Main *UNUSED(bmain), Scene *UNUSED(scene)
 static void rna_Object_matrix_world_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	/* don't use compat so we get predictable rotation */
-	BKE_object_apply_mat4(ptr->id.data, ((Object *)ptr->id.data)->obmat, FALSE, TRUE);
+	BKE_object_apply_mat4(ptr->id.data, ((Object *)ptr->id.data)->obmat, false, true);
 	rna_Object_internal_update(bmain, scene, ptr);
 }
 
@@ -245,7 +245,7 @@ static void rna_Object_matrix_local_set(PointerRNA *ptr, const float values[16])
 	}
 
 	/* don't use compat so we get predictable rotation */
-	BKE_object_apply_mat4(ob, ob->obmat, FALSE, FALSE);
+	BKE_object_apply_mat4(ob, ob->obmat, false, false);
 }
 
 static void rna_Object_matrix_basis_get(PointerRNA *ptr, float values[16])
@@ -257,7 +257,7 @@ static void rna_Object_matrix_basis_get(PointerRNA *ptr, float values[16])
 static void rna_Object_matrix_basis_set(PointerRNA *ptr, const float values[16])
 {
 	Object *ob = ptr->id.data;
-	BKE_object_apply_mat4(ob, (float(*)[4])values, FALSE, FALSE);
+	BKE_object_apply_mat4(ob, (float(*)[4])values, false, false);
 }
 
 void rna_Object_internal_update_data(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -1284,20 +1284,20 @@ static PointerRNA rna_Object_collision_get(PointerRNA *ptr)
 static PointerRNA rna_Object_active_constraint_get(PointerRNA *ptr)
 {
 	Object *ob = (Object *)ptr->id.data;
-	bConstraint *con = BKE_constraints_get_active(&ob->constraints);
+	bConstraint *con = BKE_constraints_active_get(&ob->constraints);
 	return rna_pointer_inherit_refine(ptr, &RNA_Constraint, con);
 }
 
 static void rna_Object_active_constraint_set(PointerRNA *ptr, PointerRNA value)
 {
 	Object *ob = (Object *)ptr->id.data;
-	BKE_constraints_set_active(&ob->constraints, (bConstraint *)value.data);
+	BKE_constraints_active_set(&ob->constraints, (bConstraint *)value.data);
 }
 
 static bConstraint *rna_Object_constraints_new(Object *object, int type)
 {
 	WM_main_add_notifier(NC_OBJECT | ND_CONSTRAINT | NA_ADDED, object);
-	return BKE_add_ob_constraint(object, NULL, type);
+	return BKE_constraint_add_for_object(object, NULL, type);
 }
 
 static void rna_Object_constraints_remove(Object *object, ReportList *reports, PointerRNA *con_ptr)
@@ -1308,7 +1308,7 @@ static void rna_Object_constraints_remove(Object *object, ReportList *reports, P
 		return;
 	}
 
-	BKE_remove_constraint(&object->constraints, con);
+	BKE_constraint_remove(&object->constraints, con);
 	RNA_POINTER_INVALIDATE(con_ptr);
 
 	ED_object_constraint_update(object);
@@ -1318,7 +1318,7 @@ static void rna_Object_constraints_remove(Object *object, ReportList *reports, P
 
 static void rna_Object_constraints_clear(Object *object)
 {
-	BKE_free_constraints(&object->constraints);
+	BKE_constraints_free(&object->constraints);
 
 	ED_object_constraint_update(object);
 	ED_object_constraint_set_active(object, NULL);
@@ -1335,7 +1335,7 @@ static ModifierData *rna_Object_modifier_new(Object *object, bContext *C, Report
 static void rna_Object_modifier_remove(Object *object, bContext *C, ReportList *reports, PointerRNA *md_ptr)
 {
 	ModifierData *md = md_ptr->data;
-	if (ED_object_modifier_remove(reports, CTX_data_main(C), object, md) == FALSE) {
+	if (ED_object_modifier_remove(reports, CTX_data_main(C), object, md) == false) {
 		/* error is already set */
 		return;
 	}
@@ -1482,7 +1482,12 @@ int rna_Object_use_dynamic_topology_sculpting_get(PointerRNA *ptr)
 static void rna_Object_lod_distance_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	Object *ob = (Object *)ptr->id.data;
+
+#ifdef WITH_GAMEENGINE
 	BKE_object_lod_sort(ob);
+#else
+	(void)ob;
+#endif
 }
 #else
 
@@ -2646,7 +2651,7 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "dt");
 	RNA_def_property_enum_items(prop, drawtype_items);
 	RNA_def_property_ui_text(prop, "Maximum Draw Type",  "Maximum draw type to display object with in viewport");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update");
 
 	prop = RNA_def_property(srna, "show_bounds", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "dtx", OB_DRAWBOUNDOX);

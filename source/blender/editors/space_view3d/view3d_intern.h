@@ -140,7 +140,9 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, struc
 void drawaxes(float size, char drawtype);
 
 void view3d_cached_text_draw_begin(void);
-void view3d_cached_text_draw_add(const float co[3], const char *str, short xoffs, short flag, const unsigned char col[4]);
+void view3d_cached_text_draw_add(const float co[3],
+                                 const char *str, const size_t str_len,
+                                 short xoffs, short flag, const unsigned char col[4]);
 void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, float mat[4][4]);
 
 bool check_object_draw_texture(struct Scene *scene, struct View3D *v3d, const char drawtype);
@@ -164,7 +166,11 @@ void draw_mesh_textured(Scene *scene, View3D *v3d, RegionView3D *rv3d,
 void draw_mesh_face_select(struct RegionView3D *rv3d, struct Mesh *me, struct DerivedMesh *dm);
 void draw_mesh_paint_weight_faces(struct DerivedMesh *dm, const bool do_light,
                                   void *facemask_cb, void *user_data);
-void draw_mesh_paint_weight_edges(RegionView3D *rv3d, struct DerivedMesh *dm, const bool use_depth,
+void draw_mesh_paint_vcolor_faces(struct DerivedMesh *dm, const bool use_light,
+                                  void *facemask_cb, void *user_data,
+                                  const struct Mesh *me);
+void draw_mesh_paint_weight_edges(RegionView3D *rv3d, struct DerivedMesh *dm,
+                                  const bool use_depth, const bool use_alpha,
                                   void *edgemask_cb, void *user_data);
 void draw_mesh_paint(View3D *v3d, RegionView3D *rv3d,
                      struct Object *ob, struct DerivedMesh *dm, const int draw_flags);
@@ -195,11 +201,22 @@ void VIEW3D_OT_localview(struct wmOperatorType *ot);
 void VIEW3D_OT_game_start(struct wmOperatorType *ot);
 
 
-bool ED_view3d_boundbox_clip(RegionView3D *rv3d, float obmat[4][4], const struct BoundBox *bb);
+bool ED_view3d_boundbox_clip_ex(RegionView3D *rv3d, const struct BoundBox *bb, float obmat[4][4]);
+bool ED_view3d_boundbox_clip(RegionView3D *rv3d, const struct BoundBox *bb);
 
-void ED_view3d_smooth_view(struct bContext *C, struct View3D *v3d, struct ARegion *ar, struct Object *, struct Object *,
-                           float *ofs, float *quat, float *dist, float *lens,
-                           const int smooth_viewtx);
+void ED_view3d_smooth_view_ex(
+        struct wmWindowManager *wm, struct wmWindow *win, struct ScrArea *sa,
+        struct View3D *v3d, struct ARegion *ar,
+        struct Object *camera_old, struct Object *camera,
+        const float *ofs, const float *quat, const float *dist, const float *lens,
+        const int smooth_viewtx);
+
+void ED_view3d_smooth_view(
+        struct bContext *C,
+        struct View3D *v3d, struct ARegion *ar,
+        struct Object *camera_old, struct Object *camera,
+        const float *ofs, const float *quat, const float *dist, const float *lens,
+        const int smooth_viewtx);
 
 void setwinmatrixview3d(ARegion *ar, View3D *v3d, rctf *rect);
 void setviewmatrixview3d(Scene *scene, View3D *v3d, RegionView3D *rv3d);
@@ -252,8 +269,8 @@ extern const char *view3d_context_dir[]; /* doc access */
 
 /* draw_volume.c */
 void draw_smoke_volume(struct SmokeDomainSettings *sds, struct Object *ob,
-                       struct GPUTexture *tex, float min[3], float max[3],
-                       int res[3], float dx, float base_scale, float viewnormal[3],
+                       struct GPUTexture *tex, const float min[3], const float max[3],
+                       const int res[3], float dx, float base_scale, const float viewnormal[3],
                        struct GPUTexture *tex_shadow, struct GPUTexture *tex_flame);
 
 //#define SMOKE_DEBUG_VELOCITY

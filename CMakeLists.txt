@@ -156,18 +156,7 @@ mark_as_advanced(WITH_HEADLESS)
 option(WITH_AUDASPACE    "Build with blenders audio library (only disable if you know what you're doing!)" ON)
 mark_as_advanced(WITH_AUDASPACE)
 
-option(WITH_BOOL_COMPAT "Continue defining \"TRUE\" and \"FALSE\" until these can be replaced with \"true\" and \"false\" from stdbool.h" ON)
-mark_as_advanced(WITH_BOOL_COMPAT)
-
-# (unix defaults to OpenMP On)
-if((UNIX AND NOT APPLE) OR (MINGW))
-	set(PLATFORM_DEFAULT ON)
-else()
-	set(PLATFORM_DEFAULT OFF)
-endif()
-option(WITH_OPENMP        "Enable OpenMP (has to be supported by the compiler)" ${PLATFORM_DEFAULT})
-unset(PLATFORM_DEFAULT)
-
+option(WITH_OPENMP        "Enable OpenMP (has to be supported by the compiler)" ON)
 
 if(UNIX AND NOT APPLE)
 	option(WITH_X11_XINPUT "Enable X11 Xinput (tablet support and unicode input)"	ON)
@@ -510,9 +499,6 @@ TEST_SSE_SUPPORT(COMPILER_SSE_FLAG COMPILER_SSE2_FLAG)
 TEST_STDBOOL_SUPPORT()
 if(HAVE_STDBOOL_H)
 	add_definitions(-DHAVE_STDBOOL_H)
-endif()
-if(WITH_BOOL_COMPAT)
-	add_definitions(-DWITH_BOOL_COMPAT)
 endif()
 
 #-----------------------------------------------------------------------------
@@ -1164,8 +1150,8 @@ elseif(WIN32)
 					set(FFMPEG_LIBRARY_VERSION 54)
 					set(FFMPEG_LIBRARY_VERSION_AVU 52)
 				else()
-					set(FFMPEG_LIBRARY_VERSION 53)
-					set(FFMPEG_LIBRARY_VERSION_AVU 51)
+					set(FFMPEG_LIBRARY_VERSION 55)
+					set(FFMPEG_LIBRARY_VERSION_AVU 52)
 				endif()
 				set(FFMPEG_LIBRARIES
 					${LIBDIR}/ffmpeg/lib/avcodec-${FFMPEG_LIBRARY_VERSION}.lib
@@ -1212,7 +1198,7 @@ elseif(WIN32)
 				${LIBDIR}/jack/include/jack
 				${LIBDIR}/jack/include
 			)
-			set(JACK_LIBRARIES ${LIBDIR}/jack/lib/libjack.lib)
+			set(JACK_LIBRARIES optimized ${LIBDIR}/jack/lib/libjack.lib debug ${LIBDIR}/jack/lib/libjack_d.lib)
 		endif()
 
 		if(WITH_PYTHON)
@@ -1292,7 +1278,27 @@ elseif(WIN32)
 
 		if(WITH_LLVM)
 			set(LLVM_DIRECTORY ${LIBDIR}/llvm CACHE PATH	"Path to the LLVM installation")
-			file(GLOB LLVM_LIBRARY ${LLVM_DIRECTORY}/lib/*.lib)
+			file(GLOB LLVM_LIBRARY_OPTIMIZED ${LLVM_DIRECTORY}/lib/*.lib)
+
+			if(EXISTS ${LLVM_DIRECTORY}/debug/lib)
+				foreach(LLVM_OPTIMIZED_LIB ${LLVM_LIBRARY_OPTIMIZED})
+					get_filename_component(LIBNAME ${LLVM_OPTIMIZED_LIB} ABSOLUTE)
+					list(APPEND LLVM_LIBS optimized ${LIBNAME})
+				endforeach(LLVM_OPTIMIZED_LIB)
+			
+				file(GLOB LLVM_LIBRARY_DEBUG ${LLVM_DIRECTORY}/debug/lib/*.lib)
+
+				foreach(LLVM_DEBUG_LIB ${LLVM_LIBRARY_DEBUG})
+					get_filename_component(LIBNAME ${LLVM_DEBUG_LIB} ABSOLUTE)
+					list(APPEND LLVM_LIBS debug ${LIBNAME})
+				endforeach(LLVM_DEBUG_LIB)
+
+				set(LLVM_LIBRARY ${LLVM_LIBS})
+			else()
+				message(WARNING "LLVM debug libs not present on this system. Using release libs for debug builds.")
+				set(LLVM_LIBRARY ${LLVM_LIBRARY_OPTIMIZED})
+			endif()
+			
 		endif()
 	
 		if(WITH_OPENCOLORIO)
@@ -1350,8 +1356,6 @@ elseif(WIN32)
 			set(PLATFORM_LINKLIBS "${PLATFORM_LINKLIBS} -lpthread")
 			
 			add_definitions(-DFREE_WINDOWS64 -DMS_WIN64)
-			# Turn off OpenMP since it causes crashes on render for subsurfed/multiresolution meshes
-			set(WITH_OPENMP OFF)
 		endif()
 
 		add_definitions(-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE)
@@ -1418,7 +1422,7 @@ elseif(WIN32)
 			if(WITH_MINGW64)
 				set(FFMPEG_LIBRARIES avcodec.dll avformat.dll avdevice.dll avutil.dll swscale.dll swresample.dll)
 			else()
-				set(FFMPEG_LIBRARIES avcodec-53 avformat-53 avdevice-53 avutil-51 swscale-2)
+				set(FFMPEG_LIBRARIES avcodec-55 avformat-55 avdevice-55 avutil-52 swscale-2)
 			endif()
 			set(FFMPEG_LIBPATH ${FFMPEG}/lib)
 		endif()
@@ -1581,7 +1585,10 @@ elseif(WIN32)
 		find_library(OSL_LIB_EXEC NAMES oslexec PATHS ${CYCLES_OSL}/lib)
 		find_library(OSL_LIB_COMP NAMES oslcomp PATHS ${CYCLES_OSL}/lib)
 		find_library(OSL_LIB_QUERY NAMES oslquery PATHS ${CYCLES_OSL}/lib)
-		list(APPEND OSL_LIBRARIES ${OSL_LIB_COMP} ${OSL_LIB_EXEC} ${OSL_LIB_QUERY})
+		find_library(OSL_LIB_EXEC_DEBUG NAMES oslexec_d PATHS ${CYCLES_OSL}/lib)
+		find_library(OSL_LIB_COMP_DEBUG NAMES oslcomp_d PATHS ${CYCLES_OSL}/lib)
+		find_library(OSL_LIB_QUERY_DEBUG NAMES oslquery_d PATHS ${CYCLES_OSL}/lib)
+		list(APPEND OSL_LIBRARIES optimized ${OSL_LIB_COMP} optimized ${OSL_LIB_EXEC} optimized ${OSL_LIB_QUERY} debug ${OSL_LIB_EXEC_DEBUG} debug ${OSL_LIB_COMP_DEBUG} debug ${OSL_LIB_QUERY_DEBUG})
 		find_path(OSL_INCLUDES OSL/oslclosure.h PATHS ${CYCLES_OSL}/include)
 		find_program(OSL_COMPILER NAMES oslc PATHS ${CYCLES_OSL}/bin)
 	
@@ -1637,8 +1644,8 @@ elseif(APPLE)
 	endif()
 
 	if(WITH_PYTHON)
-		# we use precompiled libraries for py 3.3 and up by default
-		set(PYTHON_VERSION 3.3)
+		# we use precompiled libraries for py 3.4 and up by default
+		set(PYTHON_VERSION 3.4)
 		if(NOT WITH_PYTHON_MODULE AND NOT WITH_PYTHON_FRAMEWORK)
 			# normally cached but not since we include them with blender
 			set(PYTHON_INCLUDE_DIR "${LIBDIR}/python/include/python${PYTHON_VERSION}m")
@@ -1798,13 +1805,16 @@ elseif(APPLE)
 		set(BOOST_LIBRARIES boost_date_time-mt boost_filesystem-mt boost_regex-mt boost_system-mt boost_thread-mt boost_wave-mt)
 		if(WITH_INTERNATIONAL)
 			list(APPEND BOOST_LIBRARIES boost_locale-mt)
-			set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -liconv") # boost_locale needs it !
 		endif()
 		if(WITH_CYCLES_NETWORK)
 			list(APPEND BOOST_LIBRARIES boost_serialization-mt)
 		endif()
 		set(BOOST_LIBPATH ${BOOST}/lib)
 		set(BOOST_DEFINITIONS)
+	endif()
+	
+	if(WITH_INTERNATIONAL OR WITH_CODEC_FFMPEG)
+		set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -liconv") # boost_locale and ffmpeg needs it !
 	endif()
 
 	if(WITH_OPENIMAGEIO)
@@ -2266,9 +2276,12 @@ if(WITH_PYTHON)
 		# pass, we have this in lib/python/site-packages
 	elseif(WITH_PYTHON_INSTALL_REQUESTS)
 		if(NOT EXISTS ${PYTHON_LIBPATH}/python${PYTHON_VERSION}/site-packages/requests)
-			message(WARNING "'requests' path could not be found in:\n"
-			                "'${PYTHON_LIBPATH}/python${PYTHON_VERSION}/site-packages/requests'\n"
-			                "WITH_PYTHON_INSTALL_REQUESTS option will be ignored when installing python")
+			# gets annoying otherwise...
+			if(FIRST_RUN)
+				message(WARNING "'requests' path could not be found in:\n"
+				                "'${PYTHON_LIBPATH}/python${PYTHON_VERSION}/site-packages/requests'\n"
+				                "WITH_PYTHON_INSTALL_REQUESTS option will be ignored when installing python")
+			endif()
 			set(WITH_PYTHON_INSTALL_REQUESTS OFF)
 		endif()
 	endif()

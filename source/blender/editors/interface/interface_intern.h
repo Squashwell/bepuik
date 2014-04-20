@@ -147,7 +147,7 @@ enum {
 typedef struct uiLinkLine {  /* only for draw/edit */
 	struct uiLinkLine *next, *prev;
 	struct uiBut *from, *to;
-	short flag, pad;
+	short flag, deactive;
 } uiLinkLine;
 
 typedef struct {
@@ -386,7 +386,7 @@ extern void ui_hsvcircle_vals_from_pos(float *val_rad, float *val_dist, const rc
                                        const float mx, const float my);
 extern void ui_hsvcircle_pos_from_vals(struct uiBut *but, const rcti *rect, float *hsv, float *xpos, float *ypos);
 extern void ui_hsvcube_pos_from_vals(struct uiBut *but, const rcti *rect, float *hsv, float *xp, float *yp);
-bool ui_hsvcube_use_display_colorspace(struct uiBut *but);
+bool ui_color_picker_use_display_colorspace(struct uiBut *but);
 
 extern void ui_get_but_string_ex(uiBut *but, char *str, const size_t maxlen, const int float_precision) ATTR_NONNULL();
 extern void ui_get_but_string(uiBut *but, char *str, const size_t maxlen) ATTR_NONNULL();
@@ -460,6 +460,11 @@ struct uiPopupBlockHandle {
 
 	/* menu direction */
 	int direction;
+
+/* #ifdef USE_DRAG_POPUP */
+	bool is_grab;
+	int     grab_xy_prev[2];
+/* #endif */
 };
 
 uiBlock *ui_block_func_COLOR(struct bContext *C, uiPopupBlockHandle *handle, void *arg_but);
@@ -473,6 +478,10 @@ void   ui_popup_menu_memory_set(struct uiBlock *block, struct uiBut *but);
 float *ui_block_hsv_get(struct uiBlock *block);
 void ui_popup_block_scrolltest(struct uiBlock *block);
 
+void ui_rgb_to_color_picker_compat_v(const float rgb[3], float r_cp[3]);
+void ui_rgb_to_color_picker_v(const float rgb[3], float r_cp[3]);
+void ui_color_picker_to_rgb_v(const float r_cp[3], float rgb[3]);
+void ui_color_picker_to_rgb(float r_cp0, float r_cp1, float r_cp2, float *r, float *g, float *b);
 
 /* searchbox for string button */
 ARegion *ui_searchbox_create(struct bContext *C, struct ARegion *butregion, uiBut *but);
@@ -540,7 +549,7 @@ void ui_draw_menu_back(struct uiStyle *style, uiBlock *block, rcti *rect);
 uiWidgetColors *ui_tooltip_get_theme(void);
 void ui_draw_tooltip_background(uiStyle *UNUSED(style), uiBlock *block, rcti *rect);
 void ui_draw_search_back(struct uiStyle *style, uiBlock *block, rcti *rect);
-int ui_link_bezier_points(const rcti *rect, float coord_array[][2], int resol);
+bool ui_link_bezier_points(const rcti *rect, float coord_array[][2], int resol);
 void ui_draw_link_bezier(const rcti *rect);
 
 extern void ui_draw_but(const struct bContext *C, ARegion *ar, struct uiStyle *style, uiBut *but, rcti *rect);

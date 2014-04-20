@@ -321,6 +321,10 @@ void env_rotate_scene(Render *re, float mat[4][4], int do_rotate)
 		
 			mul_m4_v3(tmat, har->co);
 		}
+
+		/* imat_ren is needed for correct texture coordinates */
+		mul_m4_m4m4(obr->ob->imat_ren, re->viewmat, obr->ob->obmat);
+		invert_m4(obr->ob->imat_ren);
 	}
 	
 	for (go = re->lights.first; go; go = go->next) {
@@ -532,7 +536,8 @@ static void render_envmap(Render *re, EnvMap *env)
 void make_envmaps(Render *re)
 {
 	Tex *tex;
-	int do_init = FALSE, depth = 0, trace;
+	bool do_init = false;
+	int depth = 0, trace;
 	
 	if (!(re->r.mode & R_ENVMAP)) return;
 	
@@ -586,7 +591,7 @@ void make_envmaps(Render *re)
 								if (env->ok == 0 && depth == 0) env->recalc = 1;
 								
 								if (env->ok == 0) {
-									do_init = TRUE;
+									do_init = true;
 									render_envmap(re, env);
 									
 									if (depth == env->depth) env->recalc = 0;

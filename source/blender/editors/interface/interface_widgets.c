@@ -610,15 +610,15 @@ static void shadecolors4(char coltop[4], char coldown[4], const char *color, sho
 	coldown[3] = color[3];
 }
 
-static void round_box_shade_col4_r(unsigned char col_r[4], const char col1[4], const char col2[4], const float fac)
+static void round_box_shade_col4_r(unsigned char r_col[4], const char col1[4], const char col2[4], const float fac)
 {
 	const int faci = FTOCHAR(fac);
 	const int facm = 255 - faci;
 
-	col_r[0] = (faci * col1[0] + facm * col2[0]) >> 8;
-	col_r[1] = (faci * col1[1] + facm * col2[1]) >> 8;
-	col_r[2] = (faci * col1[2] + facm * col2[2]) >> 8;
-	col_r[3] = (faci * col1[3] + facm * col2[3]) >> 8;
+	r_col[0] = (faci * col1[0] + facm * col2[0]) >> 8;
+	r_col[1] = (faci * col1[1] + facm * col2[1]) >> 8;
+	r_col[2] = (faci * col1[2] + facm * col2[2]) >> 8;
+	r_col[3] = (faci * col1[3] + facm * col2[3]) >> 8;
 }
 
 static void widget_verts_to_quad_strip(uiWidgetBase *wtb, const int totvert, float quad_strip[WIDGET_SIZE_MAX * 2 + 2][2])
@@ -978,6 +978,8 @@ static void ui_text_clip_right_ex(uiFontStyle *fstyle, char *str, const size_t m
 	float tmp;
 	int l_end;
 
+	BLI_assert(str[0]);
+
 	/* If the trailing ellipsis takes more than 20% of all available width, just cut the string
 	 * (as using the ellipsis would remove even more useful chars, and we cannot show much already!).
 	 */
@@ -999,6 +1001,8 @@ static float ui_text_clip_middle_ex(uiFontStyle *fstyle, char *str, const float 
                                     const size_t max_len)
 {
 	float strwidth;
+
+	BLI_assert(str[0]);
 
 	/* need to set this first */
 	uiStyleFontSet(fstyle);
@@ -1146,7 +1150,7 @@ static void ui_text_clip_right_label(uiFontStyle *fstyle, uiBut *but, const rcti
 	but->ofs = 0;
 	
 
-	/* First shorten num-buttopns eg,
+	/* First shorten num-buttons eg,
 	 *   Translucency: 0.000
 	 * becomes
 	 *   Trans: 0.000
@@ -1416,6 +1420,11 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 	/* clip but->drawstr to fit in available space */
 	if (but->editstr && but->pos >= 0) {
 		ui_text_clip_cursor(fstyle, but, rect);
+	}
+	else if (but->drawstr[0] == '\0') {
+		/* bypass text clipping on icon buttons */
+		but->ofs = 0;
+		but->strwidth = 0;
 	}
 	else if (ELEM(but->type, NUM, NUMSLI)) {
 		ui_text_clip_right_label(fstyle, but, rect);
@@ -1935,7 +1944,7 @@ static void widget_softshadow(const rcti *rect, int roundboxalign, const float r
 	glEnableClientState(GL_VERTEX_ARRAY);
 
 	for (step = 1; step <= (int)radout; step++) {
-		float expfac = sqrt(step / radout);
+		float expfac = sqrtf(step / radout);
 		
 		round_box_shadow_edges(wtb.outer_v, &rect1, radin, UI_CNR_ALL, (float)step);
 		
@@ -2027,7 +2036,7 @@ void ui_hsvcircle_pos_from_vals(uiBut *but, const rcti *rect, float *hsv, float 
 	
 	ang = 2.0f * (float)M_PI * hsv[0] + 0.5f * (float)M_PI;
 	
-	if (but->flag & UI_BUT_COLOR_CUBIC)
+	if ((but->flag & UI_BUT_COLOR_CUBIC) && (U.color_picker_type == USER_CP_CIRCLE_HSV))
 		radius_t = (1.0f - powf(1.0f - hsv[1], 3.0f));
 	else
 		radius_t = hsv[1];
@@ -2050,11 +2059,8 @@ static void ui_draw_but_HSVCIRCLE(uiBut *but, uiWidgetColors *wcol, const rcti *
 	float xpos, ypos, ang = 0.0f;
 	float rgb[3], hsvo[3], hsv[3], col[3], colcent[3];
 	int a;
-	bool color_profile = but->block->color_profile;
-	
-	if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA)
-		color_profile = false;
-	
+	bool color_profile = ui_color_picker_use_display_colorspace(but);
+		
 	/* color */
 	ui_get_but_vectorf(but, rgb);
 
@@ -2063,21 +2069,26 @@ static void ui_draw_but_HSVCIRCLE(uiBut *but, uiWidgetColors *wcol, const rcti *
 	hsvo[1] = hsv[1] = hsv_ptr[1];
 	hsvo[2] = hsv[2] = hsv_ptr[2];
 
-	rgb_to_hsv_compat_v(rgb, hsvo);
-
 	if (color_profile)
 		ui_block_to_display_space_v3(but->block, rgb);
 
-	rgb_to_hsv_compat_v(rgb, hsv);
-	
+	ui_rgb_to_color_picker_compat_v(rgb, hsv);
+	copy_v3_v3(hsvo, hsv);
+
+	CLAMP(hsv[2], 0.0f, 1.0f); /* for display only */
+
 	/* exception: if 'lock' is set
 	 * lock the value of the color wheel to 1.
 	 * Useful for color correction tools where you're only interested in hue. */
-	if (but->flag & UI_BUT_COLOR_LOCK)
-		hsv[2] = 1.f;
+	if (but->flag & UI_BUT_COLOR_LOCK) {
+		if (U.color_picker_type == USER_CP_CIRCLE_HSV)
+			hsv[2] = 1.f;
+		else
+			hsv[2] = 0.5f;
+	}
 	
-	hsv_to_rgb(0.f, 0.f, hsv[2], colcent, colcent + 1, colcent + 2);
-	
+	ui_color_picker_to_rgb(0.f, 0.f, hsv[2], colcent, colcent + 1, colcent + 2);
+
 	glShadeModel(GL_SMOOTH);
 
 	glBegin(GL_TRIANGLE_FAN);
@@ -2089,9 +2100,9 @@ static void ui_draw_but_HSVCIRCLE(uiBut *but, uiWidgetColors *wcol, const rcti *
 		float co = cos(ang);
 		
 		ui_hsvcircle_vals_from_pos(hsv, hsv + 1, rect, centx + co * radius, centy + si * radius);
-		CLAMP(hsv[2], 0.0f, 1.0f); /* for display only */
 
-		hsv_to_rgb_v(hsv, col);
+		ui_color_picker_to_rgb_v(hsv, col);
+
 		glColor3fv(col);
 		glVertex2f(centx + co * radius, centy + si * radius);
 	}
@@ -2260,7 +2271,7 @@ void ui_draw_gradient(const rcti *rect, const float hsv[3], const int type, cons
 	
 }
 
-bool ui_hsvcube_use_display_colorspace(uiBut *but)
+bool ui_color_picker_use_display_colorspace(uiBut *but)
 {
 	bool color_profile = but->block->color_profile;
 
@@ -2269,8 +2280,7 @@ bool ui_hsvcube_use_display_colorspace(uiBut *but)
 			color_profile = false;
 	}
 
-	/* SV+H gradient does not use display colorspace */
-	return color_profile && !ELEM((int)but->a1, UI_GRAD_SV, UI_GRAD_H);
+	return color_profile;
 }
 
 void ui_hsvcube_pos_from_vals(uiBut *but, const rcti *rect, float *hsv, float *xp, float *yp)
@@ -2290,10 +2300,15 @@ void ui_hsvcube_pos_from_vals(uiBut *but, const rcti *rect, float *hsv, float *x
 			x = hsv[1]; y = 0.5; break;
 		case UI_GRAD_V:
 			x = hsv[2]; y = 0.5; break;
+		case UI_GRAD_L_ALT:
+			x = 0.5f;
+			/* exception only for value strip - use the range set in but->min/max */
+			y = hsv[2];
+			break;
 		case UI_GRAD_V_ALT:
 			x = 0.5f;
 			/* exception only for value strip - use the range set in but->min/max */
-			y = (hsv[2] - but->softmin ) / (but->softmax - but->softmin);
+			y = (hsv[2] - but->softmin) / (but->softmax - but->softmin);
 			break;
 	}
 	
@@ -2309,7 +2324,7 @@ static void ui_draw_but_HSVCUBE(uiBut *but, const rcti *rect)
 	float x = 0.0f, y = 0.0f;
 	float *hsv = ui_block_hsv_get(but->block);
 	float hsv_n[3];
-	bool use_display_colorspace = ui_hsvcube_use_display_colorspace(but);
+	bool use_display_colorspace = ui_color_picker_use_display_colorspace(but);
 	
 	copy_v3_v3(hsv_n, hsv);
 	
@@ -2339,7 +2354,7 @@ static void ui_draw_but_HSV_v(uiBut *but, const rcti *rect)
 	uiWidgetBase wtb;
 	const float rad = 0.5f * BLI_rcti_size_x(rect);
 	float x, y;
-	float rgb[3], hsv[3], v, range;
+	float rgb[3], hsv[3], v;
 	bool color_profile = but->block->color_profile;
 	
 	if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA)
@@ -2350,13 +2365,18 @@ static void ui_draw_but_HSV_v(uiBut *but, const rcti *rect)
 	if (color_profile)
 		ui_block_to_display_space_v3(but->block, rgb);
 
-	rgb_to_hsv_v(rgb, hsv);
+	if (but->a1 == UI_GRAD_L_ALT)
+		rgb_to_hsl_v(rgb, hsv);
+	else
+		rgb_to_hsv_v(rgb, hsv);
 	v = hsv[2];
 	
 	/* map v from property range to [0,1] */
-	range = but->softmax - but->softmin;
-	v = (v - but->softmin) / range;
-	
+	if (but->a1 == UI_GRAD_V_ALT) {
+		float range = but->softmax - but->softmin;
+		v = (v - but->softmin) / range;
+	}
+
 	widget_init(&wtb);
 	
 	/* fully rounded */
@@ -2442,7 +2462,7 @@ static void widget_numbut_embossn(uiBut *UNUSED(but), uiWidgetColors *wcol, rcti
 	widget_numbut_draw(wcol, rect, state, roundboxalign, true);
 }
 
-int ui_link_bezier_points(const rcti *rect, float coord_array[][2], int resol)
+bool ui_link_bezier_points(const rcti *rect, float coord_array[][2], int resol)
 {
 	float dist, vec[4][2];
 
@@ -2459,9 +2479,9 @@ int ui_link_bezier_points(const rcti *rect, float coord_array[][2], int resol)
 	vec[2][0] = vec[3][0] - dist;
 	vec[2][1] = vec[3][1];
 	
-	BKE_curve_forward_diff_bezier(vec[0][0], vec[1][0], vec[2][0], vec[3][0], coord_array[0], resol, sizeof(float) * 2);
-	BKE_curve_forward_diff_bezier(vec[0][1], vec[1][1], vec[2][1], vec[3][1], coord_array[0] + 1, resol, sizeof(float) * 2);
-	
+	BKE_curve_forward_diff_bezier(vec[0][0], vec[1][0], vec[2][0], vec[3][0], &coord_array[0][0], resol, sizeof(float[2]));
+	BKE_curve_forward_diff_bezier(vec[0][1], vec[1][1], vec[2][1], vec[3][1], &coord_array[0][1], resol, sizeof(float[2]));
+
 	return 1;
 }
 
@@ -2469,7 +2489,7 @@ int ui_link_bezier_points(const rcti *rect, float coord_array[][2], int resol)
 void ui_draw_link_bezier(const rcti *rect)
 {
 	float coord_array[LINK_RESOL + 1][2];
-	
+
 	if (ui_link_bezier_points(rect, coord_array, LINK_RESOL)) {
 		/* we can reuse the dist variable here to increment the GL curve eval amount*/
 		// const float dist = 1.0f / (float)LINK_RESOL; // UNUSED
@@ -3432,20 +3452,26 @@ void ui_draw_but(const bContext *C, ARegion *ar, uiStyle *style, uiBut *but, rct
 				
 			case MENU:
 			case BLOCK:
-				/* new node-link button, not active yet XXX */
-				if (but->flag & UI_BUT_NODE_LINK)
+				if (but->flag & UI_BUT_NODE_LINK) {
+					/* new node-link button, not active yet XXX */
 					wt = widget_type(UI_WTYPE_MENU_NODE_LINK);
-
-				/* no text, with icon */
-				else if (!but->str[0] && but->icon) {
-					if (but->drawflag & UI_BUT_DRAW_ENUM_ARROWS)
-						wt = widget_type(UI_WTYPE_MENU_RADIO);  /* with arrows */
-					else
-						wt = widget_type(UI_WTYPE_MENU_ICON_RADIO);  /* no arrows */
 				}
-				/* with menu arrows */
-				else
-					wt = widget_type(UI_WTYPE_MENU_RADIO);
+				else {
+					/* with menu arrows */
+
+					/* we could use a flag for this, but for now just check size,
+					 * add updown arrows if there is room. */
+					if ((!but->str[0] && but->icon && (BLI_rcti_size_x(rect) < BLI_rcti_size_y(rect) + 2)) ||
+					    /* disable for brushes also */
+					    (but->flag & UI_ICON_PREVIEW))
+					{
+						/* no arrows */
+						wt = widget_type(UI_WTYPE_MENU_ICON_RADIO);
+					}
+					else {
+						wt = widget_type(UI_WTYPE_MENU_RADIO);
+					}
+				}
 				break;
 				
 			case PULLDOWN:
@@ -3477,7 +3503,7 @@ void ui_draw_but(const bContext *C, ARegion *ar, uiStyle *style, uiBut *but, rct
 				break;
 				
 			case HSVCUBE:
-				if (but->a1 == UI_GRAD_V_ALT) {  /* vertical V slider, uses new widget draw now */
+				if (ELEM(but->a1, UI_GRAD_V_ALT, UI_GRAD_L_ALT)) {  /* vertical V slider, uses new widget draw now */
 					ui_draw_but_HSV_v(but, rect);
 				}
 				else {  /* other HSV pickers... */
@@ -3524,6 +3550,10 @@ void ui_draw_but(const bContext *C, ARegion *ar, uiStyle *style, uiBut *but, rct
 
 			case SCROLL:
 				wt = widget_type(UI_WTYPE_SCROLL);
+				break;
+
+			case GRIP:
+				wt = widget_type(UI_WTYPE_ICON);
 				break;
 
 			case TRACKPREVIEW:

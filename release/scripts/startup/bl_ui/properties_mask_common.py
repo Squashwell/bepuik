@@ -173,9 +173,6 @@ class MASK_PT_point():
         parent = point.parent
 
         col = layout.column()
-        col.prop(point, "handle_type")
-
-        col = layout.column()
         # Currently only parenting yo movie clip is allowed, so do not
         # ver-oplicate things for now and use single template_ID
         #col.template_any_ID(parent, "id", "id_type", text="")
@@ -308,8 +305,8 @@ class MASK_PT_add():
         layout = self.layout
 
         col = layout.column(align=True)
-        col.operator("mask.primitive_circle_add", icon="MESH_CIRCLE")
-        col.operator("mask.primitive_square_add", icon="MESH_PLANE")
+        col.operator("mask.primitive_circle_add", icon='MESH_CIRCLE')
+        col.operator("mask.primitive_square_add", icon='MESH_PLANE')
 
 
 class MASK_MT_mask(Menu):

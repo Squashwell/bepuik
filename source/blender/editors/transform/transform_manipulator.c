@@ -108,6 +108,10 @@
 #define MAN_GHOST   1
 #define MAN_MOVECOL 2
 
+/* threshold for testing view aligned manipulator axis */
+#define TW_AXIS_DOT_MIN 0.02f
+#define TW_AXIS_DOT_MAX 0.1f
+
 /* transform widget center calc helper for below */
 static void calc_tw_center(Scene *scene, const float co[3])
 {
@@ -198,7 +202,7 @@ static int test_rotmode_euler(short rotmode)
 	return (ELEM(rotmode, ROT_MODE_AXISANGLE, ROT_MODE_QUAT)) ? 0 : 1;
 }
 
-int gimbal_axis(Object *ob, float gmat[3][3])
+bool gimbal_axis(Object *ob, float gmat[3][3])
 {
 	if (ob) {
 		if (ob->mode & OB_MODE_POSE) {
@@ -368,7 +372,7 @@ int calc_manipulator_stats(const bContext *C)
 					totsel++;
 				}
 				if ((ebo->flag & BONE_ROOTSEL) ||
-				    ((ebo->flag & BONE_TIPSEL) == FALSE))  /* ensure we get at least one point */
+				    ((ebo->flag & BONE_TIPSEL) == false))  /* ensure we get at least one point */
 				{
 					calc_tw_center(scene, ebo->head);
 					totsel++;
@@ -501,7 +505,7 @@ int calc_manipulator_stats(const bContext *C)
 	else if (ob && (ob->mode & OB_MODE_POSE)) {
 		bPoseChannel *pchan;
 		int mode = TFM_ROTATION; // mislead counting bones... bah. We don't know the manipulator mode, could be mixed
-		int ok = FALSE;
+		bool ok = false;
 
 		if ((ob->lay & v3d->lay) == 0) return 0;
 
@@ -511,7 +515,7 @@ int calc_manipulator_stats(const bContext *C)
 			if (bone) {
 				stats_pose(scene, rv3d, pchan);
 				totsel = 1;
-				ok = TRUE;
+				ok = true;
 			}
 		}
 		else {
@@ -525,7 +529,7 @@ int calc_manipulator_stats(const bContext *C)
 						stats_pose(scene, rv3d, pchan);
 					}
 				}
-				ok = TRUE;
+				ok = true;
 			}
 		}
 
@@ -658,36 +662,23 @@ int calc_manipulator_stats(const bContext *C)
 static void test_manipulator_axis(const bContext *C)
 {
 	RegionView3D *rv3d = CTX_wm_region_view3d(C);
-	float angle;
-	float vec[3];
+	float view_vec[3], axis_vec[3];
+	float idot;
+	int i;
 
-	ED_view3d_global_to_vector(rv3d, rv3d->twmat[3], vec);
+	const int twdrawflag_axis[3] = {
+	    (MAN_TRANS_X | MAN_SCALE_X),
+	    (MAN_TRANS_Y | MAN_SCALE_Y),
+	    (MAN_TRANS_Z | MAN_SCALE_Z)};
 
-	angle = fabsf(angle_v3v3(rv3d->twmat[0], vec));
-	if (angle > (float)M_PI / 2.0f) {
-		angle = (float)M_PI - angle;
-	}
-	angle = rv3d->twangle[0] = RAD2DEGF(angle);
-	if (angle < 5.0f) {
-		rv3d->twdrawflag &= ~(MAN_TRANS_X | MAN_SCALE_X);
-	}
+	ED_view3d_global_to_vector(rv3d, rv3d->twmat[3], view_vec);
 
-	angle = fabsf(angle_v3v3(rv3d->twmat[1], vec));
-	if (angle > (float)M_PI / 2.0f) {
-		angle = (float)M_PI - angle;
-	}
-	angle = rv3d->twangle[1] = RAD2DEGF(angle);
-	if (angle < 5.0f) {
-		rv3d->twdrawflag &= ~(MAN_TRANS_Y | MAN_SCALE_Y);
-	}
-
-	angle = fabsf(angle_v3v3(rv3d->twmat[2], vec));
-	if (angle > (float)M_PI / 2.0f) {
-		angle = (float)M_PI - angle;
-	}
-	angle = rv3d->twangle[2] = RAD2DEGF(angle);
-	if (angle < 5.0f) {
-		rv3d->twdrawflag &= ~(MAN_TRANS_Z | MAN_SCALE_Z);
+	for (i = 0; i < 3; i++) {
+		normalize_v3_v3(axis_vec, rv3d->twmat[i]);
+		rv3d->tw_idot[i] = idot = 1.0f - fabsf(dot_v3v3(view_vec, axis_vec));
+		if (idot < TW_AXIS_DOT_MIN) {
+			rv3d->twdrawflag &= ~twdrawflag_axis[i];
+		}
 	}
 }
 
@@ -718,9 +709,9 @@ static void partial_doughnut(float radring, float radhole, int start, int end, i
 	float cos_theta, sin_theta;
 	float cos_theta1, sin_theta1;
 	float ring_delta, side_delta;
-	int i, j, do_caps = TRUE;
+	int i, j, do_caps = true;
 
-	if (start == 0 && end == nrings) do_caps = FALSE;
+	if (start == 0 && end == nrings) do_caps = false;
 
 	ring_delta = 2.0f * (float)M_PI / (float)nrings;
 	side_delta = 2.0f * (float)M_PI / (float)nsides;
@@ -789,15 +780,17 @@ static void partial_doughnut(float radring, float radhole, int start, int end, i
 	}
 }
 
-static char axisBlendAngle(float angle)
+static char axisBlendAngle(float idot)
 {
-	if (angle > 20)
+	if (idot > TW_AXIS_DOT_MAX) {
 		return 255;
-
-	if (angle < 5)
+	}
+	else if (idot < TW_AXIS_DOT_MIN) {
 		return 0;
-
-	return (char)(255.0f * (angle - 5) / 15.0f);
+	}
+	else {
+		return (char)(255.0f * (idot - TW_AXIS_DOT_MIN) / (TW_AXIS_DOT_MAX - TW_AXIS_DOT_MIN));
+	}
 }
 
 /* three colors can be set:
@@ -877,7 +870,7 @@ static void draw_manipulator_axes_single(View3D *v3d, RegionView3D *rv3d, int co
 					else if (flagx & MAN_TRANS_X) glLoadName(MAN_TRANS_X);
 				}
 				else {
-					manipulator_setcolor(v3d, 'X', colcode, axisBlendAngle(rv3d->twangle[0]));
+					manipulator_setcolor(v3d, 'X', colcode, axisBlendAngle(rv3d->tw_idot[0]));
 				}
 				glBegin(GL_LINES);
 				glVertex3f(0.2f, 0.0f, 0.0f);
@@ -892,7 +885,7 @@ static void draw_manipulator_axes_single(View3D *v3d, RegionView3D *rv3d, int co
 					else if (flagy & MAN_TRANS_Y) glLoadName(MAN_TRANS_Y);
 				}
 				else {
-					manipulator_setcolor(v3d, 'Y', colcode, axisBlendAngle(rv3d->twangle[1]));
+					manipulator_setcolor(v3d, 'Y', colcode, axisBlendAngle(rv3d->tw_idot[1]));
 				}
 				glBegin(GL_LINES);
 				glVertex3f(0.0f, 0.2f, 0.0f);
@@ -907,7 +900,7 @@ static void draw_manipulator_axes_single(View3D *v3d, RegionView3D *rv3d, int co
 					else if (flagz & MAN_TRANS_Z) glLoadName(MAN_TRANS_Z);
 				}
 				else {
-					manipulator_setcolor(v3d, 'Z', colcode, axisBlendAngle(rv3d->twangle[2]));
+					manipulator_setcolor(v3d, 'Z', colcode, axisBlendAngle(rv3d->tw_idot[2]));
 				}
 				glBegin(GL_LINES);
 				glVertex3f(0.0f, 0.0f, 0.2f);
@@ -1320,7 +1313,7 @@ static void draw_manipulator_scale(
 				if (drawflags & MAN_SCALE_X) {
 					glTranslatef(dz, 0.0, 0.0);
 					if (is_picksel) glLoadName(MAN_SCALE_X);
-					else manipulator_setcolor(v3d, 'X', colcode, axisBlendAngle(rv3d->twangle[0]));
+					else manipulator_setcolor(v3d, 'X', colcode, axisBlendAngle(rv3d->tw_idot[0]));
 					drawsolidcube(cusize);
 					glTranslatef(-dz, 0.0, 0.0);
 				}
@@ -1329,7 +1322,7 @@ static void draw_manipulator_scale(
 				if (drawflags & MAN_SCALE_Y) {
 					glTranslatef(0.0, dz, 0.0);
 					if (is_picksel) glLoadName(MAN_SCALE_Y);
-					else manipulator_setcolor(v3d, 'Y', colcode, axisBlendAngle(rv3d->twangle[1]));
+					else manipulator_setcolor(v3d, 'Y', colcode, axisBlendAngle(rv3d->tw_idot[1]));
 					drawsolidcube(cusize);
 					glTranslatef(0.0, -dz, 0.0);
 				}
@@ -1338,7 +1331,7 @@ static void draw_manipulator_scale(
 				if (drawflags & MAN_SCALE_Z) {
 					glTranslatef(0.0, 0.0, dz);
 					if (is_picksel) glLoadName(MAN_SCALE_Z);
-					else manipulator_setcolor(v3d, 'Z', colcode, axisBlendAngle(rv3d->twangle[2]));
+					else manipulator_setcolor(v3d, 'Z', colcode, axisBlendAngle(rv3d->tw_idot[2]));
 					drawsolidcube(cusize);
 					glTranslatef(0.0, 0.0, -dz);
 				}
@@ -1451,7 +1444,7 @@ static void draw_manipulator_translate(
 				if (drawflags & MAN_TRANS_Z) {
 					glTranslatef(0.0, 0.0, dz);
 					if (is_picksel) glLoadName(MAN_TRANS_Z);
-					else manipulator_setcolor(v3d, 'Z', colcode, axisBlendAngle(rv3d->twangle[2]));
+					else manipulator_setcolor(v3d, 'Z', colcode, axisBlendAngle(rv3d->tw_idot[2]));
 					draw_cone(qobj, cylen, cywid);
 					glTranslatef(0.0, 0.0, -dz);
 				}
@@ -1460,7 +1453,7 @@ static void draw_manipulator_translate(
 				if (drawflags & MAN_TRANS_X) {
 					glTranslatef(dz, 0.0, 0.0);
 					if (is_picksel) glLoadName(MAN_TRANS_X);
-					else manipulator_setcolor(v3d, 'X', colcode, axisBlendAngle(rv3d->twangle[0]));
+					else manipulator_setcolor(v3d, 'X', colcode, axisBlendAngle(rv3d->tw_idot[0]));
 					glRotatef(90.0, 0.0, 1.0, 0.0);
 					draw_cone(qobj, cylen, cywid);
 					glRotatef(-90.0, 0.0, 1.0, 0.0);
@@ -1471,7 +1464,7 @@ static void draw_manipulator_translate(
 				if (drawflags & MAN_TRANS_Y) {
 					glTranslatef(0.0, dz, 0.0);
 					if (is_picksel) glLoadName(MAN_TRANS_Y);
-					else manipulator_setcolor(v3d, 'Y', colcode, axisBlendAngle(rv3d->twangle[1]));
+					else manipulator_setcolor(v3d, 'Y', colcode, axisBlendAngle(rv3d->tw_idot[1]));
 					glRotatef(-90.0, 1.0, 0.0, 0.0);
 					draw_cone(qobj, cylen, cywid);
 					glRotatef(90.0, 1.0, 0.0, 0.0);
@@ -1842,7 +1835,7 @@ int BIF_do_manipulator(bContext *C, const struct wmEvent *event, wmOperator *op)
 			}
 			RNA_boolean_set_array(op->ptr, "constraint_axis", constraint_axis);
 			WM_operator_name_call(C, "TRANSFORM_OT_translate", WM_OP_INVOKE_DEFAULT, op->ptr);
-			//wm_operator_invoke(C, WM_operatortype_find("TRANSFORM_OT_translate", 0), event, op->ptr, NULL, FALSE);
+			//wm_operator_invoke(C, WM_operatortype_find("TRANSFORM_OT_translate", 0), event, op->ptr, NULL, false);
 		}
 		else if (drawflags & MAN_SCALE_C) {
 			switch (drawflags) {
@@ -1873,7 +1866,7 @@ int BIF_do_manipulator(bContext *C, const struct wmEvent *event, wmOperator *op)
 			}
 			RNA_boolean_set_array(op->ptr, "constraint_axis", constraint_axis);
 			WM_operator_name_call(C, "TRANSFORM_OT_resize", WM_OP_INVOKE_DEFAULT, op->ptr);
-			//wm_operator_invoke(C, WM_operatortype_find("TRANSFORM_OT_resize", 0), event, op->ptr, NULL, FALSE);
+			//wm_operator_invoke(C, WM_operatortype_find("TRANSFORM_OT_resize", 0), event, op->ptr, NULL, false);
 		}
 		else if (drawflags == MAN_ROT_T) { /* trackball need special case, init is different */
 			/* Do not pass op->ptr!!! trackball has no "constraint" properties!
@@ -1884,7 +1877,7 @@ int BIF_do_manipulator(bContext *C, const struct wmEvent *event, wmOperator *op)
 			WM_operator_properties_create_ptr(&props_ptr, ot);
 			RNA_boolean_set(&props_ptr, "release_confirm", RNA_boolean_get(op->ptr, "release_confirm"));
 			WM_operator_name_call(C, ot->idname, WM_OP_INVOKE_DEFAULT, &props_ptr);
-			//wm_operator_invoke(C, WM_operatortype_find(ot->idname, 0), event, NULL, NULL, FALSE);
+			//wm_operator_invoke(C, WM_operatortype_find(ot->idname, 0), event, NULL, NULL, false);
 			WM_operator_properties_free(&props_ptr);
 		}
 		else if (drawflags & MAN_ROT_C) {
@@ -1901,7 +1894,7 @@ int BIF_do_manipulator(bContext *C, const struct wmEvent *event, wmOperator *op)
 			}
 			RNA_boolean_set_array(op->ptr, "constraint_axis", constraint_axis);
 			WM_operator_name_call(C, "TRANSFORM_OT_rotate", WM_OP_INVOKE_DEFAULT, op->ptr);
-			//wm_operator_invoke(C, WM_operatortype_find("TRANSFORM_OT_rotate", 0), event, op->ptr, NULL, FALSE);
+			//wm_operator_invoke(C, WM_operatortype_find("TRANSFORM_OT_rotate", 0), event, op->ptr, NULL, false);
 		}
 	}
 	/* after transform, restore drawflags */

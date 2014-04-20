@@ -888,7 +888,7 @@ void uiItemsFullEnumO(uiLayout *layout, const char *opname, const char *propname
 		EnumPropertyItem *item, *item_array = NULL;
 		bool free;
 		uiLayout *split = uiLayoutSplit(layout, 0.0f, false);
-		uiLayout *column = uiLayoutColumn(split, false);
+		uiLayout *column = uiLayoutColumn(split, layout->align);
 
 		RNA_property_enum_items_gettexted(block->evil_C, &ptr, prop, &item_array, NULL, &free);
 		for (item = item_array; item->identifier; item++) {
@@ -912,7 +912,7 @@ void uiItemsFullEnumO(uiLayout *layout, const char *opname, const char *propname
 				if (item->name) {
 					uiBut *but;
 					if (item != item_array) {
-						column = uiLayoutColumn(split, false);
+						column = uiLayoutColumn(split, layout->align);
 						/* inconsistent, but menus with labels do not look good flipped */
 						block->flag |= UI_BLOCK_NO_FLIP;
 					}
@@ -1132,7 +1132,7 @@ static void ui_item_rna_size(uiLayout *layout, const char *name, int icon, Point
 		if (ELEM(subtype, PROP_LAYER, PROP_LAYER_MEMBER))
 			h += 2 * UI_UNIT_Y;
 		else if (subtype == PROP_MATRIX)
-			h += ceil(sqrt(len)) * UI_UNIT_Y;
+			h += ceilf(sqrtf(len)) * UI_UNIT_Y;
 		else
 			h += len * UI_UNIT_Y;
 	}
@@ -1178,12 +1178,18 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 	if (icon == ICON_NONE)
 		icon = RNA_property_ui_icon(prop);
 	
-	if (ELEM4(type, PROP_INT, PROP_FLOAT, PROP_STRING, PROP_POINTER))
+	if (flag & UI_ITEM_R_ICON_ONLY) {
+		/* pass */
+	}
+	else if (ELEM4(type, PROP_INT, PROP_FLOAT, PROP_STRING, PROP_POINTER)) {
 		name = ui_item_name_add_colon(name, namestr);
-	else if (type == PROP_BOOLEAN && is_array && index == RNA_NO_INDEX)
+	}
+	else if (type == PROP_BOOLEAN && is_array && index == RNA_NO_INDEX) {
 		name = ui_item_name_add_colon(name, namestr);
-	else if (type == PROP_ENUM && index != RNA_ENUM_VALUE)
+	}
+	else if (type == PROP_ENUM && index != RNA_ENUM_VALUE) {
 		name = ui_item_name_add_colon(name, namestr);
+	}
 
 	if (layout->root->type == UI_LAYOUT_MENU) {
 		if (type == PROP_BOOLEAN && ((is_array == false) || (index != RNA_NO_INDEX))) {
@@ -1257,6 +1263,12 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 
 	if (no_bg)
 		uiBlockSetEmboss(block, UI_EMBOSS);
+
+	/* ensure text isn't added to icon_only buttons */
+	if (but && icon_only) {
+		BLI_assert(but->str[0] == '\0');
+	}
+
 }
 
 void uiItemR(uiLayout *layout, PointerRNA *ptr, const char *propname, int flag, const char *name, int icon)
@@ -2516,15 +2528,6 @@ uiLayout *uiLayoutListBox(uiLayout *layout, uiList *ui_list, PointerRNA *ptr, Pr
 	but->rnapoin = *actptr;
 	but->rnaprop = actprop;
 
-	/* Resizing data. */
-	/* Note: we can't use usual "num button" value handling, as it only tries rnapoin when it is non-NULL... :/
-	 *       So just setting but->poin, not but->pointype.
-	 */
-	but->poin = (void *)&ui_list->list_grip;
-	but->hardmin = but->softmin = 0.0f;
-	but->hardmax = but->softmax = 1000.0f; /* Should be more than enough! */
-	but->a1 = 0.0f;
-
 	/* only for the undo string */
 	if (but->flag & UI_BUT_UNDO) {
 		but->tip = RNA_property_description(actprop);
@@ -3018,7 +3021,7 @@ void uiLayoutContextCopy(uiLayout *layout, bContextStore *context)
 static void ui_intro_button(DynStr *ds, uiButtonItem *bitem)
 {
 	uiBut *but = bitem->but;
-	BLI_dynstr_appendf(ds, "'type':%d, ", but->type); /* see ~ UI_interface.h:200 */
+	BLI_dynstr_appendf(ds, "'type':%d, ", (int)but->type);
 	BLI_dynstr_appendf(ds, "'draw_string':'''%s''', ", but->drawstr);
 	BLI_dynstr_appendf(ds, "'tip':'''%s''', ", but->tip ? but->tip : "");  /* not exactly needed, rna has this */
 

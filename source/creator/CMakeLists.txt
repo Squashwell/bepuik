@@ -660,7 +660,7 @@ elseif(WIN32)
 					${LIBDIR}/ffmpeg/lib/swscale-2.dll
 				DESTINATION ${TARGETDIR}
 			)
-		else()
+		elseif(WITH_MINGW64)			
 			install(
 				FILES
 					${LIBDIR}/ffmpeg/lib/avcodec-53.dll
@@ -668,16 +668,20 @@ elseif(WIN32)
 					${LIBDIR}/ffmpeg/lib/avdevice-53.dll
 					${LIBDIR}/ffmpeg/lib/avutil-51.dll
 					${LIBDIR}/ffmpeg/lib/swscale-2.dll
+					${LIBDIR}/ffmpeg/lib/swresample-0.dll
+					${LIBDIR}/ffmpeg/lib/xvidcore.dll
 				DESTINATION ${TARGETDIR}
 			)
-		endif()
-		if(WITH_MINGW64)
-		install(
-			FILES
-				${LIBDIR}/ffmpeg/lib/swresample-0.dll
-				${LIBDIR}/ffmpeg/lib/xvidcore.dll
-			DESTINATION ${TARGETDIR}
-		)
+		else()
+			install(
+				FILES
+					${LIBDIR}/ffmpeg/lib/avcodec-55.dll
+					${LIBDIR}/ffmpeg/lib/avformat-55.dll
+					${LIBDIR}/ffmpeg/lib/avdevice-55.dll
+					${LIBDIR}/ffmpeg/lib/avutil-52.dll
+					${LIBDIR}/ffmpeg/lib/swscale-2.dll
+				DESTINATION ${TARGETDIR}
+			)
 		endif()
 	endif()
 
@@ -950,12 +954,12 @@ endif()
 		bf_editor_space_outliner
 		bf_editor_space_script
 		bf_editor_space_sequencer
+		bf_editor_space_text
 		bf_editor_space_time
 		bf_editor_space_userpref
 		bf_editor_space_view3d
 		bf_editor_space_clip
 
-		bf_editor_text
 		bf_editor_transform
 		bf_editor_util
 		bf_editor_uvedit

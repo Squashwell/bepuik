@@ -49,7 +49,7 @@
  * for output slots, for single-type geometry slots, use the type name plus "out",
  * (e.g. verts.out), for double-type slots, use the two type names plus "out",
  * (e.g. vertfaces.out), for three-type slots, use geom.  note that you can also
- * use more esohteric names (e.g. geom_skirt.out) so long as the comment next to the
+ * use more esoteric names (e.g. geom_skirt.out) so long as the comment next to the
  * slot definition tells you what types of elements are in it.
  *
  */
@@ -875,6 +875,7 @@ static BMOpDefine bmo_connect_verts_def = {
 	"connect_verts",
 	/* slots_in */
 	{{"verts", BMO_OP_SLOT_ELEMENT_BUF, {BM_VERT}},
+	 {"check_degenerate", BMO_OP_SLOT_BOOL},  /* prevent splits with overlaps & intersections */
 	 {{'\0'}},
 	},
 	/* slots_out */

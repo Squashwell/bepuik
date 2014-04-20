@@ -53,7 +53,8 @@ extern const char *image_context_dir[]; /* doc access */
 
 /* image_draw.c */
 void draw_image_main(const struct bContext *C, struct ARegion *ar);
-void draw_image_grease_pencil(struct bContext *C, short onlyv2d);
+void draw_image_cache(const struct bContext *C, struct ARegion *ar);
+void draw_image_grease_pencil(struct bContext *C, bool onlyv2d);
 void draw_image_sample_line(struct SpaceImage *sima);
 
 /* image_ops.c */
@@ -86,6 +87,8 @@ void IMAGE_OT_cycle_render_slot(struct wmOperatorType *ot);
 void IMAGE_OT_sample(struct wmOperatorType *ot);
 void IMAGE_OT_sample_line(struct wmOperatorType *ot);
 void IMAGE_OT_curves_point_set(struct wmOperatorType *ot);
+
+void IMAGE_OT_change_frame(struct wmOperatorType *ot);
 
 /* image_panels.c */
 struct ImageUser *ntree_get_active_iuser(struct bNodeTree *ntree);

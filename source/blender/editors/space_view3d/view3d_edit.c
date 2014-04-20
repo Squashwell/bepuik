@@ -492,9 +492,9 @@ static void calctrackballvec(const rcti *rect, int mx, int my, float vec[3])
 	y = BLI_rcti_cent_y(rect) - my;
 	y /= (float)(BLI_rcti_size_y(rect) / 2);
 
-	d = sqrt(x * x + y * y);
+	d = sqrtf(x * x + y * y);
 	if (d < radius * (float)M_SQRT1_2) { /* Inside sphere */
-		z = sqrt(radius * radius - d * d);
+		z = sqrtf(radius * radius - d * d);
 	}
 	else { /* On hyperbola */
 		t = radius / (float)M_SQRT2;
@@ -695,56 +695,6 @@ static void viewops_data_free(bContext *C, wmOperator *op)
 
 /* ************************** viewrotate **********************************/
 
-#define COS45 0.7071068
-#define SIN45 COS45
-
-#define NUM_SNAP_QUATS 39
-
-static const float snapquats[NUM_SNAP_QUATS][5] = {
-	/*{q0, q1, q3, q4, view}*/
-	{COS45, -SIN45, 0.0,    0.0,   RV3D_VIEW_FRONT},
-	{0.0,    0.0,  -SIN45, -SIN45, RV3D_VIEW_BACK},
-	{1.0,    0.0,   0.0,    0.0,   RV3D_VIEW_TOP},
-	{0.0,   -1.0,   0.0,    0.0,   RV3D_VIEW_BOTTOM},
-	{0.5,   -0.5,  -0.5,   -0.5,   RV3D_VIEW_RIGHT},
-	{0.5,   -0.5,   0.5,    0.5,   RV3D_VIEW_LEFT},
-
-	/* some more 45 deg snaps */
-	{ 0.6532815, -0.6532815, 0.2705981, 0.2705981, 0},
-	{ 0.9238795,  0.0,       0.0,       0.3826834, 0},
-	{ 0.0,       -0.9238795, 0.3826834, 0.0,       0},
-	{ 0.3535534, -0.8535534, 0.3535534, 0.1464466, 0},
-	{ 0.8535534, -0.3535534, 0.1464466, 0.3535534, 0},
-	{ 0.4999999, -0.4999999, 0.5,       0.5,       0},
-	{ 0.2705980, -0.6532815, 0.6532815, 0.2705980, 0},
-	{ 0.6532815, -0.2705980, 0.2705980, 0.6532815, 0},
-	{ 0.2705978, -0.2705980, 0.6532814, 0.6532814, 0},
-	{ 0.3826834,  0.0,       0.0,       0.9238794, 0},
-	{ 0.0,       -0.3826834, 0.9238794, 0.0,       0},
-	{ 0.1464466, -0.3535534, 0.8535534, 0.3535534, 0},
-	{ 0.3535534, -0.1464466, 0.3535534, 0.8535534, 0},
-	{ 0.0,        0.0,       0.9238794, 0.3826834, 0},
-	{-0.0,        0.0,       0.3826834, 0.9238794, 0},
-	{-0.2705980,  0.2705980, 0.6532813, 0.6532813, 0},
-	{-0.3826834,  0.0,       0.0,       0.9238794, 0},
-	{ 0.0,        0.3826834, 0.9238794, 0.0,       0},
-	{-0.1464466,  0.3535534, 0.8535533, 0.3535533, 0},
-	{-0.3535534,  0.1464466, 0.3535533, 0.8535533, 0},
-	{-0.4999999,  0.4999999, 0.4999999, 0.4999999, 0},
-	{-0.2705980,  0.6532815, 0.6532814, 0.2705980, 0},
-	{-0.6532815,  0.2705980, 0.2705980, 0.6532814, 0},
-	{-0.6532813,  0.6532813, 0.2705979, 0.2705979, 0},
-	{-0.9238793,  0.0,       0.0,       0.3826833, 0},
-	{ 0.0,        0.9238793, 0.3826833, 0.0,       0},
-	{-0.3535533,  0.8535533, 0.3535533, 0.1464466, 0},
-	{-0.8535533,  0.3535533, 0.1464466, 0.3535533, 0},
-	{-0.3826833,  0.9238794, 0.0,       0.0,       0},
-	{-0.9238794,  0.3826833, 0.0,       0.0,       0},
-	{-COS45,      0.0,       0.0,       SIN45,     0},
-	{ COS45,      0.0,       0.0,       SIN45,     0},
-	{ 0.0,        0.0,       0.0,       1.0,       0}
-};
-
 enum {
 	VIEW_PASS = 0,
 	VIEW_APPLY,
@@ -815,6 +765,108 @@ static void viewrotate_apply_dyn_ofs(ViewOpsData *vod, const float viewquat[4])
 		sub_v3_v3(rv3d->ofs, vod->dyn_ofs);
 		mul_qt_v3(q1, rv3d->ofs);
 		add_v3_v3(rv3d->ofs, vod->dyn_ofs);
+	}
+}
+
+static void viewrotate_apply_snap(ViewOpsData *vod)
+{
+	const float axis_limit = DEG2RADF(45 / 3);
+
+	RegionView3D *rv3d = vod->rv3d;
+
+	float viewquat_inv[4];
+	float zaxis[3] = {0, 0, 1};
+	float zaxis_best[3];
+	int x, y, z;
+	bool found = false;
+
+	invert_qt_qt(viewquat_inv, vod->viewquat);
+
+	mul_qt_v3(viewquat_inv, zaxis);
+	normalize_v3(zaxis);
+
+
+	for (x = -1; x < 2; x++) {
+		for (y = -1; y < 2; y++) {
+			for (z = -1; z < 2; z++) {
+				if (x || y || z) {
+					float zaxis_test[3] = {x, y, z};
+
+					normalize_v3(zaxis_test);
+
+					if (angle_normalized_v3v3(zaxis_test, zaxis) < axis_limit) {
+						copy_v3_v3(zaxis_best, zaxis_test);
+						found = true;
+					}
+				}
+			}
+		}
+	}
+
+	if (found) {
+
+		/* find the best roll */
+		float quat_roll[4], quat_final[4], quat_best[4], quat_snap[4];
+		float viewquat_align[4]; /* viewquat aligned to zaxis_best */
+		float viewquat_align_inv[4]; /* viewquat aligned to zaxis_best */
+		float best_angle = axis_limit;
+		int j;
+
+		/* viewquat_align is the original viewquat aligned to the snapped axis
+		 * for testing roll */
+		rotation_between_vecs_to_quat(viewquat_align, zaxis_best, zaxis);
+		normalize_qt(viewquat_align);
+		mul_qt_qtqt(viewquat_align, vod->viewquat, viewquat_align);
+		normalize_qt(viewquat_align);
+		invert_qt_qt(viewquat_align_inv, viewquat_align);
+
+		vec_to_quat(quat_snap, zaxis_best, OB_NEGZ, OB_POSY);
+		invert_qt(quat_snap);
+		normalize_qt(quat_snap);
+
+		/* check if we can find the roll */
+		found = false;
+
+		/* find best roll */
+		for (j = 0; j < 8; j++) {
+			float angle;
+			float xaxis1[3] = {1, 0, 0};
+			float xaxis2[3] = {1, 0, 0};
+			float quat_final_inv[4];
+
+			axis_angle_to_quat(quat_roll, zaxis_best, (float)j * DEG2RADF(45.0f));
+			normalize_qt(quat_roll);
+
+			mul_qt_qtqt(quat_final, quat_snap, quat_roll);
+			normalize_qt(quat_final);
+
+			/* compare 2 vector angles to find the least roll */
+			invert_qt_qt(quat_final_inv, quat_final);
+			mul_qt_v3(viewquat_align_inv, xaxis1);
+			mul_qt_v3(quat_final_inv, xaxis2);
+			angle = angle_v3v3(xaxis1, xaxis2);
+
+			if (angle <= best_angle) {
+				found = true;
+				best_angle = angle;
+				copy_qt_qt(quat_best, quat_final);
+			}
+		}
+
+		if (found) {
+			/* lock 'quat_best' to an axis view if we can */
+			rv3d->view = ED_view3d_quat_to_axis_view(quat_best, 0.01f);
+			if (rv3d->view != RV3D_VIEW_USER) {
+				ED_view3d_quat_from_axis_view(rv3d->view, quat_best);
+			}
+		}
+		else {
+			copy_qt_qt(quat_best, viewquat_align);
+		}
+
+		copy_qt_qt(rv3d->viewquat, quat_best);
+
+		viewrotate_apply_dyn_ofs(vod, rv3d->viewquat);
 	}
 }
 
@@ -916,72 +968,7 @@ static void viewrotate_apply(ViewOpsData *vod, int x, int y)
 	/* check for view snap,
 	 * note: don't apply snap to vod->viewquat so the view wont jam up */
 	if (vod->axis_snap) {
-		int i;
-		float viewquat_inv[4];
-		float zaxis[3] = {0, 0, 1};
-		invert_qt_qt(viewquat_inv, vod->viewquat);
-
-		mul_qt_v3(viewquat_inv, zaxis);
-
-		for (i = 0; i < NUM_SNAP_QUATS; i++) {
-
-			float view = (int)snapquats[i][4];
-			float viewquat_inv_test[4];
-			float zaxis_test[3] = {0, 0, 1};
-
-			invert_qt_qt(viewquat_inv_test, snapquats[i]);
-			mul_qt_v3(viewquat_inv_test, zaxis_test);
-			
-			if (angle_v3v3(zaxis_test, zaxis) < DEG2RADF(45 / 3)) {
-				/* find the best roll */
-				float quat_roll[4], quat_final[4], quat_best[4];
-				float viewquat_align[4]; /* viewquat aligned to zaxis_test */
-				float viewquat_align_inv[4]; /* viewquat aligned to zaxis_test */
-				float best_angle = FLT_MAX;
-				int j;
-
-				/* viewquat_align is the original viewquat aligned to the snapped axis
-				 * for testing roll */
-				rotation_between_vecs_to_quat(viewquat_align, zaxis_test, zaxis);
-				normalize_qt(viewquat_align);
-				mul_qt_qtqt(viewquat_align, vod->viewquat, viewquat_align);
-				normalize_qt(viewquat_align);
-				invert_qt_qt(viewquat_align_inv, viewquat_align);
-
-				/* find best roll */
-				for (j = 0; j < 8; j++) {
-					float angle;
-					float xaxis1[3] = {1, 0, 0};
-					float xaxis2[3] = {1, 0, 0};
-					float quat_final_inv[4];
-
-					axis_angle_to_quat(quat_roll, zaxis_test, (float)j * DEG2RADF(45.0f));
-					normalize_qt(quat_roll);
-
-					mul_qt_qtqt(quat_final, snapquats[i], quat_roll);
-					normalize_qt(quat_final);
-					
-					/* compare 2 vector angles to find the least roll */
-					invert_qt_qt(quat_final_inv, quat_final);
-					mul_qt_v3(viewquat_align_inv, xaxis1);
-					mul_qt_v3(quat_final_inv, xaxis2);
-					angle = angle_v3v3(xaxis1, xaxis2);
-
-					if (angle <= best_angle) {
-						best_angle = angle;
-						copy_qt_qt(quat_best, quat_final);
-						if (j) view = 0;  /* view grid assumes certain up axis */
-					}
-				}
-
-				copy_qt_qt(rv3d->viewquat, quat_best);
-				rv3d->view = view; /* if we snap to a rolled camera the grid is invalid */
-
-				viewrotate_apply_dyn_ofs(vod, rv3d->viewquat);
-
-				break;
-			}
-		}
+		viewrotate_apply_snap(vod);
 	}
 	vod->oldx = x;
 	vod->oldy = y;
@@ -1049,6 +1036,7 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
 static void view3d_ensure_persp(struct View3D *v3d, ARegion *ar)
 {
 	RegionView3D *rv3d = ar->regiondata;
+	const bool autopersp = (U.uiflag & USER_AUTOPERSP) != 0;
 
 	BLI_assert((rv3d->viewlock & RV3D_LOCKED) == 0);
 
@@ -1057,9 +1045,11 @@ static void view3d_ensure_persp(struct View3D *v3d, ARegion *ar)
 
 	if (rv3d->persp != RV3D_PERSP) {
 		if (rv3d->persp == RV3D_CAMOB) {
-			view3d_persp_switch_from_camera(v3d, rv3d, rv3d->lpersp);
+			/* If autopersp and previous view was an axis one, switch back to PERSP mode, else reuse previous mode. */
+			char persp = (autopersp && RV3D_VIEW_IS_AXIS(rv3d->lview)) ? RV3D_PERSP : rv3d->lpersp;
+			view3d_persp_switch_from_camera(v3d, rv3d, persp);
 		}
-		else if ((U.uiflag & USER_AUTOPERSP) && RV3D_VIEW_IS_AXIS(rv3d->view)) {
+		else if (autopersp && RV3D_VIEW_IS_AXIS(rv3d->view)) {
 			rv3d->persp = RV3D_PERSP;
 		}
 	}
@@ -1972,7 +1962,7 @@ static void view_zoom_mouseloc(ARegion *ar, float dfac, int mx, int my)
 }
 
 
-static void viewzoom_apply(ViewOpsData *vod, const int x, const int y, const short viewzoom, const short zoom_invert)
+static void viewzoom_apply(ViewOpsData *vod, const int xy[2], const short viewzoom, const short zoom_invert)
 {
 	float zfac = 1.0;
 	bool use_cam_zoom;
@@ -1981,7 +1971,7 @@ static void viewzoom_apply(ViewOpsData *vod, const int x, const int y, const sho
 
 	if (use_cam_zoom) {
 		float delta;
-		delta = (x - vod->origx + y - vod->origy) / 10.0f;
+		delta = (xy[0] - vod->origx + xy[1] - vod->origy) / 10.0f;
 		vod->rv3d->camzoom = vod->camzoom_prev + (zoom_invert ? -delta : delta);
 
 		CLAMP(vod->rv3d->camzoom, RV3D_CAMZOOM_MIN, RV3D_CAMZOOM_MAX);
@@ -1993,10 +1983,10 @@ static void viewzoom_apply(ViewOpsData *vod, const int x, const int y, const sho
 		float fac;
 
 		if (U.uiflag & USER_ZOOM_HORIZ) {
-			fac = (float)(vod->origx - x);
+			fac = (float)(vod->origx - xy[0]);
 		}
 		else {
-			fac = (float)(vod->origy - y);
+			fac = (float)(vod->origy - xy[1]);
 		}
 
 		if (zoom_invert) {
@@ -2008,26 +1998,25 @@ static void viewzoom_apply(ViewOpsData *vod, const int x, const int y, const sho
 		vod->timer_lastdraw = time;
 	}
 	else if (viewzoom == USER_ZOOM_SCALE) {
-		int ctr[2], len1, len2;
 		/* method which zooms based on how far you move the mouse */
 
-		ctr[0] = BLI_rcti_cent_x(&vod->ar->winrct);
-		ctr[1] = BLI_rcti_cent_y(&vod->ar->winrct);
-
-		len1 = (int)sqrt((ctr[0] - x) * (ctr[0] - x) + (ctr[1] - y) * (ctr[1] - y)) + 5;
-		len2 = (int)sqrt((ctr[0] - vod->origx) * (ctr[0] - vod->origx) + (ctr[1] - vod->origy) * (ctr[1] - vod->origy)) + 5;
-
-		zfac = vod->dist_prev * ((float)len2 / len1) / vod->rv3d->dist;
+		const int ctr[2] = {
+		    BLI_rcti_cent_x(&vod->ar->winrct),
+		    BLI_rcti_cent_y(&vod->ar->winrct),
+		};
+		const float len_new = 5 + len_v2v2_int(ctr, xy);
+		const float len_old = 5 + len_v2v2_int(ctr, &vod->origx);
+		zfac = vod->dist_prev * ((len_old + 5) / (len_new + 5)) / vod->rv3d->dist;
 	}
 	else {  /* USER_ZOOM_DOLLY */
 		float len1, len2;
 		
 		if (U.uiflag & USER_ZOOM_HORIZ) {
-			len1 = (vod->ar->winrct.xmax - x) + 5;
+			len1 = (vod->ar->winrct.xmax - xy[0]) + 5;
 			len2 = (vod->ar->winrct.xmax - vod->origx) + 5;
 		}
 		else {
-			len1 = (vod->ar->winrct.ymax - y) + 5;
+			len1 = (vod->ar->winrct.ymax - xy[1]) + 5;
 			len2 = (vod->ar->winrct.ymax - vod->origy) + 5;
 		}
 		if (zoom_invert) {
@@ -2099,7 +2088,7 @@ static int viewzoom_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 
 	if (event_code == VIEW_APPLY) {
-		viewzoom_apply(vod, event->x, event->y, U.viewzoom, (U.uiflag & USER_ZOOM_INVERT) != 0);
+		viewzoom_apply(vod, &event->x, U.viewzoom, (U.uiflag & USER_ZOOM_INVERT) != 0);
 	}
 	else if (event_code == VIEW_CONFIRM) {
 		ED_view3d_depth_tag_update(vod->rv3d);
@@ -2234,12 +2223,12 @@ static int viewzoom_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 			if (U.uiflag & USER_ZOOM_HORIZ) {
 				vod->origx = vod->oldx = event->x;
-				viewzoom_apply(vod, event->prevx, event->prevy, USER_ZOOM_DOLLY, (U.uiflag & USER_ZOOM_INVERT) != 0);
+				viewzoom_apply(vod, &event->prevx, USER_ZOOM_DOLLY, (U.uiflag & USER_ZOOM_INVERT) != 0);
 			}
 			else {
 				/* Set y move = x move as MOUSEZOOM uses only x axis to pass magnification value */
 				vod->origy = vod->oldy = vod->origy + event->x - event->prevx;
-				viewzoom_apply(vod, event->prevx, event->prevy, USER_ZOOM_DOLLY, (U.uiflag & USER_ZOOM_INVERT) != 0);
+				viewzoom_apply(vod, &event->prevx, USER_ZOOM_DOLLY, (U.uiflag & USER_ZOOM_INVERT) != 0);
 			}
 			ED_view3d_depth_tag_update(vod->rv3d);
 			
@@ -3587,9 +3576,8 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 				if (!rv3d->smooth_timer) {
 					/* store settings of current view before allowing overwriting with camera view
 					 * only if we're not currently in a view transition */
-					copy_qt_qt(rv3d->lviewquat, rv3d->viewquat);
-					rv3d->lview = rv3d->view;
-					rv3d->lpersp = rv3d->persp;
+
+					ED_view3d_lastview_store(rv3d);
 				}
 
 #if 0
@@ -3725,7 +3713,7 @@ static int vieworbit_exec(bContext *C, wmOperator *op)
 			mul_qt_qtqt(quat_new, rv3d->viewquat, quat_mul);
 			rv3d->view = RV3D_VIEW_USER;
 
-			ED_view3d_smooth_view(C, CTX_wm_view3d(C), ar, NULL, NULL,
+			ED_view3d_smooth_view(C, v3d, ar, NULL, NULL,
 			                      NULL, quat_new, NULL, NULL,
 			                      smooth_viewtx);
 
@@ -4728,6 +4716,18 @@ void ED_view3d_to_object(Object *ob, const float ofs[3], const float quat[4], co
 	float mat[4][4];
 	ED_view3d_to_m4(mat, ofs, quat, dist);
 	BKE_object_apply_mat4(ob, mat, true, true);
+}
+
+/**
+ * Use to store the last view, before entering camera view.
+ */
+void ED_view3d_lastview_store(RegionView3D *rv3d)
+{
+	copy_qt_qt(rv3d->lviewquat, rv3d->viewquat);
+	rv3d->lview = rv3d->view;
+	if (rv3d->persp != RV3D_CAMOB) {
+		rv3d->lpersp = rv3d->persp;
+	}
 }
 
 BGpic *ED_view3D_background_image_new(View3D *v3d)

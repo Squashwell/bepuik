@@ -1886,7 +1886,7 @@ static PBool p_collapse_allowed_geometric(PEdge *edge, PEdge *pair)
 
 	if (p_vert_interior(oldv)) {
 		/* hlscm criterion: angular defect smaller than threshold */
-		if (fabs(angulardefect) > (M_PI * 30.0 / 180.0))
+		if (fabsf(angulardefect) > (float)(M_PI * 30.0 / 180.0))
 			return P_FALSE;
 	}
 	else {
@@ -1952,7 +1952,7 @@ static float p_collapse_cost(PEdge *edge, PEdge *pair)
 			sub_v3_v3v3(tetrav3, co2, oldv->co);
 			cross_v3_v3v3(c, tetrav2, tetrav3);
 
-			volumecost += fabs(dot_v3v3(edgevec, c) / 6.0f);
+			volumecost += fabsf(dot_v3v3(edgevec, c) / 6.0f);
 #if 0
 			shapecost += dot_v3v3(co1, keepv->co);
 
@@ -4148,7 +4148,7 @@ ParamHandle *param_construct_begin(void)
 	handle->arena = BLI_memarena_new(MEM_SIZE_OPTIMAL(1 << 16), "param construct arena");
 	handle->aspx = 1.0f;
 	handle->aspy = 1.0f;
-	handle->do_aspect = FALSE;
+	handle->do_aspect = false;
 
 	handle->hash_verts = phash_new((PHashLink **)&handle->construction_chart->verts, 1);
 	handle->hash_edges = phash_new((PHashLink **)&handle->construction_chart->edges, 1);
@@ -4163,7 +4163,7 @@ void param_aspect_ratio(ParamHandle *handle, float aspx, float aspy)
 
 	phandle->aspx = aspx;
 	phandle->aspy = aspy;
-	phandle->do_aspect = TRUE;
+	phandle->do_aspect = true;
 }
 
 void param_delete(ParamHandle *handle)

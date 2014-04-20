@@ -173,6 +173,7 @@ enum {
 	UI_BUT_COLOR_CUBIC   = (1 << 23),  /* cubic saturation for the color wheel */
 	UI_BUT_LIST_ITEM     = (1 << 24),  /* This but is "inside" a list item (currently used to change theme colors). */
 	UI_BUT_DRAG_MULTI    = (1 << 25),  /* edit this button as well as the active button (not just dragging) */
+	UI_BUT_SCA_LINK_GREY = (1 << 26),  /* used to flag if sca links shoud be grey out */
 };
 
 #define UI_PANEL_WIDTH          340
@@ -185,8 +186,6 @@ enum {
  *       (except for the 'align' ones)!
  */
 enum {
-	/* draw enum-like up/down arrows for button */
-	UI_BUT_DRAW_ENUM_ARROWS  = (1 << 0),
 	/* Text and icon alignment (by default, they are centered). */
 	UI_BUT_TEXT_LEFT         = (1 << 1),
 	UI_BUT_ICON_LEFT         = (1 << 2),
@@ -272,6 +271,7 @@ typedef enum {
 	SEARCH_MENU_UNLINK   = (52 << 9),
 	NODESOCKET    = (53 << 9),
 	SEPRLINE      = (54 << 9),
+	GRIP          = (55 << 9),
 } eButType;
 
 #define BUTTYPE     (63 << 9)
@@ -285,6 +285,7 @@ typedef enum {
 #define UI_GRAD_V       5
 
 #define UI_GRAD_V_ALT   9
+#define UI_GRAD_L_ALT   10
 
 /* Drawing
  *
@@ -432,7 +433,7 @@ void    uiButSetDragName(uiBut *but, const char *name);
 void    uiButSetDragValue(uiBut *but);
 void    uiButSetDragImage(uiBut *but, const char *path, int icon, struct ImBuf *ima, float scale);
 
-int     UI_but_active_drop_name(struct bContext *C);
+bool    UI_but_active_drop_name(struct bContext *C);
 
 void    uiButSetFlag(uiBut *but, int flag);
 void    uiButClearFlag(uiBut *but, int flag);
@@ -833,7 +834,8 @@ void uiTemplatePathBuilder(uiLayout *layout, struct PointerRNA *ptr, const char 
                            struct PointerRNA *root_ptr, const char *text);
 uiLayout *uiTemplateModifier(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr);
 uiLayout *uiTemplateConstraint(uiLayout *layout, struct PointerRNA *ptr);
-void uiTemplatePreview(uiLayout *layout, struct ID *id, int show_buttons, struct ID *parent, struct MTex *slot);
+void uiTemplatePreview(uiLayout *layout, struct bContext *C, struct ID *id, int show_buttons, struct ID *parent,
+                       struct MTex *slot, const char *preview_id);
 void uiTemplateColorRamp(uiLayout *layout, struct PointerRNA *ptr, const char *propname, int expand);
 void uiTemplateIconView(uiLayout *layout, struct PointerRNA *ptr, const char *propname);
 void uiTemplateHistogram(uiLayout *layout, struct PointerRNA *ptr, const char *propname);

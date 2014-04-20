@@ -124,7 +124,6 @@ class INFO_MT_file(Menu):
 
         layout.operator_context = 'INVOKE_AREA'
         layout.operator("wm.save_homefile", icon='SAVE_PREFS')
-        layout.operator_context = 'EXEC_AREA'
         layout.operator("wm.read_factory_settings", icon='LOAD_FACTORY')
 
         layout.separator()
@@ -233,11 +232,25 @@ class INFO_MT_render(Menu):
 
         layout.operator("render.opengl", text="OpenGL Render Image")
         layout.operator("render.opengl", text="OpenGL Render Animation").animation = True
+        layout.menu("INFO_MT_opengl_render")
 
         layout.separator()
 
         layout.operator("render.view_show")
         layout.operator("render.play_rendered_anim", icon='PLAY')
+
+
+class INFO_MT_opengl_render(Menu):
+    bl_label = "OpenGL Render Options"
+
+    def draw(self, context):
+        layout = self.layout
+
+        rd = context.scene.render
+
+        layout.prop(rd, "use_antialiasing")
+        layout.prop_menu_enum(rd, "antialiasing_samples")
+        layout.prop_menu_enum(rd, "alpha_mode")
 
 
 class INFO_MT_window(Menu):

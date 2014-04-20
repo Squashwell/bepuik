@@ -297,12 +297,12 @@ DynamicPaintSurface *get_activeSurface(DynamicPaintCanvasSettings *canvas)
 void dynamicPaint_resetPreview(DynamicPaintCanvasSettings *canvas)
 {
 	DynamicPaintSurface *surface = canvas->surfaces.first;
-	int done = FALSE;
+	bool done = false;
 
 	for (; surface; surface = surface->next) {
 		if (!done && dynamicPaint_surfaceHasColorPreview(surface)) {
 			surface->flags |= MOD_DPAINT_PREVIEW;
-			done = TRUE;
+			done = true;
 		}
 		else
 			surface->flags &= ~MOD_DPAINT_PREVIEW;
@@ -536,7 +536,7 @@ static int subframe_updateObject(Scene *scene, Object *ob, int flags, int parent
 
 		/* also update constraint targets */
 		for (con = ob->constraints.first; con; con = con->next) {
-			bConstraintTypeInfo *cti = BKE_constraint_get_typeinfo(con);
+			bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
 			ListBase targets = {NULL, NULL};
 
 			if (cti && cti->get_constraint_targets) {
@@ -3716,7 +3716,7 @@ static int dynamicPaint_paintParticles(DynamicPaintSurface *surface,
 		/* make sure particle is close enough to canvas */
 		if (!boundIntersectPoint(&grid->grid_bounds, pa->state.co, range)) continue;
 
-		BLI_kdtree_insert(tree, p, pa->state.co, NULL);
+		BLI_kdtree_insert(tree, p, pa->state.co);
 
 		/* calc particle system bounds */
 		boundInsert(&part_bb, pa->state.co);
@@ -3773,7 +3773,7 @@ static int dynamicPaint_paintParticles(DynamicPaintSurface *surface,
 					float smooth_range, part_solidradius;
 
 					/* Find nearest particle and get distance to it	*/
-					BLI_kdtree_find_nearest(tree, bData->realCoord[bData->s_pos[index]].v, NULL, &nearest);
+					BLI_kdtree_find_nearest(tree, bData->realCoord[bData->s_pos[index]].v, &nearest);
 					/* if outside maximum range, no other particle can influence either */
 					if (nearest.dist > range) continue;
 
@@ -3813,7 +3813,7 @@ static int dynamicPaint_paintParticles(DynamicPaintSurface *surface,
 					/* Make gcc happy! */
 					dist = max_range;
 
-					particles = BLI_kdtree_range_search(tree, bData->realCoord[bData->s_pos[index]].v, NULL,
+					particles = BLI_kdtree_range_search(tree, bData->realCoord[bData->s_pos[index]].v,
 					                                    &nearest, max_range);
 
 					/* Find particle that produces highest influence */

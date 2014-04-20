@@ -60,31 +60,51 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 	uint width = info.x;
 	uint height = info.y;
 	uint offset = info.z;
-	uint periodic = info.w;
+	uint periodic = (info.w & 0x1);
+	uint interpolation = info.w >> 1;
 
+	float4 r;
 	int ix, iy, nix, niy;
-	float tx = svm_image_texture_frac(x*width, &ix);
-	float ty = svm_image_texture_frac(y*height, &iy);
+	if (interpolation == INTERPOLATION_CLOSEST){
+		svm_image_texture_frac(x*width, &ix);
+		svm_image_texture_frac(y*height, &iy);
 
-	if(periodic) {
-		ix = svm_image_texture_wrap_periodic(ix, width);
-		iy = svm_image_texture_wrap_periodic(iy, height);
+		if(periodic) {
+			ix = svm_image_texture_wrap_periodic(ix, width);
+			iy = svm_image_texture_wrap_periodic(iy, height);
+		}
+		else {
+			ix = svm_image_texture_wrap_clamp(ix, width);
+			iy = svm_image_texture_wrap_clamp(iy, height);
 
-		nix = svm_image_texture_wrap_periodic(ix+1, width);
-		niy = svm_image_texture_wrap_periodic(iy+1, height);
+		}
+		r = svm_image_texture_read(kg, offset + ix + iy*width);
 	}
-	else {
-		ix = svm_image_texture_wrap_clamp(ix, width);
-		iy = svm_image_texture_wrap_clamp(iy, height);
+	else { /* We default to linear interpolation if it is not closest */
+		float tx = svm_image_texture_frac(x*width, &ix);
+		float ty = svm_image_texture_frac(y*height, &iy);
 
-		nix = svm_image_texture_wrap_clamp(ix+1, width);
-		niy = svm_image_texture_wrap_clamp(iy+1, height);
+		if(periodic) {
+			ix = svm_image_texture_wrap_periodic(ix, width);
+			iy = svm_image_texture_wrap_periodic(iy, height);
+
+			nix = svm_image_texture_wrap_periodic(ix+1, width);
+			niy = svm_image_texture_wrap_periodic(iy+1, height);
+		}
+		else {
+			ix = svm_image_texture_wrap_clamp(ix, width);
+			iy = svm_image_texture_wrap_clamp(iy, height);
+
+			nix = svm_image_texture_wrap_clamp(ix+1, width);
+			niy = svm_image_texture_wrap_clamp(iy+1, height);
+		}
+
+
+		r = (1.0f - ty)*(1.0f - tx)*svm_image_texture_read(kg, offset + ix + iy*width);
+		r += (1.0f - ty)*tx*svm_image_texture_read(kg, offset + nix + iy*width);
+		r += ty*(1.0f - tx)*svm_image_texture_read(kg, offset + ix + niy*width);
+		r += ty*tx*svm_image_texture_read(kg, offset + nix + niy*width);
 	}
-
-	float4 r = (1.0f - ty)*(1.0f - tx)*svm_image_texture_read(kg, offset + ix + iy*width);
-	r += (1.0f - ty)*tx*svm_image_texture_read(kg, offset + nix + iy*width);
-	r += ty*(1.0f - tx)*svm_image_texture_read(kg, offset + ix + niy*width);
-	r += ty*tx*svm_image_texture_read(kg, offset + nix + niy*width);
 
 	if(use_alpha && r.w != 1.0f && r.w != 0.0f) {
 		float invw = 1.0f/r.w;
@@ -302,7 +322,7 @@ ccl_device void svm_node_tex_image_box(KernelGlobals *kg, ShaderData *sd, float 
 	float3 N = sd->N;
 
 	N = sd->N;
-	if(sd->object != ~0)
+	if(sd->object != OBJECT_NONE)
 		object_inverse_normal_transform(kg, sd, &N);
 
 	/* project from direction vector to barycentric coordinates in triangles */

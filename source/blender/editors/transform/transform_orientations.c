@@ -229,7 +229,6 @@ static TransformOrientation *createMeshSpace(bContext *C, ReportList *reports,
 			break;
 		default:
 			return NULL;
-			break;
 	}
 
 	return addMatrixSpace(C, mat, name, overwrite);
@@ -245,7 +244,7 @@ bool createSpaceNormal(float mat[3][3], const float normal[3])
 	}
 
 	cross_v3_v3v3(mat[0], mat[2], tangent);
-	if (dot_v3v3(mat[0], mat[0]) == 0.0f) {
+	if (is_zero_v3(mat[0])) {
 		tangent[0] = 1.0f;
 		tangent[1] = tangent[2] = 0.0f;
 		cross_v3_v3v3(mat[0], tangent, mat[2]);
@@ -859,12 +858,12 @@ int getTransformOrientation(const bContext *C, float normal[3], float plane[3], 
 		bArmature *arm = ob->data;
 		bPoseChannel *pchan;
 		float imat[3][3], mat[3][3];
-		int ok = FALSE;
+		bool ok = false;
 
 		if (activeOnly && (pchan = BKE_pose_channel_active(ob))) {
 			add_v3_v3(normal, pchan->pose_mat[2]);
 			add_v3_v3(plane, pchan->pose_mat[1]);
-			ok = TRUE;
+			ok = true;
 		}
 		else {
 			int totsel;
@@ -878,7 +877,7 @@ int getTransformOrientation(const bContext *C, float normal[3], float plane[3], 
 						add_v3_v3(plane, pchan->pose_mat[1]);
 					}
 				}
-				ok = TRUE;
+				ok = true;
 			}
 		}
 

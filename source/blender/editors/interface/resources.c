@@ -268,6 +268,8 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 				
 				case TH_GRID:
 					cp = ts->grid; break;
+				case TH_VIEW_OVERLAY:
+					cp = ts->view_overlay; break;
 				case TH_WIRE:
 					cp = ts->wire; break;
 				case TH_WIRE_EDIT:
@@ -761,6 +763,18 @@ static void ui_theme_init_new(bTheme *btheme)
 	}
 }
 
+static void ui_theme_space_init_handles_color(ThemeSpace *theme_space)
+{
+	rgba_char_args_set(theme_space->handle_free, 0, 0, 0, 255);
+	rgba_char_args_set(theme_space->handle_auto, 0x90, 0x90, 0x00, 255);
+	rgba_char_args_set(theme_space->handle_vect, 0x40, 0x90, 0x30, 255);
+	rgba_char_args_set(theme_space->handle_align, 0x80, 0x30, 0x60, 255);
+	rgba_char_args_set(theme_space->handle_sel_free, 0, 0, 0, 255);
+	rgba_char_args_set(theme_space->handle_sel_auto, 0xf0, 0xff, 0x40, 255);
+	rgba_char_args_set(theme_space->handle_sel_vect, 0x40, 0xc0, 0x30, 255);
+	rgba_char_args_set(theme_space->handle_sel_align, 0xf0, 0x90, 0xa0, 255);
+	rgba_char_args_set(theme_space->act_spline, 0xdb, 0x25, 0x12, 255);
+}
 
 /* initialize default theme
  * Note: when you add new colors, created & saved themes need initialized
@@ -819,6 +833,7 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tv3d.shade2,  0x7f, 0x70, 0x70, 100);
 
 	rgba_char_args_set_fl(btheme->tv3d.grid,     0.251, 0.251, 0.251, 1.0);
+	rgba_char_args_set(btheme->tv3d.view_overlay, 0, 0, 0, 255);
 	rgba_char_args_set(btheme->tv3d.wire,       0x0, 0x0, 0x0, 255);
 	rgba_char_args_set(btheme->tv3d.wire_edit,  0x0, 0x0, 0x0, 255);
 	rgba_char_args_set(btheme->tv3d.lamp,       0, 0, 0, 40);
@@ -870,14 +885,7 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tv3d.nurb_sel_uline, 0xf0, 0xff, 0x40, 255);
 	rgba_char_args_set(btheme->tv3d.nurb_sel_vline, 0xf0, 0x90, 0xa0, 255);
 
-	rgba_char_args_set(btheme->tv3d.handle_free, 0, 0, 0, 255);
-	rgba_char_args_set(btheme->tv3d.handle_auto, 0x90, 0x90, 0x00, 255);
-	rgba_char_args_set(btheme->tv3d.handle_vect, 0x40, 0x90, 0x30, 255);
-	rgba_char_args_set(btheme->tv3d.handle_align, 0x80, 0x30, 0x60, 255);
-	rgba_char_args_set(btheme->tv3d.handle_sel_free, 0, 0, 0, 255);
-	rgba_char_args_set(btheme->tv3d.handle_sel_auto, 0xf0, 0xff, 0x40, 255);
-	rgba_char_args_set(btheme->tv3d.handle_sel_vect, 0x40, 0xc0, 0x30, 255);
-	rgba_char_args_set(btheme->tv3d.handle_sel_align, 0xf0, 0x90, 0xa0, 255);
+	ui_theme_space_init_handles_color(&btheme->tv3d);
 
 	rgba_char_args_set(btheme->tv3d.act_spline, 0xdb, 0x25, 0x12, 255);
 	rgba_char_args_set(btheme->tv3d.lastsel_point,  0xff, 0xff, 0xff, 255);
@@ -942,7 +950,7 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tact.keytype_jitter,             148, 229, 117, 255);
 	rgba_char_args_set(btheme->tact.keytype_jitter_select,       97, 192,  66, 255);
 	
-	rgba_char_args_set(btheme->tact.keyborder,	             0,   0,   0, 255);
+	rgba_char_args_set(btheme->tact.keyborder,               0,   0,   0, 255);
 	rgba_char_args_set(btheme->tact.keyborder_select,        0,   0,   0, 255);
 	
 	/* space nla */
@@ -961,7 +969,7 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tnla.nla_sound,          43, 61, 61, 255);
 	rgba_char_args_set(btheme->tnla.nla_sound_sel,      31, 122, 122, 255);
 	
-	rgba_char_args_set(btheme->tnla.keyborder,	             0,   0,   0, 255);
+	rgba_char_args_set(btheme->tnla.keyborder,               0,   0,   0, 255);
 	rgba_char_args_set(btheme->tnla.keyborder_select,        0,   0,   0, 255);
 	
 	/* space file */
@@ -1019,6 +1027,9 @@ void ui_theme_init_default(void)
 
 	rgba_char_args_test_set(btheme->tima.uv_others, 96, 96, 96, 255);
 	rgba_char_args_test_set(btheme->tima.uv_shadow, 112, 112, 112, 255);
+
+	ui_theme_space_init_handles_color(&btheme->tima);
+	btheme->tima.handle_vertex_size = 5;
 
 	/* space text */
 	btheme->text = btheme->tv3d;
@@ -1080,7 +1091,7 @@ void ui_theme_init_default(void)
 	
 	/* space node, re-uses syntax and console color storage */
 	btheme->tnode = btheme->tv3d;
-	rgba_char_args_set(btheme->tnode.edge_select, 255, 255, 255, 255);	/* wire selected */
+	rgba_char_args_set(btheme->tnode.edge_select, 255, 255, 255, 255);  /* wire selected */
 	rgba_char_args_set(btheme->tnode.syntaxl, 155, 155, 155, 160);  /* TH_NODE, backdrop */
 	rgba_char_args_set(btheme->tnode.syntaxn, 100, 100, 100, 255);  /* in */
 	rgba_char_args_set(btheme->tnode.nodeclass_output, 100, 100, 100, 255);  /* output */
@@ -1122,7 +1133,8 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tclip.list, 0x66, 0x66, 0x66, 0xff);
 	rgba_char_args_set(btheme->tclip.strip, 0x0c, 0x0a, 0x0a, 0x80);
 	rgba_char_args_set(btheme->tclip.strip_select, 0xff, 0x8c, 0x00, 0xff);
-	btheme->tclip.handle_vertex_size = 4;
+	btheme->tclip.handle_vertex_size = 5;
+	ui_theme_space_init_handles_color(&btheme->tclip);
 }
 
 void ui_style_init_default(void)
@@ -1882,27 +1894,9 @@ void init_userdef_do_versions(void)
 		
 		/* init new curve colors */
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
-			/* init colors used for handles in 3D-View  */
-			rgba_char_args_set(btheme->tv3d.handle_free, 0, 0, 0, 255);
-			rgba_char_args_set(btheme->tv3d.handle_auto, 0x90, 0x90, 0x00, 255);
-			rgba_char_args_set(btheme->tv3d.handle_vect, 0x40, 0x90, 0x30, 255);
-			rgba_char_args_set(btheme->tv3d.handle_align, 0x80, 0x30, 0x60, 255);
-			rgba_char_args_set(btheme->tv3d.handle_sel_free, 0, 0, 0, 255);
-			rgba_char_args_set(btheme->tv3d.handle_sel_auto, 0xf0, 0xff, 0x40, 255);
-			rgba_char_args_set(btheme->tv3d.handle_sel_vect, 0x40, 0xc0, 0x30, 255);
-			rgba_char_args_set(btheme->tv3d.handle_sel_align, 0xf0, 0x90, 0xa0, 255);
-			rgba_char_args_set(btheme->tv3d.act_spline, 0xdb, 0x25, 0x12, 255);
-			
-			/* same colors again for Graph Editor... */
-			rgba_char_args_set(btheme->tipo.handle_free, 0, 0, 0, 255);
-			rgba_char_args_set(btheme->tipo.handle_auto, 0x90, 0x90, 0x00, 255);
-			rgba_char_args_set(btheme->tipo.handle_vect, 0x40, 0x90, 0x30, 255);
-			rgba_char_args_set(btheme->tipo.handle_align, 0x80, 0x30, 0x60, 255);
-			rgba_char_args_set(btheme->tipo.handle_sel_free, 0, 0, 0, 255);
-			rgba_char_args_set(btheme->tipo.handle_sel_auto, 0xf0, 0xff, 0x40, 255);
-			rgba_char_args_set(btheme->tipo.handle_sel_vect, 0x40, 0xc0, 0x30, 255);
-			rgba_char_args_set(btheme->tipo.handle_sel_align, 0xf0, 0x90, 0xa0, 255);
-			
+			ui_theme_space_init_handles_color(&btheme->tv3d);
+			ui_theme_space_init_handles_color(&btheme->tipo);
+
 			/* edge crease */
 			rgba_char_args_set_fl(btheme->tv3d.edge_crease, 0.8, 0, 0.6, 1.0);
 		}
@@ -2007,7 +2001,7 @@ void init_userdef_do_versions(void)
 				rgba_char_args_set(btheme->tclip.cframe, 0x60, 0xc0, 0x40, 255);
 				rgba_char_args_set(btheme->tclip.handle_vertex, 0x00, 0x00, 0x00, 0xff);
 				rgba_char_args_set(btheme->tclip.handle_vertex_select, 0xff, 0xff, 0, 0xff);
-				btheme->tclip.handle_vertex_size = 4;
+				btheme->tclip.handle_vertex_size = 5;
 			}
 			
 			/* auto-clamped handles -> based on auto */
@@ -2387,12 +2381,12 @@ void init_userdef_do_versions(void)
 			rgba_char_args_set(btheme->tact.keytype_jitter_select,       97, 192,  66, 255);
 			
 			/* key border */
-			rgba_char_args_set(btheme->tact.keyborder,	             0,   0,   0, 255);
+			rgba_char_args_set(btheme->tact.keyborder,               0,   0,   0, 255);
 			rgba_char_args_set(btheme->tact.keyborder_select,        0,   0,   0, 255);
 			
 			/* NLA ............................ */
 			/* key border */
-			rgba_char_args_set(btheme->tnla.keyborder,	             0,   0,   0, 255);
+			rgba_char_args_set(btheme->tnla.keyborder,               0,   0,   0, 255);
 			rgba_char_args_set(btheme->tnla.keyborder_select,        0,   0,   0, 255);
 			
 			/* Graph Editor ................... */
@@ -2420,7 +2414,17 @@ void init_userdef_do_versions(void)
 			}
 		}
 	}
-	
+
+	{
+		bTheme *btheme;
+		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			ui_theme_space_init_handles_color(&btheme->tclip);
+			ui_theme_space_init_handles_color(&btheme->tima);
+			btheme->tima.handle_vertex_size = 5;
+			btheme->tclip.handle_vertex_size = 5;
+		}
+	}
+
 	if (U.pixelsize == 0.0f)
 		U.pixelsize = 1.0f;
 	

@@ -996,7 +996,8 @@ void txt_move_left(Text *text, const bool sel)
 void txt_move_right(Text *text, const bool sel)
 {
 	TextLine **linep;
-	int *charp, do_tab = FALSE, i;
+	int *charp, i;
+	bool do_tab = false;
 	
 	if (!text) return;
 	if (sel) txt_curs_sel(text, &linep, &charp);
@@ -1013,10 +1014,10 @@ void txt_move_right(Text *text, const bool sel)
 		// do nice right only if there are only spaces
 		// spaces hardcoded in DNA_text_types.h
 		if (text->flags & TXT_TABSTOSPACES && (*linep)->line[*charp] == ' ') {
-			do_tab = TRUE;
+			do_tab = true;
 			for (i = 0; i < *charp; i++)
 				if ((*linep)->line[i] != ' ') {
-					do_tab = FALSE;
+					do_tab = false;
 					break;
 				}
 		}
@@ -2577,7 +2578,7 @@ static void txt_convert_tab_to_spaces(Text *text)
 	txt_insert_buf(text, sb);
 }
 
-static int txt_add_char_intern(Text *text, unsigned int add, int replace_tabs)
+static bool txt_add_char_intern(Text *text, unsigned int add, bool replace_tabs)
 {
 	char *tmp, ch[BLI_UTF8_MAX];
 	size_t add_len;
@@ -2620,12 +2621,12 @@ static int txt_add_char_intern(Text *text, unsigned int add, int replace_tabs)
 	return 1;
 }
 
-int txt_add_char(Text *text, unsigned int add)
+bool txt_add_char(Text *text, unsigned int add)
 {
-	return txt_add_char_intern(text, add, text->flags & TXT_TABSTOSPACES);
+	return txt_add_char_intern(text, add, (text->flags & TXT_TABSTOSPACES) != 0);
 }
 
-int txt_add_raw_char(Text *text, unsigned int add)
+bool txt_add_raw_char(Text *text, unsigned int add)
 {
 	return txt_add_char_intern(text, add, 0);
 }
@@ -2636,7 +2637,7 @@ void txt_delete_selected(Text *text)
 	txt_make_dirty(text);
 }
 
-int txt_replace_char(Text *text, unsigned int add)
+bool txt_replace_char(Text *text, unsigned int add)
 {
 	unsigned int del;
 	size_t del_size = 0, add_size;
@@ -2709,7 +2710,7 @@ void txt_indent(Text *text)
 	curc_old = text->curc;
 
 	num = 0;
-	while (TRUE) {
+	while (true) {
 
 		/* don't indent blank lines */
 		if (text->curl->len != 0) {
@@ -2758,7 +2759,7 @@ void txt_unindent(Text *text)
 	int num = 0;
 	const char *remove = "\t";
 	int indentlen = 1;
-	int unindented_first = FALSE;
+	bool unindented_first = false;
 	
 	/* hardcoded: TXT_TABSIZE = 4 spaces: */
 	int spaceslen = TXT_TABSIZE;
@@ -2773,23 +2774,22 @@ void txt_unindent(Text *text)
 		indentlen = spaceslen;
 	}
 
-	while (TRUE) {
-		int i = 0;
-		
-		if (BLI_strncasecmp(text->curl->line, remove, indentlen) == 0) {
-			if (num == 0) unindented_first = TRUE;
-			while (i < text->curl->len) {
-				text->curl->line[i] = text->curl->line[i + indentlen];
-				i++;
-			}
+	while (true) {
+		bool changed = false;
+		if (strncmp(text->curl->line, remove, indentlen) == 0) {
+			if (num == 0)
+				unindented_first = true;
 			text->curl->len -= indentlen;
+			memmove(text->curl->line, text->curl->line + indentlen, text->curl->len + 1);
+			changed = true;
 		}
 	
 		txt_make_dirty(text);
 		txt_clean_text(text);
 		
 		if (text->curl == text->sell) {
-			if (i > 0) text->selc = MAX2(text->selc - indentlen, 0);
+			if (changed)
+				text->selc = MAX2(text->selc - indentlen, 0);
 			break;
 		}
 		else {
@@ -2799,7 +2799,8 @@ void txt_unindent(Text *text)
 		
 	}
 
-	if (unindented_first) text->curc = MAX2(text->curc - indentlen, 0);
+	if (unindented_first)
+		text->curc = MAX2(text->curc - indentlen, 0);
 
 	while (num > 0) {
 		text->curl = text->curl->prev;
@@ -2822,7 +2823,7 @@ void txt_comment(Text *text)
 	if (!text->sell) return;  // Need to change this need to check if only one line is selected to more than one
 
 	num = 0;
-	while (TRUE) {
+	while (true) {
 		tmp = MEM_mallocN(text->curl->len + 2, "textline_string");
 		
 		text->curc = 0; 
@@ -2869,7 +2870,7 @@ void txt_uncomment(Text *text)
 	if (!text->curl) return;
 	if (!text->sell) return;
 
-	while (TRUE) {
+	while (true) {
 		int i = 0;
 		
 		if (text->curl->line[i] == remove) {
@@ -2961,7 +2962,8 @@ int txt_setcurr_tab_spaces(Text *text, int space)
 		 *  2) within an identifier
 		 *	3) after the cursor (text->curc), i.e. when creating space before a function def [#25414] 
 		 */
-		int a, is_indent = 0;
+		int a;
+		bool is_indent = false;
 		for (a = 0; (a < text->curc) && (text->curl->line[a] != '\0'); a++) {
 			char ch = text->curl->line[a];
 			if (ch == '#') {

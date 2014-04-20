@@ -346,7 +346,7 @@ void ArmatureImporter::create_armature_bones( )
 
 		char * bone_name = (char *)bc_get_joint_name(*ri);
 		Bone *bone = BKE_armature_find_bone_name(armature, bone_name);
-		if(bone) {
+		if (bone) {
 			fprintf(stderr, "Reuse of child bone [%s] as root bone in same Armature is not supported.\n", bone_name);
 			continue;
 		}
@@ -701,7 +701,7 @@ void ArmatureImporter::make_shape_keys()
 			KeyBlock *kb;
 			
 			//insert basis key
-			kb = BKE_keyblock_add_ctime(key, "Basis", FALSE);
+			kb = BKE_keyblock_add_ctime(key, "Basis", false);
 			BKE_key_convert_from_mesh(source_me, kb);
 
 			//insert other shape keys
@@ -715,7 +715,7 @@ void ArmatureImporter::make_shape_keys()
 					me->key = key;
 					std::string morph_name = *this->mesh_importer->get_geometry_name(me->id.name);
 
-					kb = BKE_keyblock_add_ctime(key, morph_name.c_str(), FALSE);
+					kb = BKE_keyblock_add_ctime(key, morph_name.c_str(), false);
 					BKE_key_convert_from_mesh(me, kb);
 					
 					//apply weights

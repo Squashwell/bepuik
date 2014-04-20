@@ -914,14 +914,14 @@ static bool skip_fcurve_selected_data(bDopeSheet *ads, FCurve *fcu, ID *owner_id
 		
 		/* only consider if F-Curve involves sequence_editor.sequences */
 		if ((fcu->rna_path) && strstr(fcu->rna_path, "sequences_all")) {
-			Editing *ed = BKE_sequencer_editing_get(scene, FALSE);
+			Editing *ed = BKE_sequencer_editing_get(scene, false);
 			Sequence *seq = NULL;
 			char *seq_name;
 			
 			if (ed) {
 				/* get strip name, and check if this strip is selected */
 				seq_name = BLI_str_quoted_substrN(fcu->rna_path, "sequences_all[");
-				seq = BKE_sequence_get_by_name(ed->seqbasep, seq_name, FALSE);
+				seq = BKE_sequence_get_by_name(ed->seqbasep, seq_name, false);
 				if (seq_name) MEM_freeN(seq_name);
 			}
 			
@@ -1796,9 +1796,14 @@ static size_t animdata_filter_ds_materials(bAnimContext *ac, ListBase *anim_data
 			Material *base = give_current_material(ob, a);
 			Material *ma   = give_node_material(base);
 			
-			/* add channels from the nested material if it exists */
-			if (ma)
+			/* add channels from the nested material if it exists
+			 *   - skip if the same material is referenced in its node tree
+			 *     (which is common for BI materials) as that results in
+			 *     confusing duplicates
+			 */
+			if ((ma) && (ma != base)) {
 				items += animdata_filter_ds_material(ac, anim_data, ads, ma, filter_mode);
+			}
 		}
 	}
 	
@@ -1862,7 +1867,7 @@ static size_t animdata_filter_ds_modifiers(bAnimContext *ac, ListBase *anim_data
 	size_t items = 0;
 	
 	/* 1) create a temporary "context" containing all the info we have here to pass to the callback 
-	 *    use to walk thorugh the dependencies of the modifiers
+	 *    use to walk through the dependencies of the modifiers
 	 *
 	 * ! Assumes that all other unspecified values (i.e. accumulation buffers) are zero'd out properly
 	 */

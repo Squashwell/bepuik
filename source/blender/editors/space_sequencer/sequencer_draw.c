@@ -342,7 +342,6 @@ static void draw_seq_handle(View2D *v2d, Sequence *seq, const float handsize_cla
 {
 	float v1[2], v2[2], v3[2], rx1 = 0, rx2 = 0; //for triangles and rect
 	float x1, x2, y1, y2;
-	char numstr[32];
 	unsigned int whichsel = 0;
 	
 	x1 = seq->startdisp;
@@ -401,17 +400,20 @@ static void draw_seq_handle(View2D *v2d, Sequence *seq, const float handsize_cla
 	
 	if ((G.moving & G_TRANSFORM_SEQ) || (seq->flag & whichsel)) {
 		const char col[4] = {255, 255, 255, 255};
+		char numstr[32];
+		size_t numstr_len;
+
 		if (direction == SEQ_LEFTHANDLE) {
-			BLI_snprintf(numstr, sizeof(numstr), "%d", seq->startdisp);
+			numstr_len = BLI_snprintf(numstr, sizeof(numstr), "%d", seq->startdisp);
 			x1 = rx1;
 			y1 -= 0.45f;
 		}
 		else {
-			BLI_snprintf(numstr, sizeof(numstr), "%d", seq->enddisp - 1);
+			numstr_len = BLI_snprintf(numstr, sizeof(numstr), "%d", seq->enddisp - 1);
 			x1 = x2 - handsize_clamped * 0.75f;
 			y1 = y2 + 0.05f;
 		}
-		UI_view2d_text_cache_add(v2d, x1, y1, numstr, col);
+		UI_view2d_text_cache_add(v2d, x1, y1, numstr, numstr_len, col);
 	}
 }
 
@@ -526,6 +528,7 @@ static void draw_seq_text(View2D *v2d, Sequence *seq, float x1, float x2, float 
 {
 	rctf rect;
 	char str[32 + FILE_MAX];
+	size_t str_len;
 	const char *name = seq->name + 2;
 	char col[4];
 
@@ -534,67 +537,76 @@ static void draw_seq_text(View2D *v2d, Sequence *seq, float x1, float x2, float 
 		name = BKE_sequence_give_name(seq);
 
 	if (seq->type == SEQ_TYPE_META || seq->type == SEQ_TYPE_ADJUSTMENT) {
-		BLI_snprintf(str, sizeof(str), "%s | %d", name, seq->len);
+		str_len = BLI_snprintf(str, sizeof(str), "%s | %d", name, seq->len);
 	}
 	else if (seq->type == SEQ_TYPE_SCENE) {
 		if (seq->scene) {
 			if (seq->scene_camera) {
-				BLI_snprintf(str, sizeof(str), "%s: %s (%s) | %d",
-				             name, seq->scene->id.name + 2, ((ID *)seq->scene_camera)->name + 2, seq->len);
+				str_len = BLI_snprintf(str, sizeof(str), "%s: %s (%s) | %d",
+				                       name, seq->scene->id.name + 2, ((ID *)seq->scene_camera)->name + 2, seq->len);
 			}
 			else {
-				BLI_snprintf(str, sizeof(str), "%s: %s | %d",
-				             name, seq->scene->id.name + 2, seq->len);
+				str_len = BLI_snprintf(str, sizeof(str), "%s: %s | %d",
+				                       name, seq->scene->id.name + 2, seq->len);
 			}
 		}
 		else {
-			BLI_snprintf(str, sizeof(str), "%s | %d",
-			             name, seq->len);
+			str_len = BLI_snprintf(str, sizeof(str), "%s | %d",
+			                       name, seq->len);
 		}
 	}
 	else if (seq->type == SEQ_TYPE_MOVIECLIP) {
 		if (seq->clip && strcmp(name, seq->clip->id.name + 2) != 0) {
-			BLI_snprintf(str, sizeof(str), "%s: %s | %d",
-			             name, seq->clip->id.name + 2, seq->len);
+			str_len = BLI_snprintf(str, sizeof(str), "%s: %s | %d",
+			                       name, seq->clip->id.name + 2, seq->len);
 		}
 		else {
-			BLI_snprintf(str, sizeof(str), "%s | %d",
-			             name, seq->len);
+			str_len = BLI_snprintf(str, sizeof(str), "%s | %d",
+			                       name, seq->len);
 		}
 	}
 	else if (seq->type == SEQ_TYPE_MASK) {
 		if (seq->mask && strcmp(name, seq->mask->id.name + 2) != 0) {
-			BLI_snprintf(str, sizeof(str), "%s: %s | %d",
-			             name, seq->mask->id.name + 2, seq->len);
+			str_len = BLI_snprintf(str, sizeof(str), "%s: %s | %d",
+			                       name, seq->mask->id.name + 2, seq->len);
 		}
 		else {
-			BLI_snprintf(str, sizeof(str), "%s | %d",
-			             name, seq->len);
+			str_len = BLI_snprintf(str, sizeof(str), "%s | %d",
+			                       name, seq->len);
 		}
 	}
 	else if (seq->type == SEQ_TYPE_MULTICAM) {
-		BLI_snprintf(str, sizeof(str), "Cam %s: %d",
-		             name, seq->multicam_source);
+		str_len = BLI_snprintf(str, sizeof(str), "Cam %s: %d",
+		                       name, seq->multicam_source);
 	}
 	else if (seq->type == SEQ_TYPE_IMAGE) {
-		BLI_snprintf(str, sizeof(str), "%s: %s%s | %d",
-		             name, seq->strip->dir, seq->strip->stripdata->name, seq->len);
+		str_len = BLI_snprintf(str, sizeof(str), "%s: %s%s | %d",
+		                       name, seq->strip->dir, seq->strip->stripdata->name, seq->len);
 	}
 	else if (seq->type & SEQ_TYPE_EFFECT) {
-		BLI_snprintf(str, sizeof(str), "%s | %d",
-			             name, seq->len);
+		str_len = BLI_snprintf(str, sizeof(str), "%s | %d",
+		                       name, seq->len);
 	}
 	else if (seq->type == SEQ_TYPE_SOUND_RAM) {
-		if (seq->sound)
-			BLI_snprintf(str, sizeof(str), "%s: %s | %d",
-			             name, seq->sound->name, seq->len);
-		else
-			BLI_snprintf(str, sizeof(str), "%s | %d",
-			             name, seq->len);
+		if (seq->sound) {
+			str_len = BLI_snprintf(str, sizeof(str), "%s: %s | %d",
+			                       name, seq->sound->name, seq->len);
+		}
+		else {
+			str_len = BLI_snprintf(str, sizeof(str), "%s | %d",
+			                       name, seq->len);
+		}
 	}
 	else if (seq->type == SEQ_TYPE_MOVIE) {
-		BLI_snprintf(str, sizeof(str), "%s: %s%s | %d",
-		             name, seq->strip->dir, seq->strip->stripdata->name, seq->len);
+		str_len = BLI_snprintf(str, sizeof(str), "%s: %s%s | %d",
+		                       name, seq->strip->dir, seq->strip->stripdata->name, seq->len);
+	}
+	else {
+		/* should never get here!, but might with files from future */
+		BLI_assert(0);
+
+		str_len = BLI_snprintf(str, sizeof(str), "%s | %d",
+		                       name, seq->len);
 	}
 	
 	if (seq->flag & SELECT) {
@@ -612,7 +624,8 @@ static void draw_seq_text(View2D *v2d, Sequence *seq, float x1, float x2, float 
 	rect.ymin = y1;
 	rect.xmax = x2;
 	rect.ymax = y2;
-	UI_view2d_text_cache_rectf(v2d, &rect, str, col);
+
+	UI_view2d_text_cache_rectf(v2d, &rect, str, str_len, col);
 }
 
 /* draws a shaded strip, made from gradient + flat color + gradient */
@@ -702,8 +715,8 @@ static void draw_seq_strip(Scene *scene, ARegion *ar, Sequence *seq, int outline
 	/* draw the main strip body */
 	if (is_single_image) {  /* single image */
 		draw_shadedstrip(seq, background_col,
-		                 BKE_sequence_tx_get_final_left(seq, 0), y1,
-		                 BKE_sequence_tx_get_final_right(seq, 0), y2);
+		                 BKE_sequence_tx_get_final_left(seq, false), y1,
+		                 BKE_sequence_tx_get_final_right(seq, false), y2);
 	}
 	else {  /* normal operation */
 		draw_shadedstrip(seq, background_col, x1, y1, x2, y2);
@@ -843,7 +856,7 @@ ImBuf *sequencer_ibuf_get(struct Main *bmain, Scene *scene, SpaceSeq *sseq, int 
 	/* sequencer could start rendering, in this case we need to be sure it wouldn't be canceled
 	 * by Esc pressed somewhere in the past
 	 */
-	G.is_break = FALSE;
+	G.is_break = false;
 
 	if (special_seq_update)
 		ibuf = BKE_sequencer_give_ibuf_direct(&context, cfra + frame_ofs, special_seq_update);
@@ -903,7 +916,7 @@ static ImBuf *sequencer_make_scope(Scene *scene, ImBuf *ibuf, ImBuf *(*make_scop
 	return scope;
 }
 
-void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq, int cfra, int frame_ofs, int draw_overlay)
+void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq, int cfra, int frame_ofs, bool draw_overlay)
 {
 	struct Main *bmain = CTX_data_main(C);
 	struct ImBuf *ibuf = NULL;
@@ -918,11 +931,11 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 	GLuint last_texid;
 	void *display_buffer;
 	void *cache_handle = NULL;
-	const int is_imbuf = ED_space_sequencer_check_show_imbuf(sseq);
+	const bool is_imbuf = ED_space_sequencer_check_show_imbuf(sseq);
 	int format, type;
 	bool glsl_used = false;
 
-	if (G.is_rendering == FALSE && (scene->r.seq_flag & R_SEQ_GL_PREV) == 0) {
+	if (G.is_rendering == false && (scene->r.seq_flag & R_SEQ_GL_PREV) == 0) {
 		/* stop all running jobs, except screen one. currently previews frustrate Render
 		 * needed to make so sequencer's rendering doesn't conflict with compositor
 		 */
@@ -1262,7 +1275,7 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 			                    0, 0, 0,  /* TODO */
 			                    width, height,
 			                    aspx, aspy,
-			                    FALSE, TRUE,
+			                    false, true,
 			                    NULL, C);
 		}
 	}
@@ -1405,7 +1418,7 @@ static void seq_draw_sfra_efra(Scene *scene, View2D *v2d)
 void draw_timeline_seq(const bContext *C, ARegion *ar)
 {
 	Scene *scene = CTX_data_scene(C);
-	Editing *ed = BKE_sequencer_editing_get(scene, FALSE);
+	Editing *ed = BKE_sequencer_editing_get(scene, false);
 	SpaceSeq *sseq = CTX_wm_space_seq(C);
 	View2D *v2d = &ar->v2d;
 	View2DScrollers *scrollers;

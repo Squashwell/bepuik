@@ -280,6 +280,8 @@ static void xml_read_integrator(const XMLReadState& state, pugi::xml_node node)
 		xml_read_int(&integrator->mesh_light_samples, node, "mesh_light_samples");
 		xml_read_int(&integrator->subsurface_samples, node, "subsurface_samples");
 		xml_read_int(&integrator->volume_samples, node, "volume_samples");
+		xml_read_bool(&integrator->sample_all_lights_direct, node, "sample_all_lights_direct");
+		xml_read_bool(&integrator->sample_all_lights_indirect, node, "sample_all_lights_indirect");
 	}
 	
 	/* Bounces */
@@ -406,7 +408,9 @@ static void xml_read_shader_graph(const XMLReadState& state, Shader *shader, pug
 
 			/* Source */
 			xml_read_string(&osl->filepath, node, "src");
-			osl->filepath = path_join(state.base, osl->filepath);
+			if(path_is_relative(osl->filepath)) {
+				osl->filepath = path_join(state.base, osl->filepath);
+			}
 
 			/* Generate inputs/outputs from node sockets
 			 *
@@ -645,6 +649,11 @@ static void xml_read_shader_graph(const XMLReadState& state, Shader *shader, pug
 			xml_read_ustring(&attr->attribute, node, "attribute");
 			snode = attr;
 		}
+		else if(string_iequals(node.name(), "uv_map")) {
+			UVMapNode *uvm = new UVMapNode();
+			xml_read_ustring(&uvm->attribute, node, "uv_map");
+			snode = uvm;
+		}
 		else if(string_iequals(node.name(), "camera")) {
 			snode = new CameraNode();
 		}
@@ -763,6 +772,9 @@ static void xml_read_shader_graph(const XMLReadState& state, Shader *shader, pug
 							case SHADER_SOCKET_NORMAL:
 								xml_read_float3(&in->value, node, attr.name());
 								break;
+							case SHADER_SOCKET_STRING:
+								xml_read_ustring( &in->value_string, node, attr.name() );
+								break;
 							default:
 								break;
 						}
@@ -877,7 +889,7 @@ static void xml_read_mesh(const XMLReadState& state, pugi::xml_node node)
 		SubdParams sdparams(mesh, shader, smooth);
 		xml_read_float(&sdparams.dicing_rate, node, "dicing_rate");
 
-		DiagSplit dsplit(sdparams);;
+		DiagSplit dsplit(sdparams);
 		sdmesh.tessellate(&dsplit);
 	}
 	else {

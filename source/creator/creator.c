@@ -40,13 +40,6 @@
 #  include <xmmintrin.h>
 #endif
 
-/* crash handler */
-#ifdef WIN32
-#  include <process.h> /* getpid */
-#else
-#  include <unistd.h> /* getpid */
-#endif
-
 #ifdef WIN32
 #  include <windows.h>
 #  include "utfconv.h"
@@ -79,6 +72,8 @@
 #include "BLI_callbacks.h"
 #include "BLI_blenlib.h"
 #include "BLI_mempool.h"
+#include "BLI_system.h"
+#include BLI_SYSTEM_PID_H
 
 #include "DNA_ID.h"
 #include "DNA_scene_types.h"
@@ -100,6 +95,7 @@
 #include "BKE_report.h"
 #include "BKE_sound.h"
 #include "BKE_image.h"
+#include "BKE_particle.h"
 
 #include "IMB_imbuf.h"  /* for IMB_init */
 
@@ -209,7 +205,7 @@ static void blender_esc(int sig)
 {
 	static int count = 0;
 	
-	G.is_break = TRUE;  /* forces render loop to read queue, not sure if its needed */
+	G.is_break = true;  /* forces render loop to read queue, not sure if its needed */
 	
 	if (sig == 2) {
 		if (count) {
@@ -537,7 +533,7 @@ static void blender_crash_handler_backtrace(FILE *fp)
 
 	process = GetCurrentProcess();
 
-	SymInitialize(process, NULL, TRUE);
+	SymInitialize(process, NULL, true);
 
 	nframes = CaptureStackBackTrace(0, SIZE, stack, NULL);
 	symbolinfo = MEM_callocN(sizeof(SYMBOL_INFO) + MAXSYMBOL * sizeof( char ), "crash Symbol table");
@@ -1282,7 +1278,7 @@ static int load_file(int UNUSED(argc), const char **argv, void *data)
 
 			/* WM_file_read would call normally */
 			ED_editors_init(C);
-			DAG_on_visible_update(bmain, TRUE);
+			DAG_on_visible_update(bmain, true);
 			BKE_scene_update_tagged(bmain->eval_ctx, bmain, CTX_data_scene(C));
 		}
 		else {
@@ -1477,12 +1473,21 @@ char **environ = NULL;
 #  endif
 #endif
 
-
+/**
+ * Blender's main function responsabilities are:
+ * - setup subsystems.
+ * - handle arguments.
+ * - run WM_main() event loop,
+ *   or exit when running in background mode.
+ */
+int main(
+       int argc,
 #ifdef WIN32
-int main(int argc, const char **UNUSED(argv_c)) /* Do not mess with const */
+        const char **UNUSED(argv_c)
 #else
-int main(int argc, const char **argv)
+        const char **argv
 #endif
+         )
 {
 	bContext *C;
 	SYS_SystemHandle syshandle;
@@ -1631,6 +1636,7 @@ int main(int argc, const char **argv)
 
 	RE_engines_init();
 	init_nodesystem();
+	psys_init_rng();
 	/* end second init */
 
 

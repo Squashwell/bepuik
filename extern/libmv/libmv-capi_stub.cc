@@ -68,11 +68,24 @@ int libmv_trackRegion(const libmv_TrackRegionOptions * /*options*/,
 	return false;
 }
 
-void libmv_samplePlanarPatch(const float *image, int width, int height,
-                             int channels, const double *xs, const double *ys,
-                             int num_samples_x, int num_samples_y,
-                             const float *mask, float *patch,
-                             double *warped_position_x, double *warped_position_y)
+void libmv_samplePlanarPatch(const float * /*image*/,
+                             int /*width*/, int /*height*/, int /*channels*/,
+                             const double * /*xs*/, const double * /*ys*/,
+                             int /*num_samples_x*/, int /*num_samples_y*/,
+                             const float * /*mask*/,
+                             float * /*patch*/,
+                             double * /*warped_position_x*/, double * /*warped_position_y*/)
+{
+	/* TODO(sergey): implement */
+}
+
+void libmv_samplePlanarPatchByte(const unsigned char * /*image*/,
+                             int /*width*/, int /*height*/, int /*channels*/,
+                             const double * /*xs*/, const double * /*ys*/,
+                             int /*num_samples_x*/, int /*num_samples_y*/,
+                             const float * /*mask*/,
+                             unsigned char * /*patch*/,
+                             double * /*warped_position_x*/, double * /*warped_position_y*/)
 {
 	/* TODO(sergey): implement */
 }
@@ -186,11 +199,6 @@ struct libmv_CameraIntrinsics *libmv_reconstructionExtractIntrinsics(
 	return NULL;
 }
 
-struct libmv_CameraIntrinsics *libmv_cameraIntrinsicsNewEmpty(void)
-{
-	return NULL;
-}
-
 struct libmv_CameraIntrinsics *libmv_cameraIntrinsicsNew(
 		const libmv_CameraIntrinsicsOptions * /*libmv_camera_intrinsics_options*/)
 {
@@ -215,17 +223,12 @@ void libmv_cameraIntrinsicsSetThreads(struct libmv_CameraIntrinsics * /*libmv_in
 {
 }
 
-void libmv_cameraIntrinsicsExtract(const struct libmv_CameraIntrinsics * /*libmv_intrinsics*/, double * focal_length,
-                                   double * principal_x, double *principal_y, double *k1, double *k2, double *k3,
-                                   int *width, int *height)
+void libmv_cameraIntrinsicsExtractOptions(
+	const libmv_CameraIntrinsics */*libmv_intrinsics*/,
+	libmv_CameraIntrinsicsOptions *camera_intrinsics_options)
 {
-	*focal_length = 1.0;
-	*principal_x = 0.0;
-	*principal_y = 0.0;
-	*k1 = 0.0;
-	*k2 = 0.0;
-	*width = 0.0;
-	*height = 0.0;
+	memset(camera_intrinsics_options, 0, sizeof(libmv_CameraIntrinsicsOptions));
+	camera_intrinsics_options->focal_length = 1.0;
 }
 
 void libmv_cameraIntrinsicsUndistortByte(const struct libmv_CameraIntrinsics * /*libmv_intrinsics*/,

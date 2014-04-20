@@ -128,7 +128,7 @@ public:
 	~Session();
 
 	void start();
-	bool draw(BufferParams& params);
+	bool draw(BufferParams& params, DeviceDrawParams& draw_params);
 	void wait();
 
 	bool ready_to_reset();
@@ -150,16 +150,16 @@ protected:
 	void update_scene();
 	void update_status_time(bool show_pause = false, bool show_done = false);
 
-	void tonemap();
+	void tonemap(int sample);
 	void path_trace();
 	void reset_(BufferParams& params, int samples);
 
 	void run_cpu();
-	bool draw_cpu(BufferParams& params);
+	bool draw_cpu(BufferParams& params, DeviceDrawParams& draw_params);
 	void reset_cpu(BufferParams& params, int samples);
 
 	void run_gpu();
-	bool draw_gpu(BufferParams& params);
+	bool draw_gpu(BufferParams& params, DeviceDrawParams& draw_params);
 	void reset_gpu(BufferParams& params, int samples);
 
 	bool acquire_tile(Device *tile_device, RenderTile& tile);

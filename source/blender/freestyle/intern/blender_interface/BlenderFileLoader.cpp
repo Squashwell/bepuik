@@ -573,7 +573,7 @@ void BlenderFileLoader::insertShapeNode(ObjectInstanceRen *obi, int id)
 			shape->setFrsMaterial(tmpMat);
 		}
 		else {
-			// find if the material is aleady in the list
+			// find if the material is already in the list
 			unsigned int i = 0;
 			bool found = false;
 
@@ -761,7 +761,7 @@ void BlenderFileLoader::insertShapeNode(ObjectInstanceRen *obi, int id)
 		}
 		if (G.debug & G_DEBUG_FREESTYLE) {
 			printf("Warning: Object %s contains %lu degenerated triangle%s (strokes may be incorrect)\n",
-			       name, detriList.size(), (detriList.size() > 1) ? "s" : "");
+			       name, (long unsigned int)detriList.size(), (detriList.size() > 1) ? "s" : "");
 		}
 	}
 

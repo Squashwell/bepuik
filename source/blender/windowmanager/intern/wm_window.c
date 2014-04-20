@@ -254,8 +254,8 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *winorig)
 	BLI_strncpy(win->screenname, win->screen->id.name + 2, sizeof(win->screenname));
 	win->screen->winid = win->winid;
 
-	win->screen->do_refresh = TRUE;
-	win->screen->do_draw = TRUE;
+	win->screen->do_refresh = true;
+	win->screen->do_draw = true;
 
 	win->drawmethod = U.wmdrawmethod;
 	win->drawdata = NULL;
@@ -373,15 +373,20 @@ static void wm_window_add_ghostwindow(const char *title, wmWindow *win)
 		if (win->eventstate == NULL)
 			win->eventstate = MEM_callocN(sizeof(wmEvent), "window event state");
 		
+#ifdef __APPLE__
+		/* set the state here, else OSX would not recognize changed screen resolution */
+		GHOST_SetWindowState(ghostwin, (GHOST_TWindowState)win->windowstate);
+#endif
 		/* store actual window size in blender window */
 		bounds = GHOST_GetClientBounds(win->ghostwin);
 		win->sizex = GHOST_GetWidthRectangle(bounds);
 		win->sizey = GHOST_GetHeightRectangle(bounds);
 		GHOST_DisposeRectangle(bounds);
-
-		/* set the state */
+		
+#ifndef __APPLE__
+		/* set the state here, so minimized state comes up correct on windows */
 		GHOST_SetWindowState(ghostwin, (GHOST_TWindowState)win->windowstate);
-
+#endif
 		/* until screens get drawn, make it nice gray */
 		glClearColor(0.55, 0.55, 0.55, 0.0);
 		/* Crash on OSS ATI: bugs.launchpad.net/ubuntu/+source/mesa/+bug/656100 */

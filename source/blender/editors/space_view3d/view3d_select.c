@@ -98,6 +98,11 @@
 
 #include "view3d_intern.h"  /* own include */
 
+float ED_view3d_select_dist_px(void)
+{
+	return 75.0f * U.pixelsize;
+}
+
 /* TODO: should return whether there is valid context to continue */
 void view3d_set_viewcontext(bContext *C, ViewContext *vc)
 {
@@ -568,8 +573,10 @@ static void do_lasso_select_curve(ViewContext *vc, const int mcords[][2], short 
 
 	view3d_userdata_lassoselect_init(&data, vc, &rect, mcords, moves, select);
 
-	if (extend == false && select)
-		ED_curve_deselect_all(vc->obedit->data);
+	if (extend == false && select) {
+		Curve *curve = (Curve *) vc->obedit->data;
+		ED_curve_deselect_all(curve->editnurb);
+	}
 
 	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d); /* for foreach's screen/vert projection */
 	nurbs_foreachScreenVert(vc, do_lasso_select_curve__doSelect, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
@@ -1380,8 +1387,8 @@ static bool mouse_select(bContext *C, const int mval[2],
 	Scene *scene = CTX_data_scene(C);
 	Base *base, *startbase = NULL, *basact = NULL, *oldbasact = NULL;
 	bool is_obedit;
-	float dist = 100.0f;
-	int retval = false;
+	float dist = ED_view3d_select_dist_px() * 1.3333f;
+	bool retval = false;
 	short hits;
 	const float mval_fl[2] = {(float)mval[0], (float)mval[1]};
 
@@ -1735,8 +1742,10 @@ static int do_nurbs_box_select(ViewContext *vc, rcti *rect, bool select, bool ex
 	
 	view3d_userdata_boxselect_init(&data, vc, rect, select);
 
-	if (extend == false && select)
-		ED_curve_deselect_all(vc->obedit->data);
+	if (extend == false && select) {
+		Curve *curve = (Curve *) vc->obedit->data;
+		ED_curve_deselect_all(curve->editnurb);
+	}
 
 	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d); /* for foreach's screen/vert projection */
 	nurbs_foreachScreenVert(vc, do_nurbs_box_select__doSelect, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
@@ -2255,6 +2264,8 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
 			retval = mouse_nurb(C, location, extend, deselect, toggle);
 		else if (obedit->type == OB_MBALL)
 			retval = mouse_mball(C, location, extend, deselect, toggle);
+		else if (obedit->type == OB_FONT)
+			retval = mouse_font(C, location, extend, deselect, toggle);
 			
 	}
 	else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT)

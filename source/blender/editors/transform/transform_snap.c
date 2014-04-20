@@ -105,9 +105,9 @@ static void TargetSnapCenter(TransInfo *t);
 static void TargetSnapClosest(TransInfo *t);
 static void TargetSnapActive(TransInfo *t);
 
-static float RotationBetween(TransInfo *t, float p1[3], float p2[3]);
-static float TranslationBetween(TransInfo *t, float p1[3], float p2[3]);
-static float ResizeBetween(TransInfo *t, float p1[3], float p2[3]);
+static float RotationBetween(TransInfo *t, const float p1[3], const float p2[3]);
+static float TranslationBetween(TransInfo *t, const float p1[3], const float p2[3]);
+static float ResizeBetween(TransInfo *t, const float p1[3], const float p2[3]);
 
 
 /****************** IMPLEMENTATIONS *********************/
@@ -466,7 +466,7 @@ bool usingSnappingNormal(TransInfo *t)
 bool validSnappingNormal(TransInfo *t)
 {
 	if (validSnap(t)) {
-		if (dot_v3v3(t->tsnap.snapNormal, t->tsnap.snapNormal) > 0) {
+		if (!is_zero_v3(t->tsnap.snapNormal)) {
 			return true;
 		}
 	}
@@ -596,10 +596,10 @@ void initSnapping(TransInfo *t, wmOperator *op)
 				t->modifiers |= MOD_SNAP;
 			}
 
-			t->tsnap.align = ((t->settings->snap_flag & SCE_SNAP_ROTATE) == SCE_SNAP_ROTATE);
-			t->tsnap.project = ((t->settings->snap_flag & SCE_SNAP_PROJECT) == SCE_SNAP_PROJECT);
-			t->tsnap.snap_self = !((t->settings->snap_flag & SCE_SNAP_NO_SELF) == SCE_SNAP_NO_SELF);
-			t->tsnap.peel = ((t->settings->snap_flag & SCE_SNAP_PROJECT) == SCE_SNAP_PROJECT);
+			t->tsnap.align = ((t->settings->snap_flag & SCE_SNAP_ROTATE) != 0);
+			t->tsnap.project = ((t->settings->snap_flag & SCE_SNAP_PROJECT) != 0);
+			t->tsnap.snap_self = !((t->settings->snap_flag & SCE_SNAP_NO_SELF) != 0);
+			t->tsnap.peel = ((t->settings->snap_flag & SCE_SNAP_PROJECT) != 0);
 		}
 	}
 	
@@ -798,12 +798,12 @@ static void ApplySnapResize(TransInfo *t, float vec[3])
 
 /********************** DISTANCE **************************/
 
-static float TranslationBetween(TransInfo *UNUSED(t), float p1[3], float p2[3])
+static float TranslationBetween(TransInfo *UNUSED(t), const float p1[3], const float p2[3])
 {
 	return len_v3v3(p1, p2);
 }
 
-static float RotationBetween(TransInfo *t, float p1[3], float p2[3])
+static float RotationBetween(TransInfo *t, const float p1[3], const float p2[3])
 {
 	float angle, start[3], end[3], center[3];
 	
@@ -859,7 +859,7 @@ static float RotationBetween(TransInfo *t, float p1[3], float p2[3])
 	return angle;
 }
 
-static float ResizeBetween(TransInfo *t, float p1[3], float p2[3])
+static float ResizeBetween(TransInfo *t, const float p1[3], const float p2[3])
 {
 	float d1[3], d2[3], center[3], len_d1;
 	
@@ -990,10 +990,10 @@ static void CalcSnapGeometry(TransInfo *t, float *UNUSED(vec))
 		if (found == true) {
 			float tangent[3];
 			
-			sub_v3_v3v3(tangent, loc, t->tsnap.snapPoint);
-			tangent[2] = 0; 
+			sub_v2_v2v2(tangent, loc, t->tsnap.snapPoint);
+			tangent[2] = 0.0f;
 			
-			if (dot_v3v3(tangent, tangent) > 0) {
+			if (!is_zero_v3(tangent)) {
 				copy_v3_v3(t->tsnap.snapTangent, tangent);
 			}
 			

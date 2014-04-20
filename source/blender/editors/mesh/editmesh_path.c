@@ -88,7 +88,7 @@ static bool mouse_mesh_shortest_path_vert(ViewContext *vc)
 	BMEditMesh *em = vc->em;
 	BMesh *bm = em->bm;
 	BMVert *v_dst;
-	float dist = 75.0f;
+	float dist = ED_view3d_select_dist_px();
 	const bool use_length = true;
 
 	v_dst = EDBM_vert_find_nearest(vc, &dist, false, false);
@@ -176,11 +176,10 @@ static bool edgetag_test_cb(BMEdge *e, void *user_data_v)
 			return BM_elem_float_data_get(&bm->edata, e, CD_BWEIGHT) ? true : false;
 #ifdef WITH_FREESTYLE
 		case EDGE_MODE_TAG_FREESTYLE:
-			{
-				FreestyleEdge *fed = CustomData_bmesh_get(&bm->edata, e->head.data, CD_FREESTYLE_EDGE);
-				return (!fed) ? FALSE : (fed->flag & FREESTYLE_EDGE_MARK) ? true : false;
-			}
-			break;
+		{
+			FreestyleEdge *fed = CustomData_bmesh_get(&bm->edata, e->head.data, CD_FREESTYLE_EDGE);
+			return (!fed) ? false : (fed->flag & FREESTYLE_EDGE_MARK) ? true : false;
+		}
 #endif
 	}
 	return 0;
@@ -253,7 +252,7 @@ static bool mouse_mesh_shortest_path_edge(ViewContext *vc)
 	BMEditMesh *em = vc->em;
 	BMesh *bm = em->bm;
 	BMEdge *e_dst;
-	float dist = 75.0f;
+	float dist = ED_view3d_select_dist_px();
 	const bool use_length = true;
 
 	e_dst = EDBM_edge_find_nearest(vc, &dist);
@@ -377,7 +376,7 @@ static bool mouse_mesh_shortest_path_face(ViewContext *vc)
 	BMEditMesh *em = vc->em;
 	BMesh *bm = em->bm;
 	BMFace *f_dst;
-	float dist = 75.0f;
+	float dist = ED_view3d_select_dist_px();
 	const bool use_length = true;
 
 	f_dst = EDBM_face_find_nearest(vc, &dist);

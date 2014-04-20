@@ -41,11 +41,14 @@ public:
 	CUdevice cuDevice;
 	CUcontext cuContext;
 	CUmodule cuModule;
+	CUstream cuStream;
+	CUevent tileDone;
 	map<device_ptr, bool> tex_interp_map;
 	int cuDevId;
 	int cuDevArchitecture;
 	bool first_error;
 	bool use_texture_storage;
+	unsigned int target_update_frequency;
 
 	struct PixelMem {
 		GLuint cuPBO;
@@ -177,6 +180,8 @@ public:
 		first_error = true;
 		background = background_;
 		use_texture_storage = true;
+		/* we try an update / sync every 1000 ms */
+		target_update_frequency = 1000;
 
 		cuDevId = info.num;
 		cuDevice = 0;
@@ -207,6 +212,9 @@ public:
 		if(cuda_error_(result, "cuCtxCreate"))
 			return;
 
+		cuda_assert(cuStreamCreate(&cuStream, 0))
+		cuda_assert(cuEventCreate(&tileDone, 0x1))
+
 		int major, minor;
 		cuDeviceComputeCapability(&major, &minor, cuDevId);
 		cuDevArchitecture = major*100 + minor*10;
@@ -223,19 +231,22 @@ public:
 	{
 		task_pool.stop();
 
+		cuda_assert(cuEventDestroy(tileDone))
+		cuda_assert(cuStreamDestroy(cuStream))
 		cuda_assert(cuCtxDestroy(cuContext))
 	}
 
-	bool support_device(bool experimental)
+	bool support_device(bool experimental, bool branched)
 	{
 		int major, minor;
 		cuDeviceComputeCapability(&major, &minor, cuDevId);
-
+		
+		/* We only support sm_20 and above */
 		if(major < 2) {
 			cuda_error_message(string_printf("CUDA device supported only with compute capability 2.0 or up, found %d.%d.", major, minor));
 			return false;
 		}
-
+		
 		return true;
 	}
 
@@ -297,17 +308,6 @@ public:
 		string kernel = path_join(kernel_path, "kernel.cu");
 		string include = kernel_path;
 		const int machine = system_cpu_bits();
-		string arch_flags;
-
-		/* CUDA 5.x build flags for different archs */
-		if(major == 2) {
-			/* sm_2x */
-			arch_flags = "--maxrregcount=32 --use_fast_math";
-		}
-		else if(major == 3) {
-			/* sm_3x */
-			arch_flags = "--maxrregcount=32 --use_fast_math";
-		}
 
 		double starttime = time_dt();
 		printf("Compiling CUDA kernel ...\n");
@@ -315,8 +315,8 @@ public:
 		path_create_directories(cubin);
 
 		string command = string_printf("\"%s\" -arch=sm_%d%d -m%d --cubin \"%s\" "
-			"-o \"%s\" --ptxas-options=\"-v\" %s -I\"%s\" -DNVCC -D__KERNEL_CUDA_VERSION__=%d",
-			nvcc.c_str(), major, minor, machine, kernel.c_str(), cubin.c_str(), arch_flags.c_str(), include.c_str(), cuda_version);
+			"-o \"%s\" --ptxas-options=\"-v\" -I\"%s\" -DNVCC -D__KERNEL_CUDA_VERSION__=%d",
+			nvcc.c_str(), major, minor, machine, kernel.c_str(), cubin.c_str(), include.c_str(), cuda_version);
 
 		printf("%s\n", command.c_str());
 
@@ -342,8 +342,8 @@ public:
 		if(cuContext == 0)
 			return false;
 		
-		/* check if GPU is supported with current feature set */
-		if(!support_device(experimental))
+		/* check if GPU is supported */
+		if(!support_device(experimental, false))
 			return false;
 
 		/* get kernel */
@@ -441,13 +441,15 @@ public:
 		cuda_pop_context();
 	}
 
-	void tex_alloc(const char *name, device_memory& mem, bool interpolation, bool periodic)
+	void tex_alloc(const char *name, device_memory& mem, InterpolationType interpolation, bool periodic)
 	{
+		/* todo: support 3D textures, only CPU for now */
+
 		/* determine format */
 		CUarray_format_enum format;
 		size_t dsize = datatype_size(mem.data_type);
 		size_t size = mem.memory_size();
-		bool use_texture = interpolation || use_texture_storage;
+		bool use_texture = (interpolation != INTERPOLATION_NONE) || use_texture_storage;
 
 		if(use_texture) {
 
@@ -469,7 +471,7 @@ public:
 				return;
 			}
 
-			if(interpolation) {
+			if(interpolation != INTERPOLATION_NONE) {
 				CUarray handle = NULL;
 				CUDA_ARRAY_DESCRIPTOR desc;
 
@@ -503,7 +505,15 @@ public:
 
 				cuda_assert(cuTexRefSetArray(texref, handle, CU_TRSA_OVERRIDE_FORMAT))
 
-				cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_LINEAR))
+				if(interpolation == INTERPOLATION_CLOSEST) {
+					cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_POINT))
+				}
+				else if (interpolation == INTERPOLATION_LINEAR){
+					cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_LINEAR))
+				}
+				else {/* CUBIC and SMART are unsupported for CUDA */
+					cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_LINEAR))
+				}
 				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_NORMALIZED_COORDINATES))
 
 				mem.device_pointer = (device_ptr)handle;
@@ -560,7 +570,7 @@ public:
 			cuda_pop_context();
 		}
 
-		tex_interp_map[mem.device_pointer] = interpolation;
+		tex_interp_map[mem.device_pointer] = (interpolation != INTERPOLATION_NONE);
 	}
 
 	void tex_free(device_memory& mem)
@@ -595,7 +605,7 @@ public:
 		CUdeviceptr d_rng_state = cuda_device_ptr(rtile.rng_state);
 
 		/* get kernel function */
-		if(branched)
+		if(branched && support_device(true, branched))
 			cuda_assert(cuModuleGetFunction(&cuPathTrace, cuModule, "kernel_cuda_branched_path_trace"))
 		else
 			cuda_assert(cuModuleGetFunction(&cuPathTrace, cuModule, "kernel_cuda_path_trace"))
@@ -637,17 +647,32 @@ public:
 
 		cuda_assert(cuParamSetSize(cuPathTrace, offset))
 
-		/* launch kernel: todo find optimal size, cache config for fermi */
-		int xthreads = 16;
-		int ythreads = 16;
+		/* launch kernel */
+		int threads_per_block;
+		cuda_assert(cuFuncGetAttribute(&threads_per_block, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, cuPathTrace))
+
+		/*int num_registers;
+		cuda_assert(cuFuncGetAttribute(&num_registers, CU_FUNC_ATTRIBUTE_NUM_REGS, cuPathTrace))
+
+		printf("threads_per_block %d\n", threads_per_block);
+		printf("num_registers %d\n", num_registers);*/
+
+		int xthreads = (int)sqrt((float)threads_per_block);
+		int ythreads = (int)sqrt((float)threads_per_block);
 		int xblocks = (rtile.w + xthreads - 1)/xthreads;
 		int yblocks = (rtile.h + ythreads - 1)/ythreads;
 
 		cuda_assert(cuFuncSetCacheConfig(cuPathTrace, CU_FUNC_CACHE_PREFER_L1))
 		cuda_assert(cuFuncSetBlockShape(cuPathTrace, xthreads, ythreads, 1))
-		cuda_assert(cuLaunchGrid(cuPathTrace, xblocks, yblocks))
 
-		cuda_assert(cuCtxSynchronize())
+		if(info.display_device) {
+			/* don't use async for device used for display, locks up UI too much */
+			cuda_assert(cuLaunchGrid(cuPathTrace, xblocks, yblocks))
+			cuda_assert(cuCtxSynchronize())
+		}
+		else {
+			cuda_assert(cuLaunchGridAsync(cuPathTrace, xblocks, yblocks, cuStream))
+		}
 
 		cuda_pop_context();
 	}
@@ -704,9 +729,12 @@ public:
 
 		cuda_assert(cuParamSetSize(cuFilmConvert, offset))
 
-		/* launch kernel: todo find optimal size, cache config for fermi */
-		int xthreads = 16;
-		int ythreads = 16;
+		/* launch kernel */
+		int threads_per_block;
+		cuda_assert(cuFuncGetAttribute(&threads_per_block, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, cuFilmConvert))
+
+		int xthreads = (int)sqrt((float)threads_per_block);
+		int ythreads = (int)sqrt((float)threads_per_block);
 		int xblocks = (task.w + xthreads - 1)/xthreads;
 		int yblocks = (task.h + ythreads - 1)/ythreads;
 
@@ -726,40 +754,42 @@ public:
 
 		cuda_push_context();
 
-		CUfunction cuDisplace;
+		CUfunction cuShader;
 		CUdeviceptr d_input = cuda_device_ptr(task.shader_input);
 		CUdeviceptr d_output = cuda_device_ptr(task.shader_output);
 
 		/* get kernel function */
-		cuda_assert(cuModuleGetFunction(&cuDisplace, cuModule, "kernel_cuda_shader"))
+		cuda_assert(cuModuleGetFunction(&cuShader, cuModule, "kernel_cuda_shader"))
 		
 		/* pass in parameters */
 		int offset = 0;
 		
-		cuda_assert(cuParamSetv(cuDisplace, offset, &d_input, sizeof(d_input)))
+		cuda_assert(cuParamSetv(cuShader, offset, &d_input, sizeof(d_input)))
 		offset += sizeof(d_input);
 
-		cuda_assert(cuParamSetv(cuDisplace, offset, &d_output, sizeof(d_output)))
+		cuda_assert(cuParamSetv(cuShader, offset, &d_output, sizeof(d_output)))
 		offset += sizeof(d_output);
 
 		int shader_eval_type = task.shader_eval_type;
 		offset = align_up(offset, __alignof(shader_eval_type));
 
-		cuda_assert(cuParamSeti(cuDisplace, offset, task.shader_eval_type))
+		cuda_assert(cuParamSeti(cuShader, offset, task.shader_eval_type))
 		offset += sizeof(task.shader_eval_type);
 
-		cuda_assert(cuParamSeti(cuDisplace, offset, task.shader_x))
+		cuda_assert(cuParamSeti(cuShader, offset, task.shader_x))
 		offset += sizeof(task.shader_x);
 
-		cuda_assert(cuParamSetSize(cuDisplace, offset))
+		cuda_assert(cuParamSetSize(cuShader, offset))
 
-		/* launch kernel: todo find optimal size, cache config for fermi */
-		int xthreads = 16;
-		int xblocks = (task.shader_w + xthreads - 1)/xthreads;
+		/* launch kernel */
+		int threads_per_block;
+		cuda_assert(cuFuncGetAttribute(&threads_per_block, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, cuShader))
 
-		cuda_assert(cuFuncSetCacheConfig(cuDisplace, CU_FUNC_CACHE_PREFER_L1))
-		cuda_assert(cuFuncSetBlockShape(cuDisplace, xthreads, 1, 1))
-		cuda_assert(cuLaunchGrid(cuDisplace, xblocks, 1))
+		int xblocks = (task.shader_w + threads_per_block - 1)/threads_per_block;
+
+		cuda_assert(cuFuncSetCacheConfig(cuShader, CU_FUNC_CACHE_PREFER_L1))
+		cuda_assert(cuFuncSetBlockShape(cuShader, threads_per_block, 1, 1))
+		cuda_assert(cuLaunchGrid(cuShader, xblocks, 1))
 
 		cuda_pop_context();
 	}
@@ -892,7 +922,8 @@ public:
 		}
 	}
 
-	void draw_pixels(device_memory& mem, int y, int w, int h, int dy, int width, int height, bool transparent)
+	void draw_pixels(device_memory& mem, int y, int w, int h, int dy, int width, int height, bool transparent,
+		const DeviceDrawParams &draw_params)
 	{
 		if(!background) {
 			PixelMem pmem = pixel_mem_map[mem.device_pointer];
@@ -925,6 +956,10 @@ public:
 
 			glColor3f(1.0f, 1.0f, 1.0f);
 
+			if(draw_params.bind_display_space_shader_cb) {
+				draw_params.bind_display_space_shader_cb();
+			}
+
 			glPushMatrix();
 			glTranslatef(0.0f, (float)dy, 0.0f);
 				
@@ -943,6 +978,10 @@ public:
 
 			glPopMatrix();
 
+			if(draw_params.unbind_display_space_shader_cb) {
+				draw_params.unbind_display_space_shader_cb();
+			}
+
 			if(transparent)
 				glDisable(GL_BLEND);
 			
@@ -954,7 +993,7 @@ public:
 			return;
 		}
 
-		Device::draw_pixels(mem, y, w, h, dy, width, height, transparent);
+		Device::draw_pixels(mem, y, w, h, dy, width, height, transparent, draw_params);
 	}
 
 	void thread_run(DeviceTask *task)
@@ -969,6 +1008,10 @@ public:
 				int start_sample = tile.start_sample;
 				int end_sample = tile.start_sample + tile.num_samples;
 
+				boost::posix_time::ptime start_time(boost::posix_time::microsec_clock::local_time());
+				boost::posix_time::ptime last_time = start_time;
+				int sync_sample = 10;
+
 				for(int sample = start_sample; sample < end_sample; sample++) {
 					if (task->get_cancel()) {
 						if(task->need_finish_queue == false)
@@ -978,8 +1021,28 @@ public:
 					path_trace(tile, sample, branched);
 
 					tile.sample = sample + 1;
-
 					task->update_progress(tile);
+
+					if(!info.display_device && sample == sync_sample) {
+						cuda_push_context();
+						cuda_assert(cuEventRecord(tileDone, cuStream))
+						cuda_assert(cuEventSynchronize(tileDone))
+
+						/* Do some time keeping to find out if we need to sync less */
+						boost::posix_time::ptime current_time(boost::posix_time::microsec_clock::local_time());
+						boost::posix_time::time_duration sample_duration = current_time - last_time;
+
+						long msec = sample_duration.total_milliseconds();
+						float scaling_factor = (float)target_update_frequency / (float)msec;
+
+						/* sync at earliest next sample and probably later */
+						sync_sample = (sample + 1) + sync_sample * ceil(scaling_factor);
+
+						sync_sample = min(end_sample - 1, sync_sample); // make sure we sync the last sample always
+
+						last_time = current_time;
+						cuda_pop_context();
+					}
 				}
 
 				task->release_tile(tile);

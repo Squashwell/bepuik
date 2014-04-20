@@ -304,12 +304,10 @@ typedef struct ParticleSystem {
 	ParticleSpring *fluid_springs;
 	int tot_fluidsprings, alloc_fluidsprings;
 
-	struct KDTree *tree;								/* used for interactions with self and other systems */
-	struct BVHTree *bvhtree;								/* used for interactions with self and other systems */
+	struct KDTree *tree;					/* used for interactions with self and other systems */
+	struct BVHTree *bvhtree;				/* used for interactions with self and other systems */
 
 	struct ParticleDrawData *pdd;
-
-	float *frand;							/* array of 1024 random floats for fast lookups */
 
 	float dt_frac;							/* current time step, as a fraction of a frame */
 	float _pad;								/* spare capacity */

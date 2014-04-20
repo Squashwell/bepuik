@@ -81,13 +81,12 @@
 
 #include "zlib.h"
 
-#ifndef WIN32
-#  include <unistd.h>
-#else
+#ifdef WIN32
 #  include "winsock2.h"
 #  include <io.h>
-#  include <process.h> // for getpid
 #  include "BLI_winstuff.h"
+#else
+#  include <unistd.h>  /* FreeBSD, for write() and close(). */
 #endif
 
 #include "BLI_utildefines.h"
@@ -1266,7 +1265,7 @@ static void write_constraints(WriteData *wd, ListBase *conlist)
 	bConstraint *con;
 
 	for (con=conlist->first; con; con=con->next) {
-		bConstraintTypeInfo *cti= BKE_constraint_get_typeinfo(con);
+		bConstraintTypeInfo *cti= BKE_constraint_typeinfo_get(con);
 		
 		/* Write the specific data */
 		if (cti && con->data) {
@@ -2229,7 +2228,7 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 			
 			SEQ_BEGIN (ed, seq)
 			{
-				if (seq->strip) seq->strip->done = FALSE;
+				if (seq->strip) seq->strip->done = false;
 				writestruct(wd, DATA, "Sequence", 1, seq);
 			}
 			SEQ_END
@@ -2275,7 +2274,7 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 					else if (seq->type==SEQ_TYPE_MOVIE || seq->type==SEQ_TYPE_SOUND_RAM || seq->type == SEQ_TYPE_SOUND_HD)
 						writestruct(wd, DATA, "StripElem", 1, strip->stripdata);
 					
-					strip->done = TRUE;
+					strip->done = true;
 				}
 
 				write_sequence_modifiers(wd, &seq->modifiers);
@@ -2490,6 +2489,7 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 			SpaceLink *sl;
 			Panel *pa;
 			uiList *ui_list;
+			uiPreview *ui_preview;
 			PanelCategoryStack *pc_act;
 			ARegion *ar;
 			
@@ -2506,6 +2506,9 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 
 				for (ui_list = ar->ui_lists.first; ui_list; ui_list = ui_list->next)
 					write_uilist(wd, ui_list);
+
+				for (ui_preview = ar->ui_previews.first; ui_preview; ui_preview = ui_preview->next)
+					writestruct(wd, DATA, "uiPreview", 1, ui_preview);
 			}
 			
 			sl= sa->spacedata.first;
@@ -2625,7 +2628,8 @@ static void write_libraries(WriteData *wd, Main *main)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	ID *id;
-	int a, tot, foundone;
+	int a, tot;
+	bool found_one;
 
 	for (; main; main= main->next) {
 
@@ -2633,24 +2637,24 @@ static void write_libraries(WriteData *wd, Main *main)
 
 		/* test: is lib being used */
 		if (main->curlib && main->curlib->packedfile)
-			foundone = TRUE;
+			found_one = true;
 		else {
-			foundone = FALSE;
+			found_one = false;
 			while (tot--) {
 				for (id= lbarray[tot]->first; id; id= id->next) {
 					if (id->us>0 && (id->flag & LIB_EXTERN)) {
-						foundone = TRUE;
+						found_one = true;
 						break;
 					}
 				}
-				if (foundone) break;
+				if (found_one) break;
 			}
 		}
 		
 		/* to be able to restore quit.blend and temp saves, the packed blend has to be in undo buffers... */
 		/* XXX needs rethink, just like save UI in undo files now - would be nice to append things only for the]
 		 * quit.blend and temp saves */
-		if (foundone) {
+		if (found_one) {
 			writestruct(wd, ID_LI, "Library", 1, main->curlib);
 
 			if (main->curlib->packedfile) {

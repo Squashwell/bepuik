@@ -1402,7 +1402,7 @@ static int outliner_filter_tree(SpaceOops *soops, ListBase *lb)
 	TreeElement *te, *ten;
 	TreeStoreElem *tselem;
 	
-	/* although we don't have any search string, we return TRUE 
+	/* although we don't have any search string, we return true 
 	 * since the entire tree is ok then...
 	 */
 	if (soops->search_string[0] == 0)
@@ -1630,7 +1630,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 	}
 	else if (soops->outlinevis == SO_SEQUENCE) {
 		Sequence *seq;
-		Editing *ed = BKE_sequencer_editing_get(scene, FALSE);
+		Editing *ed = BKE_sequencer_editing_get(scene, false);
 		int op;
 
 		if (ed == NULL)

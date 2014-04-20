@@ -1589,7 +1589,7 @@ static void bgl_sphere_project(float ax, float az)
 	float dir[3], sine, q3;
 
 	sine = 1.0f - ax * ax - az * az;
-	q3 = (sine < 0.0f) ? 0.0f : (float)(2.0 * sqrt(sine));
+	q3 = (sine < 0.0f) ? 0.0f : (2.0f * sqrtf(sine));
 
 	dir[0] = -az * q3;
 	dir[1] = 1.0f - 2.0f * sine;
@@ -1800,6 +1800,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	short do_dashed = 3;
 	bool draw_wire = false;
 	int flag;
+	bool is_cull_enabled;
 	
 	/* being set below */
 	arm->layer_used = 0;
@@ -1847,9 +1848,15 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	}
 	
 	/* little speedup, also make sure transparent only draws once */
-	glCullFace(GL_BACK); 
-	glEnable(GL_CULL_FACE);
-	
+	glCullFace(GL_BACK);
+	if (v3d->flag2 & V3D_BACKFACE_CULLING) {
+		glEnable(GL_CULL_FACE);
+		is_cull_enabled = true;
+	}
+	else {
+		is_cull_enabled = false;
+	}
+
 	/* if solid we draw that first, with selection codes, but without names, axes etc */
 	if (dt > OB_WIRE) {
 		if (arm->flag & ARM_POSEMODE) 
@@ -1898,26 +1905,38 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 							draw_wire = true;
 						}
 						else {
+							if (is_cull_enabled && (v3d->flag2 & V3D_BACKFACE_CULLING) == 0) {
+								is_cull_enabled = false;
+								glDisable(GL_CULL_FACE);
+							}
+
 							draw_custom_bone(scene, v3d, rv3d, pchan->custom,
 							                 OB_SOLID, arm->flag, flag, index, bone->length);
 						}
 					}
-					else if (arm->drawtype == ARM_LINE) {
-						/* nothing in solid */
-					}
-					else if (arm->drawtype == ARM_WIRE) {
-						/* nothing in solid */
-					}
-					else if (arm->drawtype == ARM_ENVELOPE) {
-						draw_sphere_bone(OB_SOLID, arm->flag, flag, 0, index, pchan, NULL);
-					}
-					else if (arm->drawtype == ARM_B_BONE) {
-						draw_b_bone(OB_SOLID, arm->flag, flag, 0, index, pchan, NULL);
-					}
 					else {
-						draw_bone(OB_SOLID, arm->flag, flag, 0, index, bone->length);
+						if (is_cull_enabled == false) {
+							is_cull_enabled = true;
+							glEnable(GL_CULL_FACE);
+						}
+
+						if (arm->drawtype == ARM_LINE) {
+							/* nothing in solid */
+						}
+						else if (arm->drawtype == ARM_WIRE) {
+							/* nothing in solid */
+						}
+						else if (arm->drawtype == ARM_ENVELOPE) {
+							draw_sphere_bone(OB_SOLID, arm->flag, flag, 0, index, pchan, NULL);
+						}
+						else if (arm->drawtype == ARM_B_BONE) {
+							draw_b_bone(OB_SOLID, arm->flag, flag, 0, index, pchan, NULL);
+						}
+						else {
+							draw_bone(OB_SOLID, arm->flag, flag, 0, index, bone->length);
+						}
 					}
-						
+
 					glPopMatrix();
 				}
 			}
@@ -2018,7 +2037,12 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 			if (arm->flag & ARM_POSEMODE) 
 				index = base->selcol;
 		}
-		
+
+		if (is_cull_enabled == false) {
+			is_cull_enabled = true;
+			glEnable(GL_CULL_FACE);
+		}
+
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 			bone = pchan->bone;
 			arm->layer_used |= bone->layer;
@@ -2123,7 +2147,9 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	}
 	
 	/* restore */
-	glDisable(GL_CULL_FACE);
+	if (is_cull_enabled) {
+		glDisable(GL_CULL_FACE);
+	}
 	
 	/* draw DoFs */
 	if (arm->flag & ARM_POSEMODE) {
@@ -2249,7 +2275,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 						/*  Draw names of bone  */
 						if (arm->flag & ARM_DRAWNAMES) {
 							mid_v3_v3v3(vec, pchan->pose_head, pchan->pose_tail);
-							view3d_cached_text_draw_add(vec, pchan->name, 10, 0, col);
+							view3d_cached_text_draw_add(vec, pchan->name, strlen(pchan->name), 10, 0, col);
 						}
 						
 						/*	Draw additional axes on the bone tail  */
@@ -2454,7 +2480,7 @@ static void draw_ebones(View3D *v3d, ARegion *ar, Object *ob, const short dt)
 						if (arm->flag & ARM_DRAWNAMES) {
 							mid_v3_v3v3(vec, eBone->head, eBone->tail);
 							glRasterPos3fv(vec);
-							view3d_cached_text_draw_add(vec, eBone->name, 10, 0, col);
+							view3d_cached_text_draw_add(vec, eBone->name, strlen(eBone->name), 10, 0, col);
 						}
 						/*	Draw additional axes */
 						if (arm->flag & ARM_DRAWAXES) {
@@ -2577,7 +2603,7 @@ static void draw_ghost_poses_range(Scene *scene, View3D *v3d, ARegion *ar, Base 
 	/* draw from first frame of range to last */
 	for (CFRA = (int)start; CFRA < end; CFRA += (int)stepsize) {
 		colfac = (end - (float)CFRA) / range;
-		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0 * sqrt(colfac)));
+		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0f * sqrtf(colfac)));
 		
 		BKE_animsys_evaluate_animdata(scene, &ob->id, adt, (float)CFRA, ADT_RECALC_ALL);
 		BKE_pose_where_is(scene, ob);
@@ -2657,7 +2683,7 @@ static void draw_ghost_poses_keys(Scene *scene, View3D *v3d, ARegion *ar, Base *
 	/* draw from first frame of range to last */
 	for (ak = keys.first, i = 0; ak; ak = ak->next, i++) {
 		colfac = i / range;
-		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0 * sqrt(colfac)));
+		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0f * sqrtf(colfac)));
 		
 		CFRA = (int)ak->cfra;
 		
@@ -2727,7 +2753,7 @@ static void draw_ghost_poses(Scene *scene, View3D *v3d, ARegion *ar, Base *base)
 	for (cur = stepsize; cur < range; cur += stepsize) {
 		ctime = cur - (float)fmod(cfrao, stepsize);  /* ensures consistent stepping */
 		colfac = ctime / range;
-		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0 * sqrt(colfac)));
+		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0f * sqrtf(colfac)));
 		
 		/* only within action range */
 		if (actframe + ctime >= start && actframe + ctime <= end) {
@@ -2742,7 +2768,7 @@ static void draw_ghost_poses(Scene *scene, View3D *v3d, ARegion *ar, Base *base)
 		
 		ctime = cur + (float)fmod((float)cfrao, stepsize) - stepsize + 1.0f;   /* ensures consistent stepping */
 		colfac = ctime / range;
-		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0 * sqrt(colfac)));
+		UI_ThemeColorShadeAlpha(TH_WIRE, 0, -128 - (int)(120.0f * sqrtf(colfac)));
 		
 		/* only within action range */
 		if ((actframe - ctime >= start) && (actframe - ctime <= end)) {

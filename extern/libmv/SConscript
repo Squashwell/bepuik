@@ -18,7 +18,7 @@ if env['WITH_BF_LIBMV']:
     defs.append('WITH_LIBMV_GUARDED_ALLOC')
     defs.append('LIBMV_NO_FAST_DETECTOR')
 
-    src = env.Glob("libmv-capi.cc")
+    src = env.Glob('*.cc')
     src += env.Glob('libmv/image/*.cc')
     src += env.Glob('libmv/multiview/*.cc')
     src += env.Glob('libmv/numeric/*.cc')
@@ -26,7 +26,7 @@ if env['WITH_BF_LIBMV']:
     src += env.Glob('libmv/tracking/*.cc')
     src += env.Glob('third_party/gflags/*.cc')
 
-    incs += ' ../Eigen3 third_party/ceres/include ../../intern/guardedalloc'
+    incs += ' ../Eigen3 third_party/gflags third_party/glog/src third_party/ceres/include ../../intern/guardedalloc'
     incs += ' ' + env['BF_PNG_INC']
     incs += ' ' + env['BF_ZLIB_INC']
 

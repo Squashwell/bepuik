@@ -129,7 +129,7 @@ void ED_armature_exit_posemode(bContext *C, Base *base)
 /* if a selected or active bone is protected, throw error (oonly if warn == 1) and return 1 */
 /* only_selected == 1: the active bone is allowed to be protected */
 #if 0 /* UNUSED 2.5 */
-static short pose_has_protected_selected(Object *ob, short warn)
+static bool pose_has_protected_selected(Object *ob, short warn)
 {
 	/* check protection */
 	if (ob->proxy) {
@@ -429,7 +429,7 @@ static void pose_copy_menu(Scene *scene)
 						/* copy constraints to tmpbase and apply 'local' tags before 
 						 * appending to list of constraints for this channel
 						 */
-						BKE_copy_constraints(&tmp_constraints, &pchanact->constraints, TRUE);
+						BKE_constraints_copy(&tmp_constraints, &pchanact->constraints, true);
 						if ((ob->proxy) && (pchan->bone->layer & arm->layer_protected)) {
 							bConstraint *con;
 							
@@ -541,7 +541,7 @@ static void pose_copy_menu(Scene *scene)
 				/* copy constraints to tmpbase and apply 'local' tags before 
 				 * appending to list of constraints for this channel
 				 */
-				BKE_copy_constraints(&tmp_constraints, &const_copy, TRUE);
+				BKE_constraints_copy(&tmp_constraints, &const_copy, true);
 				if ((ob->proxy) && (pchan->bone->layer & arm->layer_protected)) {
 					/* add proxy-local tags */
 					for (con = tmp_constraints.first; con; con = con->next)

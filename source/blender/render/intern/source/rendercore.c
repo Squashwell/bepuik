@@ -41,7 +41,6 @@
 
 #include "BLI_math.h"
 #include "BLI_blenlib.h"
-#include "BLI_jitter.h"
 #include "BLI_rand.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
@@ -699,7 +698,8 @@ static void sky_tile(RenderPart *pa, RenderLayer *rl)
 	for (y=pa->disprect.ymin; y<pa->disprect.ymax; y++) {
 		for (x=pa->disprect.xmin; x<pa->disprect.xmax; x++, od+=4) {
 			float col[4];
-			int sample, done = FALSE;
+			int sample;
+			bool done = false;
 			
 			for (sample= 0; sample<totsample; sample++) {
 				float *pass= rlpp[sample]->rectf + od;
@@ -708,7 +708,7 @@ static void sky_tile(RenderPart *pa, RenderLayer *rl)
 					
 					if (done==0) {
 						shadeSkyPixel(col, x, y, pa->thread);
-						done = TRUE;
+						done = true;
 					}
 					
 					if (pass[3]==0.0f) {
@@ -766,7 +766,7 @@ static void atm_tile(RenderPart *pa, RenderLayer *rl)
 				float *zrect= RE_RenderLayerGetPass(rlpp[sample], SCE_PASS_Z) + od;
 				float *rgbrect = rlpp[sample]->rectf + 4*od;
 				float rgb[3] = {0};
-				int done = FALSE;
+				bool done = false;
 				
 				for (go=R.lights.first; go; go= go->next) {
 				
@@ -798,7 +798,7 @@ static void atm_tile(RenderPart *pa, RenderLayer *rl)
 							
 							if (done==0) {
 								copy_v3_v3(rgb, tmp_rgb);
-								done = TRUE;
+								done = true;
 							}
 							else {
 								rgb[0] = 0.5f*rgb[0] + 0.5f*tmp_rgb[0];
@@ -1910,9 +1910,9 @@ static void renderflare(RenderResult *rr, float *rectf, HaloRen *har)
 	
 	for (b=1; b<har->flarec; b++) {
 		
-		fla.r= fabs(rc[0]);
-		fla.g= fabs(rc[1]);
-		fla.b= fabs(rc[2]);
+		fla.r = fabsf(rc[0]);
+		fla.g = fabsf(rc[1]);
+		fla.b = fabsf(rc[2]);
 		fla.alfa= ma->flareboost*fabsf(alfa*visifac*rc[3]);
 		fla.hard= 20.0f + fabsf(70.0f*rc[7]);
 		fla.tex= 0;
@@ -1962,7 +1962,7 @@ void add_halo_flare(Render *re)
 	
 	/* for now, we get the first renderlayer in list with halos set */
 	for (rl= rr->layers.first; rl; rl= rl->next) {
-		int do_draw = FALSE;
+		bool do_draw = false;
 		
 		if ((rl->layflag & SCE_LAY_HALO) == 0)
 			continue;
@@ -1978,7 +1978,7 @@ void add_halo_flare(Render *re)
 			har= R.sortedhalos[a];
 			
 			if (har->flarec && (har->lay & rl->lay)) {
-				do_draw = TRUE;
+				do_draw = true;
 				renderflare(rr, rl->rectf, har);
 			}
 		}

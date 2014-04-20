@@ -3066,7 +3066,7 @@ void RE_zbuf_accumulate_vecblur(NodeBlurData *nbd, int xsize, int ysize, float *
 	/* has to become static, the init-jit calls a random-seed, screwing up texture noise node */
 	if (firsttime) {
 		firsttime= 0;
-		BLI_jitter_init(jit[0], 256);
+		BLI_jitter_init(jit, 256);
 	}
 	
 	memset(newrect, 0, sizeof(float)*xsize*ysize*4);
@@ -4007,7 +4007,7 @@ unsigned short *zbuffer_transp_shade(RenderPart *pa, RenderLayer *rl, float *pas
 	
 	if (R.osa > 16) {  /* MAX_OSA */
 		printf("zbuffer_transp_shade: osa too large\n");
-		G.is_break = TRUE;
+		G.is_break = true;
 		return NULL;
 	}
 	

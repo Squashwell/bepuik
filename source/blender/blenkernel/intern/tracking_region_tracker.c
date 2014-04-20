@@ -595,6 +595,7 @@ static bool configure_and_run_tracker(ImBuf *destination_ibuf, MovieTrackingTrac
 	                            src_pixel_x, src_pixel_y,
 	                            &result,
 	                            dst_pixel_x, dst_pixel_y);
+
 	MEM_freeN(patch_new);
 
 	return tracked;

@@ -430,6 +430,11 @@ def buildinfo(lenv, build_type):
                 master_check = os.popen('git branch --list master --contains ' + build_hash).read().strip()
                 if master_check == 'master':
                     build_branch = 'master'
+                else:
+                    head_hash = os.popen('git rev-parse HEAD').read().strip()
+                    tag_hashes = os.popen('git show-ref --tags -d').read()
+                    if tag_hashes.find(head_hash) != -1:
+                        build_branch = 'master'
 
             if build_hash == '':
                 build_hash = os.popen('git rev-parse --short HEAD').read().strip()
@@ -733,7 +738,7 @@ def AppIt(target=None, source=None, env=None):
             commands.getoutput(cmd)
             cmd = 'cp -R %s/kernel/*.h %s/kernel/*.cl %s/kernel/*.cu %s/kernel/' % (croot, croot, croot, cinstalldir)
             commands.getoutput(cmd)
-            cmd = 'cp -R %s/kernel/svm %s/kernel/closure %s/util/util_color.h %s/util/util_half.h %s/util/util_math.h %s/util/util_transform.h %s/util/util_types.h %s/kernel/' % (croot, croot, croot, croot, croot, croot, croot, cinstalldir)
+            cmd = 'cp -R %s/kernel/svm %s/kernel/closure %s/kernel/geom %s/util/util_color.h %s/util/util_half.h %s/util/util_math.h %s/util/util_transform.h %s/util/util_types.h %s/kernel/' % (croot, croot, croot, croot, croot, croot, croot, croot, cinstalldir)
             commands.getoutput(cmd)
             cmd = 'cp -R %s/../intern/cycles/kernel/*.cubin %s/lib/' % (builddir, cinstalldir)
             commands.getoutput(cmd)

@@ -22,6 +22,10 @@
  *  \ingroup freestyle
  */
 
+extern "C" {
+#include <Python.h>
+}
+
 #include <string>
 #include <fstream>
 #include <float.h>
@@ -62,6 +66,7 @@
 #include "../blender_interface/BlenderStyleModule.h"
 
 #include "BKE_global.h"
+#include "BLI_utildefines.h"
 
 #include "DNA_freestyle_types.h"
 
@@ -190,14 +195,14 @@ void Controller::setRenderMonitor(RenderMonitor *iRenderMonitor)
 void Controller::setPassDiffuse(float *buf, int width, int height)
 {
 	AppCanvas *app_canvas = dynamic_cast<AppCanvas *>(_Canvas);
-	assert(app_canvas != 0);
+	BLI_assert(app_canvas != 0);
 	app_canvas->setPassDiffuse(buf, width, height);
 }
 
 void Controller::setPassZ(float *buf, int width, int height)
 {
 	AppCanvas *app_canvas = dynamic_cast<AppCanvas *>(_Canvas);
-	assert(app_canvas != 0);
+	BLI_assert(app_canvas != 0);
 	app_canvas->setPassZ(buf, width, height);
 }
 
@@ -1024,7 +1029,6 @@ void Controller::init_options()
 
 	// Directories
 	ViewMapIO::Options::setModelsPath(cpath->getModelsPath());
-	PythonInterpreter::Options::setPythonPath(cpath->getPythonPath());
 	TextureManager::Options::setPatternsPath(cpath->getPatternsPath());
 	TextureManager::Options::setBrushesPath(cpath->getModelsPath());
 

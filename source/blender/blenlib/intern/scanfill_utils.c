@@ -35,11 +35,11 @@
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
-#include "BLI_strict_flags.h"
 #include "BLI_ghash.h"
 
 #include "BLI_scanfill.h"  /* own include */
 
+#include "BLI_strict_flags.h"
 
 typedef struct PolyInfo {
 	ScanFillEdge *edge_first, *edge_last;
@@ -319,7 +319,7 @@ static bool scanfill_preprocess_self_isect(
 		ScanFillVert *v_prev;
 		ScanFillVert *v_curr;
 
-		int inside = false;
+		bool inside = false;
 
 		/* first vert */
 #if 0

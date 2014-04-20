@@ -74,7 +74,7 @@ class ViewVertex;
 class SShape;
 
 /*! Class to define a vertex of the embedding. */
-class LIB_VIEW_MAP_EXPORT SVertex : public Interface0D
+class SVertex : public Interface0D
 {
 public: // Implementation of Interface0D
 	/*! Returns the string "SVertex" .*/
@@ -167,8 +167,10 @@ private:
 	vector<FEdge*> _FEdges; // the edges containing this vertex
 	SShape *_Shape;  // the shape to which belongs the vertex
 	ViewVertex *_pViewVertex; // The associated viewvertex, in case there is one.
+#if 0
 	real _curvatureFredo;
 	Vec2r _directionFredo;
+#endif
 	CurvatureInfo *_curvature_info;
 
 public:
@@ -326,6 +328,7 @@ public:
 		return _curvature_info;
 	}
 
+#if 0
 	/* Fredo's normal and curvature*/
 	void setCurvatureFredo(real c)
 	{
@@ -346,6 +349,7 @@ public:
 	{
 		return _directionFredo;
 	}
+#endif
 
 	/*! Sets the Id */
 	inline void setId(const Id& id)
@@ -458,7 +462,7 @@ class ViewEdge;
  *  This class is specialized into a smooth and a sharp version since their properties slightly vary from
  *  one to the other.
  */
-class LIB_VIEW_MAP_EXPORT FEdge : public Interface1D
+class FEdge : public Interface1D
 {
 public: // Implementation of Interface0D
 	/*! Returns the string "FEdge". */
@@ -1099,7 +1103,7 @@ Interface0DIterator FEdge::pointsEnd(float t)
  *  by two faces of the mesh. Face a lies on its right whereas Face b lies on its left.
  *  If it is a border edge, then it doesn't have any face on its right, and thus Face a = 0.
  */
-class LIB_VIEW_MAP_EXPORT FEdgeSharp : public FEdge
+class FEdgeSharp : public FEdge
 {
 protected:
 	Vec3r _aNormal; // When following the edge, normal of the right face
@@ -1242,7 +1246,7 @@ public:
 /*! Class defining a smooth edge. This kind of edge typically runs across a face of the input mesh. It can be
  *  a silhouette, a ridge or valley, a suggestive contour.
  */
-class LIB_VIEW_MAP_EXPORT FEdgeSmooth : public FEdge
+class FEdgeSmooth : public FEdge
 {
 protected:
 	Vec3r _Normal;
@@ -1362,7 +1366,7 @@ public:
 
 
 /*! Class to define a feature shape. It is the gathering of feature elements from an identified input shape */
-class LIB_VIEW_MAP_EXPORT SShape
+class SShape
 {
 private:
 	vector<FEdge*> _chains;          // list of fedges that are chains starting points.

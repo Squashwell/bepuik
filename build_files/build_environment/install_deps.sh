@@ -25,8 +25,8 @@
 ARGS=$( \
 getopt \
 -o s:i:t:h \
---long source:,install:,tmp:,threads:,help,with-all,with-opencollada,force-all,\
-force-python,force-numpy,force-boost,force-ocio,force-oiio,force-llvm,force-osl,force-opencollada,\
+--long source:,install:,tmp:,threads:,help,no-sudo,with-all,with-opencollada,ver-ocio:,ver-oiio:,ver-llvm:,ver-osl:,\
+force-all,force-python,force-numpy,force-boost,force-ocio,force-oiio,force-llvm,force-osl,force-opencollada,\
 force-ffmpeg,skip-python,skip-numpy,skip-boost,skip-ocio,skip-oiio,skip-llvm,skip-osl,skip-ffmpeg,\
 skip-opencollada,required-numpy,libyaml-cpp-ver: \
 -- "$@" \
@@ -77,6 +77,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
     -t n, --threads=n
         Use a specific number of threads when building the libraries (auto-detected as '\$THREADS').
 
+    --no_sudo
+        Disable use of sudo (this script won't be able to do much though, will just print needed packages...).
+
     --with-all
         By default, a number of optional and not-so-often needed libraries are not installed.
         This option will try to install them, at the cost of potential conflicts (depending on
@@ -85,6 +88,22 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
 
     --with-opencollada
         Build and install the OpenCOLLADA libraries.
+
+    --ver_ocio=<ver>
+        Force version of OCIO library.
+
+    --ver_oiio=<ver>
+        Force version of OIIO library.
+
+    --ver_llvm=<ver>
+        Force version of LLVM library.
+
+    --ver_osl=<ver>
+        Force version of OSL library.
+
+    Note about the --ver-foo options:
+        It may not always work as expected (some libs are actually checked out from a git rev...), yet it might help
+        to fix some build issues (like LLVM mismatch with the version used by your graphic system).
 
     --force-all
         Force the rebuild of all built libraries.
@@ -166,6 +185,8 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
 
 ##### Main Vars #####
 
+SUDO="sudo"
+
 PYTHON_VERSION="3.3.3"
 PYTHON_VERSION_MIN="3.3"
 PYTHON_SOURCE="http://python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tar.bz2"
@@ -225,7 +246,8 @@ LLVM_SKIP=false
 OSL_VERSION="1.4.0"
 OSL_VERSION_MIN=$OSL_VERSION
 #OSL_SOURCE="https://github.com/imageworks/OpenShadingLanguage/archive/Release-$OSL_VERSION.tar.gz"
-OSL_SOURCE="https://github.com/mont29/OpenShadingLanguage.git"
+#OSL_SOURCE="https://github.com/mont29/OpenShadingLanguage.git"
+OSL_SOURCE="https://github.com/imageworks/OpenShadingLanguage.git"
 OSL_REPO_UID="175989f2610a7d54e8edfb5ace0143e28e11ac70"
 OSL_FORCE_REBUILD=false
 OSL_SKIP=false
@@ -339,11 +361,37 @@ while true; do
       PRINT ""
       exit 0
     ;;
+    --no-sudo)
+      PRINT ""
+      WARNING "--no-sudo enabled, this script might not be able to do much..."
+      PRINT ""
+      SUDO=""; shift; continue
+    ;;
     --with-all)
       WITH_ALL=true; shift; continue
     ;;
     --with-opencollada)
       WITH_OPENCOLLADA=true; shift; continue
+    ;;
+    --ver-ocio)
+      OCIO_VERSION="$2"
+      OCIO_VERSION_MIN=$OCIO_VERSION
+      shift; shift; continue
+    ;;
+    --ver-oiio)
+      OIIO_VERSION="$2"
+      OIIO_VERSION_MIN=$OIIO_VERSION
+      shift; shift; continue
+    ;;
+    --ver-llvm)
+      LLVM_VERSION="$2"
+      LLVM_VERSION_MIN=$LLVM_VERSION
+      shift; shift; continue
+    ;;
+    --ver-osl)
+      OSL_VERSION="$2"
+      OSL_VERSION_MIN=$OSL_VERSION
+      shift; shift; continue
     ;;
     --force-all)
       PYTHON_FORCE_REBUILD=true
@@ -537,13 +585,16 @@ version_match() {
 ##### Generic compile helpers #####
 prepare_opt() {
   INFO "Ensuring $INST exists and is writable by us"
+  if [ ! $SUDO ]; then
+    WARNING "--no-sudo enabled, might be impossible to create install dir..."
+  fi
   if [ ! -d  $INST ]; then
-    sudo mkdir -p $INST
+    $SUDO mkdir -p $INST
   fi
 
   if [ ! -w $INST ]; then
-    sudo chown $USER $INST
-    sudo chmod 775 $INST
+    $SUDO chown $USER $INST
+    $SUDO chmod 775 $INST
   fi
 }
 
@@ -582,9 +633,13 @@ run_ldconfig() {
   _lib_path="$INST/$1/lib"
   _ldconf_path="/etc/ld.so.conf.d/$1.conf"
   PRINT ""
-  INFO "Running ldconfig for $1..."
-  sudo sh -c "echo \"$_lib_path\" > $_ldconf_path"
-  sudo /sbin/ldconfig  # XXX OpenSuse does not include sbin in command path with sudo!!!
+  if [ ! $SUDO ]; then
+    WARNING "--no-sudo enabled, impossible to run ldconfig for $1, you'll have to do it yourself..."
+  else
+    INFO "Running ldconfig for $1..."
+    $SUDO sh -c "echo \"$_lib_path\" > $_ldconf_path"
+    $SUDO /sbin/ldconfig  # XXX OpenSuse does not include sbin in command path with sudo!!!
+  fi
   PRINT ""
 }
 
@@ -1317,7 +1372,7 @@ clean_OSL() {
 
 compile_OSL() {
   # To be changed each time we make edits that would modify the compiled result!
-  osl_magic=14
+  osl_magic=15
   _init_osl
 
   # Clean install if needed!
@@ -1346,11 +1401,13 @@ compile_OSL() {
 
     cd $_src
 
+    git remote set-url origin $OSL_SOURCE
+
     # XXX For now, always update from latest repo...
-    git pull origin master
+    git pull -X theirs origin master
 
     # Stick to same rev as windows' libs...
-    git checkout $OSL_REPO_UID
+    git checkout HEAD #$OSL_REPO_UID
     git reset --hard
 
     # Always refresh the whole build!
@@ -1643,10 +1700,14 @@ check_package_version_ge_DEB() {
 }
 
 install_packages_DEB() {
-  sudo apt-get install -y --force-yes $@
-  if [ $? -ge 1 ]; then
-    ERROR "apt-get failed to install requested packages, exiting."
-    exit 1
+  if [ ! $SUDO ]; then
+    WARNING "--no-sudo enabled, impossible to run apt-get install for $@, you'll have to do it yourself..."
+  else
+    $SUDO apt-get install -y --force-yes $@
+    if [ $? -ge 1 ]; then
+      ERROR "apt-get failed to install requested packages, exiting."
+      exit 1
+    fi
   fi
 }
 
@@ -1654,9 +1715,10 @@ install_DEB() {
   PRINT ""
   INFO "Installing dependencies for DEB-based distribution"
   PRINT ""
-  WARNING "Ubuntu users: Beware of Trusty!!!"
-  PRINT "Ubuntu 14.4 comes with a default libyaml-cpp in 0.5 version, while their ocio package still uses the 0.3 version"
-  PRINT "You have to use '--libyaml-cpp-ver=0.3' option (else Blender will builds with 0.5, and break when using packaged ocio)..."
+  WARNING "Beware of recent Ubuntu/Debian!!!"
+  PRINT "Ubuntu 14.4 and Debian Jessie come with a default libyaml-cpp in 0.5 version, while their ocio package still"
+  PRINT "uses the 0.3 version. You have to use '--libyaml-cpp-ver=0.3' option (else Blender will builds with 0.5,"
+  PRINT "and break when using packaged ocio)..."
   PRINT ""
   PRINT "`eval _echo "$COMMON_INFO"`"
   PRINT ""
@@ -1688,7 +1750,11 @@ install_DEB() {
     fi
   fi
 
-  sudo apt-get update
+  if [ ! $SUDO ]; then
+    WARNING "--no-sudo enabled, impossible to run apt-get update, you'll have to do it yourself..."
+  else
+    $SUDO apt-get update
+  fi
 
   # These libs should always be available in debian/ubuntu official repository...
   OPENJPEG_DEV="libopenjpeg-dev"
@@ -2073,17 +2139,25 @@ check_package_version_ge_RPM() {
 install_packages_RPM() {
   rpm_flavour
   if [ $RPM = "FEDORA" -o $RPM = "RHEL" ]; then
-    sudo yum install -y $@
-    if [ $? -ge 1 ]; then
-      ERROR "yum failed to install requested packages, exiting."
-      exit 1
+    if [ ! $SUDO ]; then
+      WARNING "--no-sudo enabled, impossible to run yum install for $@, you'll have to do it yourself..."
+    else
+      $SUDO yum install -y $@
+      if [ $? -ge 1 ]; then
+        ERROR "yum failed to install requested packages, exiting."
+        exit 1
+      fi
     fi
 
   elif [ $RPM = "SUSE" ]; then
-    sudo zypper --non-interactive install --auto-agree-with-licenses $@
-    if [ $? -ge 1 ]; then
-      ERROR "zypper failed to install requested packages, exiting."
-      exit 1
+    if [ ! $SUDO ]; then
+      WARNING "--no-sudo enabled, impossible to run zypper install for $@, you'll have to do it yourself..."
+    else
+      $SUDO zypper --non-interactive install --auto-agree-with-licenses $@
+      if [ $? -ge 1 ]; then
+        ERROR "zypper failed to install requested packages, exiting."
+        exit 1
+      fi
     fi
   fi
 }
@@ -2099,57 +2173,61 @@ install_RPM() {
   [ "$(echo ${REPLY:=Y} | tr [:upper:] [:lower:])" != "y" ] && exit
 
   # Enable non-free repositories for all flavours
-  rpm_flavour
-  if [ $RPM = "FEDORA" ]; then
-    _fedora_rel="`egrep "[0-9]{1,}" /etc/fedora-release -o`"
-    sudo yum -y localinstall --nogpgcheck \
-    http://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$_fedora_rel.noarch.rpm \
-    http://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$_fedora_rel.noarch.rpm
+  if [ ! $SUDO ]; then
+    WARNING "--no-sudo enabled, impossible to install third party repositories, you'll have to do it yourself..."
+  else
+    rpm_flavour
+    if [ $RPM = "FEDORA" ]; then
+      _fedora_rel="`egrep "[0-9]{1,}" /etc/fedora-release -o`"
+      $SUDO yum -y localinstall --nogpgcheck \
+      http://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$_fedora_rel.noarch.rpm \
+      http://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$_fedora_rel.noarch.rpm
 
-    sudo yum -y update
+      $SUDO yum -y update
 
-    # Install cmake now because of difference with RHEL
-    sudo yum -y install cmake
+      # Install cmake now because of difference with RHEL
+      $SUDO yum -y install cmake
 
-  elif [ $RPM = "RHEL" ]; then
-    sudo yum -y localinstall --nogpgcheck \
-    http://download.fedoraproject.org/pub/epel/6/$(uname -i)/epel-release-6-8.noarch.rpm \
-    http://download1.rpmfusion.org/free/el/updates/6/$(uname -i)/rpmfusion-free-release-6-1.noarch.rpm \
-    http://download1.rpmfusion.org/nonfree/el/updates/6/$(uname -i)/rpmfusion-nonfree-release-6-1.noarch.rpm
+    elif [ $RPM = "RHEL" ]; then
+      $SUDO yum -y localinstall --nogpgcheck \
+      http://download.fedoraproject.org/pub/epel/6/$(uname -i)/epel-release-6-8.noarch.rpm \
+      http://download1.rpmfusion.org/free/el/updates/6/$(uname -i)/rpmfusion-free-release-6-1.noarch.rpm \
+      http://download1.rpmfusion.org/nonfree/el/updates/6/$(uname -i)/rpmfusion-nonfree-release-6-1.noarch.rpm
 
-    sudo yum -y update
+      $SUDO yum -y update
 
-    # Install cmake 2.8 from other repo
-    mkdir -p $SRC
-    if [ -f $SRC/cmake-2.8.8-4.el6.$(uname -m).rpm ]; then
+      # Install cmake 2.8 from other repo
+      mkdir -p $SRC
+      if [ -f $SRC/cmake-2.8.8-4.el6.$(uname -m).rpm ]; then
+        PRINT ""
+        INFO "Special cmake already installed"
+      else
+        curl -O ftp://ftp.pbone.net/mirror/atrpms.net/el6-$(uname -i)/atrpms/testing/cmake-2.8.8-4.el6.$(uname -m).rpm
+        mv cmake-2.8.8-4.el6.$(uname -m).rpm $SRC/
+        $SUDO rpm -ihv $SRC/cmake-2.8.8-4.el6.$(uname -m).rpm
+      fi
+
+    elif [ $RPM = "SUSE" ]; then
+      # Install this now to avoid using the version from packman repository...
+      if $WITH_ALL; then
+        install_packages_RPM libjack-devel
+      fi
+
+      _suse_rel="`grep VERSION /etc/SuSE-release | gawk '{print $3}'`"
+
       PRINT ""
-      INFO "Special cmake already installed"
-    else
-      curl -O ftp://ftp.pbone.net/mirror/atrpms.net/el6-$(uname -i)/atrpms/testing/cmake-2.8.8-4.el6.$(uname -m).rpm
-      mv cmake-2.8.8-4.el6.$(uname -m).rpm $SRC/
-      sudo rpm -ihv $SRC/cmake-2.8.8-4.el6.$(uname -m).rpm
+      INFO "About to add 'packman' repository from http://packman.inode.at/suse/openSUSE_$_suse_rel/"
+      INFO "This is only needed if you do not already have a packman repository enabled..."
+      read -p "Do you want to add this repo (Y/n)?"
+      if [ "$(echo ${REPLY:=Y} | tr [:upper:] [:lower:])" == "y" ]; then
+        INFO "    Installing packman..."
+        $SUDO zypper ar --refresh --name 'Packman Repository' http://ftp.gwdg.de/pub/linux/packman/suse/openSUSE_$_suse_rel/ ftp.gwdg.de-suse
+        INFO "    Done."
+      else
+        INFO "    Skipping packman installation."
+      fi
+      $SUDO zypper --non-interactive --gpg-auto-import-keys update --auto-agree-with-licenses
     fi
-
-  elif [ $RPM = "SUSE" ]; then
-    # Install this now to avoid using the version from packman repository...
-    if $WITH_ALL; then
-      install_packages_RPM libjack-devel
-    fi
-
-    _suse_rel="`grep VERSION /etc/SuSE-release | gawk '{print $3}'`"
-
-    PRINT ""
-    INFO "About to add 'packman' repository from http://packman.inode.at/suse/openSUSE_$_suse_rel/"
-    INFO "This is only needed if you do not already have a packman repository enabled..."
-    read -p "Do you want to add this repo (Y/n)?"
-    if [ "$(echo ${REPLY:=Y} | tr [:upper:] [:lower:])" == "y" ]; then
-      INFO "    Installing packman..."
-      sudo zypper ar --refresh --name 'Packman Repository' http://ftp.gwdg.de/pub/linux/packman/suse/openSUSE_$_suse_rel/ ftp.gwdg.de-suse
-      INFO "    Done."
-    else
-      INFO "    Skipping packman installation."
-    fi
-    sudo zypper --non-interactive --gpg-auto-import-keys update --auto-agree-with-licenses
   fi
 
   # These libs should always be available in fedora/suse official repository...
@@ -2464,10 +2542,14 @@ check_package_version_ge_ARCH() {
 }
 
 install_packages_ARCH() {
-  sudo pacman -S --needed --noconfirm $@
-  if [ $? -ge 1 ]; then
-    ERROR "pacman failed to install requested packages, exiting."
-    exit 1
+  if [ ! $SUDO ]; then
+    WARNING "--no-sudo enabled, impossible to run pacman for $@, you'll have to do it yourself..."
+  else
+    $SUDO pacman -S --needed --noconfirm $@
+    if [ $? -ge 1 ]; then
+      ERROR "pacman failed to install requested packages, exiting."
+      exit 1
+    fi
   fi
 }
 
@@ -2482,17 +2564,23 @@ install_ARCH() {
   [ "$(echo ${REPLY:=Y} | tr [:upper:] [:lower:])" != "y" ] && exit
 
   # Check for sudo...
-  if [ ! -x "/usr/bin/sudo" ]; then
-    PRINT ""
-    ERROR "This script requires sudo but it is not installed."
-    PRINT "Please setup sudo according to:" 
-    PRINT "https://wiki.archlinux.org/index.php/Sudo"
-    PRINT "and try again."
-    PRINT ""
-    exit
+  if [ $SUDO ]; then
+    if [ ! -x "/usr/bin/sudo" ]; then
+      PRINT ""
+      ERROR "This script requires sudo but it is not installed."
+      PRINT "Please setup sudo according to:"
+      PRINT "https://wiki.archlinux.org/index.php/Sudo"
+      PRINT "and try again."
+      PRINT ""
+      exit
+    fi
   fi
 
-  sudo pacman -Sy
+  if [ ! $SUDO ]; then
+    WARNING "--no-sudo enabled, impossible to run pacman -Sy, you'll have to do it yourself..."
+  else
+    $SUDO pacman -Sy
+  fi
 
   # These libs should always be available in arch official repository...
   OPENJPEG_DEV="openjpeg"

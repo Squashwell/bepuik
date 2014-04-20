@@ -207,43 +207,41 @@ void ui_block_translate(uiBlock *block, int x, int y)
 static void ui_text_bounds_block(uiBlock *block, float offset)
 {
 	uiStyle *style = UI_GetStyle();
-	uiBut *bt;
-	int i = 0, j, x1addval = offset, nextcol;
-	int lastcol = 0, col = 0;
-	
+	uiBut *bt, *init_col_bt, *col_bt;
+	int i = 0, j, x1addval = offset;
+
 	uiStyleFontSet(&style->widget);
-	
-	for (bt = block->buttons.first; bt; bt = bt->next) {
+
+	for (init_col_bt = bt = block->buttons.first; bt; bt = bt->next) {
 		if (!ELEM(bt->type, SEPR, SEPRLINE)) {
 			j = BLF_width(style->widget.uifont_id, bt->drawstr, sizeof(bt->drawstr));
 
-			if (j > i) i = j;
+			if (j > i)
+				i = j;
 		}
 
-		if (bt->next && bt->rect.xmin < bt->next->rect.xmin)
-			lastcol++;
+		if (bt->next && bt->rect.xmin < bt->next->rect.xmin) {
+			/* End of this column, and it’s not the last one. */
+			for (col_bt = init_col_bt; col_bt->prev != bt; col_bt = col_bt->next) {
+				col_bt->rect.xmin = x1addval;
+				col_bt->rect.xmax = x1addval + i + block->bounds;
+
+				ui_check_but(col_bt);  /* clips text again */
+			}
+
+			/* And we prepare next column. */
+			x1addval += i + block->bounds;
+			i = 0;
+			init_col_bt = col_bt;
+		}
 	}
 
-	/* cope with multi collumns */
-	bt = block->buttons.first;
-	while (bt) {
-		nextcol = (bt->next && bt->rect.xmin < bt->next->rect.xmin);
-		
-		bt->rect.xmin = x1addval;
-		bt->rect.xmax = bt->rect.xmin + i + block->bounds;
-		
-		if (col == lastcol) {
-			bt->rect.xmax = max_ff(bt->rect.xmax, offset + block->minbounds);
-		}
+	/* Last column. */
+	for (col_bt = init_col_bt; col_bt; col_bt = col_bt->next) {
+		col_bt->rect.xmin = x1addval;
+		col_bt->rect.xmax = max_ff(x1addval + i + block->bounds, offset + block->minbounds);
 
-		ui_check_but(bt);  /* clips text again */
-		
-		if (nextcol) {
-			x1addval += i + block->bounds;
-			col++;
-		}
-		
-		bt = bt->next;
+		ui_check_but(col_bt);  /* clips text again */
 	}
 }
 
@@ -445,7 +443,7 @@ static int ui_but_float_precision(uiBut *but, double value)
 
 /* link line drawing is not part of buttons or theme.. so we stick with it here */
 
-static void ui_draw_linkline(uiLinkLine *line, int highlightActiveLines)
+static void ui_draw_linkline(uiLinkLine *line, int highlightActiveLines, int dashInactiveLines)
 {
 	rcti rect;
 
@@ -456,11 +454,13 @@ static void ui_draw_linkline(uiLinkLine *line, int highlightActiveLines)
 	rect.xmax = BLI_rctf_cent_x(&line->to->rect);
 	rect.ymax = BLI_rctf_cent_y(&line->to->rect);
 	
-	if (line->flag & UI_SELECT)
+	if (dashInactiveLines)
+		UI_ThemeColor(TH_GRID);
+	else if (line->flag & UI_SELECT)
 		glColor3ub(100, 100, 100);
 	else if (highlightActiveLines && ((line->from->flag & UI_ACTIVE) || (line->to->flag & UI_ACTIVE)))
 		UI_ThemeColor(TH_TEXT_HI);
-	else 
+	else
 		glColor3ub(0, 0, 0);
 
 	ui_draw_link_bezier(&rect);
@@ -471,7 +471,8 @@ static void ui_draw_links(uiBlock *block)
 	uiBut *but;
 	uiLinkLine *line;
 
-	/* Draw the inactive lines (lines with neither button being hovered over).
+	/* Draw the grey out lines. Do this first so they appear at the
+	 * bottom of inactive or active lines.
 	 * As we go, remember if we see any active or selected lines. */
 	bool found_selectline = false;
 	bool found_activeline = false;
@@ -479,8 +480,10 @@ static void ui_draw_links(uiBlock *block)
 	for (but = block->buttons.first; but; but = but->next) {
 		if (but->type == LINK && but->link) {
 			for (line = but->link->lines.first; line; line = line->next) {
-				if (!(line->from->flag & UI_ACTIVE) && !(line->to->flag & UI_ACTIVE))
-					ui_draw_linkline(line, 0);
+				if (!(line->from->flag & UI_ACTIVE) && !(line->to->flag & UI_ACTIVE)) {
+					if (line->deactive)
+						ui_draw_linkline(line, 0, true);
+				}
 				else
 					found_activeline = true;
 
@@ -490,14 +493,26 @@ static void ui_draw_links(uiBlock *block)
 		}
 	}
 
+	/* Draw the inactive lines (lines with neither button being hovered over) */
+	for (but = block->buttons.first; but; but = but->next) {
+		if (but->type == LINK && but->link) {
+			for (line = but->link->lines.first; line; line = line->next) {
+				if (!(line->from->flag & UI_ACTIVE) && !(line->to->flag & UI_ACTIVE)) {
+					if (!line->deactive)
+						ui_draw_linkline(line, 0, false);
+				}
+			}
+		}
+	}
+
 	/* Draw any active lines (lines with either button being hovered over).
-	 * Do this last so they appear on top of inactive lines. */
+	 * Do this last so they appear on top of inactive and grey out lines. */
 	if (found_activeline) {
 		for (but = block->buttons.first; but; but = but->next) {
 			if (but->type == LINK && but->link) {
 				for (line = but->link->lines.first; line; line = line->next) {
 					if ((line->from->flag & UI_ACTIVE) || (line->to->flag & UI_ACTIVE))
-						ui_draw_linkline(line, !found_selectline);
+						ui_draw_linkline(line, !found_selectline, false);
 				}
 			}
 		}
@@ -1264,7 +1279,7 @@ void uiDrawBlock(const bContext *C, uiBlock *block)
  */
 int ui_is_but_push_ex(uiBut *but, double *value)
 {
-	int is_push = false;
+	int is_push = 0;
 
 	if (but->bit) {
 		const bool state = ELEM3(but->type, TOGN, ICONTOGN, OPTIONN) ? false : true;
@@ -1350,7 +1365,7 @@ static uiBut *ui_find_inlink(uiBlock *block, void *poin)
 	return NULL;
 }
 
-static void ui_add_link_line(ListBase *listb, uiBut *but, uiBut *bt)
+static void ui_add_link_line(ListBase *listb, uiBut *but, uiBut *bt, short deactive)
 {
 	uiLinkLine *line;
 	
@@ -1358,6 +1373,7 @@ static void ui_add_link_line(ListBase *listb, uiBut *but, uiBut *bt)
 	BLI_addtail(listb, line);
 	line->from = but;
 	line->to = bt;
+	line->deactive = deactive;
 }
 
 uiBut *uiFindInlink(uiBlock *block, void *poin)
@@ -1384,14 +1400,25 @@ void uiComposeLinks(uiBlock *block)
 					for (a = 0; a < *(link->totlink); a++) {
 						bt = ui_find_inlink(block, (*ppoin)[a]);
 						if (bt) {
-							ui_add_link_line(&link->lines, but, bt);
+							if ((but->flag & UI_BUT_SCA_LINK_GREY) || (bt->flag & UI_BUT_SCA_LINK_GREY)) {
+								ui_add_link_line(&link->lines, but, bt, true);
+							}
+							else {
+								ui_add_link_line(&link->lines, but, bt, false);
+							}
+
 						}
 					}
 				}
 				else if (link->poin) {
 					bt = ui_find_inlink(block, *(link->poin) );
 					if (bt) {
-						ui_add_link_line(&link->lines, but, bt);
+						if ((but->flag & UI_BUT_SCA_LINK_GREY) || (bt->flag & UI_BUT_SCA_LINK_GREY)) {
+							ui_add_link_line(&link->lines, but, bt, true);
+						}
+						else {
+							ui_add_link_line(&link->lines, but, bt, false);
+						}
 					}
 				}
 			}
@@ -1862,7 +1889,7 @@ void ui_convert_to_unit_alt_name(uiBut *but, char *str, size_t maxlen)
 static void ui_get_but_string_unit(uiBut *but, char *str, int len_max, double value, bool pad, int float_precision)
 {
 	UnitSettings *unit = but->block->unit;
-	int do_split = (unit->flag & USER_UNIT_OPT_SPLIT) != 0;
+	const bool do_split = (unit->flag & USER_UNIT_OPT_SPLIT) != 0;
 	int unit_type = uiButGetUnitType(but);
 	int precision;
 
@@ -1873,7 +1900,7 @@ static void ui_get_but_string_unit(uiBut *but, char *str, int len_max, double va
 		/* Sanity checks */
 		precision = (int)but->a2;
 		if      (precision > UI_PRECISION_FLOAT_MAX) precision = UI_PRECISION_FLOAT_MAX;
-		else if (precision == -1)                 precision = 2;
+		else if (precision == -1)                    precision = 2;
 	}
 	else {
 		precision = float_precision;
@@ -1901,7 +1928,7 @@ static float ui_get_but_step_unit(uiBut *but, float step_default)
 }
 
 /**
- * \param float_precision  For number buttons the precission to use or -1 to fallback to the button default.
+ * \param float_precision  For number buttons the precision to use or -1 to fallback to the button default.
  */
 void ui_get_but_string_ex(uiBut *but, char *str, const size_t maxlen, const int float_precision)
 {
@@ -2430,8 +2457,8 @@ uiBlock *uiBeginBlock(const bContext *C, ARegion *region, const char *name, shor
 
 	/* window matrix and aspect */
 	if (region && region->swinid) {
-		wm_subwindow_getmatrix(window, region->swinid, block->winmat);
-		wm_subwindow_getsize(window, region->swinid, &getsizex, &getsizey);
+		wm_subwindow_matrix_get(window, region->swinid, block->winmat);
+		wm_subwindow_size_get(window, region->swinid, &getsizex, &getsizey);
 
 		block->aspect = 2.0f / fabsf(getsizex * block->winmat[0][0]);
 	}
@@ -2439,8 +2466,8 @@ uiBlock *uiBeginBlock(const bContext *C, ARegion *region, const char *name, shor
 		/* no subwindow created yet, for menus for example, so we
 		 * use the main window instead, since buttons are created
 		 * there anyway */
-		wm_subwindow_getmatrix(window, window->screen->mainwin, block->winmat);
-		wm_subwindow_getsize(window, window->screen->mainwin, &getsizex, &getsizey);
+		wm_subwindow_matrix_get(window, window->screen->mainwin, block->winmat);
+		wm_subwindow_size_get(window, window->screen->mainwin, &getsizex, &getsizey);
 
 		block->aspect = 2.0f / fabsf(getsizex * block->winmat[0][0]);
 		block->auto_open = true;
@@ -2994,7 +3021,7 @@ static uiBut *ui_def_but(uiBlock *block, int type, int retval, const char *str,
 	}
 
 	/* keep track of UI_interface.h */
-	if      (ELEM10(but->type, BLOCK, BUT, LABEL, PULLDOWN, ROUNDBOX, LISTBOX, BUTM, SCROLL, SEPR, SEPRLINE)) {}
+	if      (ELEM11(but->type, BLOCK, BUT, LABEL, PULLDOWN, ROUNDBOX, LISTBOX, BUTM, SCROLL, SEPR, SEPRLINE, GRIP)) {}
 	else if (but->type >= SEARCH_MENU) {}
 	else but->flag |= UI_BUT_UNDO;
 
@@ -3089,7 +3116,7 @@ static void ui_def_but_rna__menu(bContext *UNUSED(C), uiLayout *layout, void *bu
 			column_end = totitems;
 
 			for (b = a + 1; b < totitems; b++) {
-				item = &item_array[ b];
+				item = &item_array[b];
 
 				/* new column on N rows or on separation label */
 				if (((b - a) % rows == 0) || (!item->identifier[0] && item->name)) {
@@ -3164,59 +3191,58 @@ static uiBut *ui_def_but_rna(uiBlock *block, int type, int retval, const char *s
 	}
 
 	/* use rna values if parameters are not specified */
-	if (!str) {
-		if (type == MENU && proptype == PROP_ENUM) {
-			EnumPropertyItem *item;
-			int totitem, value;
-			bool free;
-			int i;
+	if ((proptype == PROP_ENUM) && ELEM3(type, MENU, ROW, LISTROW)) {
+		/* MENU is handled a little differently here */
+		EnumPropertyItem *item;
+		int value;
+		bool free;
+		int i;
 
-			RNA_property_enum_items(block->evil_C, ptr, prop, &item, &totitem, &free);
+		RNA_property_enum_items(block->evil_C, ptr, prop, &item, NULL, &free);
+
+		if (type == MENU) {
 			value = RNA_property_enum_get(ptr, prop);
-			i = RNA_enum_from_value(item, value);
-			if (i != -1) {
-				str = item[i].name;
-				icon = item[i].icon;
-			}
-			else {
-				str = "";
-			}
-
-			if (free) {
-				MEM_freeN(item);
-			}
-
-#ifdef WITH_INTERNATIONAL
-			str = CTX_IFACE_(RNA_property_translation_context(prop), str);
-#endif
-
-			func = ui_def_but_rna__menu;
-		}
-		else if (ELEM(type, ROW, LISTROW) && proptype == PROP_ENUM) {
-			EnumPropertyItem *item, *item_array = NULL;
-			bool free;
-
-			/* get untranslated, then translate the single string we need */
-			RNA_property_enum_items(block->evil_C, ptr, prop, &item_array, NULL, &free);
-			for (item = item_array; item->identifier; item++) {
-				if (item->identifier[0] && item->value == (int)max) {
-					str = CTX_IFACE_(RNA_property_translation_context(prop), item->name);
-					icon = item->icon;
-					break;
-				}
-			}
-
-			if (!str) {
-				str = RNA_property_ui_name(prop);
-			}
-			if (free) {
-				MEM_freeN(item_array);
-			}
 		}
 		else {
-			str = RNA_property_ui_name(prop);
-			icon = RNA_property_ui_icon(prop);
+			value = (int)max;
 		}
+
+		i = RNA_enum_from_value(item, value);
+		if (i != -1) {
+
+			if (!str) {
+				str = item[i].name;
+#ifdef WITH_INTERNATIONAL
+				str = CTX_IFACE_(RNA_property_translation_context(prop), str);
+#endif
+			}
+
+			icon = item[i].icon;
+		}
+		else {
+			if (!str) {
+				if (type == MENU) {
+					str = "";
+				}
+				else {
+					str = RNA_property_ui_name(prop);
+				}
+			}
+		}
+
+		if (type == MENU) {
+			func = ui_def_but_rna__menu;
+		}
+
+		if (free) {
+			MEM_freeN(item);
+		}
+	}
+	else {
+		if (!str) {
+			str = RNA_property_ui_name(prop);
+		}
+		icon = RNA_property_ui_icon(prop);
 	}
 
 	if (!tip && proptype != PROP_ENUM)
@@ -3275,7 +3301,9 @@ static uiBut *ui_def_but_rna(uiBlock *block, int type, int retval, const char *s
 	if (icon) {
 		but->icon = (BIFIconID)icon;
 		but->flag |= UI_HAS_ICON;
-		but->drawflag |= UI_BUT_ICON_LEFT;
+		if (str[0]) {
+			but->drawflag |= UI_BUT_ICON_LEFT;
+		}
 	}
 	
 	if ((type == MENU) && (but->dt == UI_EMBOSSP)) {
