@@ -5544,7 +5544,7 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 						}
 						else if(tmode==TFM_BEPUIK_CONTROL_RIGIDITY_MODIFY)
 						{
-							do_bepuik_target = TRUE;
+							do_bepuik_target = true;
 						}
 						
 						

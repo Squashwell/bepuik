@@ -942,7 +942,7 @@ void bepu_solve(Object * ob)
 
 				loc_quat_size_to_mat4(pchan->pose_mat,loc,quat,pchan_bepuik->rest_pose_size);
 				BKE_armature_mat_pose_to_bone(pchan,pchan->pose_mat,pchan->chan_mat);
-				BKE_pchan_apply_mat4(pchan,pchan->chan_mat,TRUE);
+				BKE_pchan_apply_mat4(pchan,pchan->chan_mat,true);
 
 				if(ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC)
 				{
@@ -1002,7 +1002,7 @@ void bepu_solve(Object * ob)
 
 				loc_quat_size_to_mat4(pchan->pose_mat,average_position,average_orientation,pchan_bepuik->rest_pose_size);
 				BKE_armature_mat_pose_to_bone(pchan,pchan->pose_mat,pchan->chan_mat);
-				BKE_pchan_apply_mat4(pchan,pchan->chan_mat,TRUE);
+				BKE_pchan_apply_mat4(pchan,pchan->chan_mat,true);
 
 				pchan->bepuikflag |= BONE_BEPUIK_FEEDBACK;
 				ob->pose->bepuikflag |= POSE_BEPUIK_FEEDBACK;

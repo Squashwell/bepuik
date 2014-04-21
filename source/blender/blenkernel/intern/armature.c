@@ -2748,7 +2748,7 @@ void BKE_pose_bepuik_visual_transform_apply(Scene * scene, Object * ob, bool vis
 			copy_v3_v3(size,pchan->size);
 			BKE_armature_mat_pose_to_bone(pchan, pchan->pose_mat, delta_mat);
 
-			BKE_pchan_apply_mat4(pchan, delta_mat, TRUE);
+			BKE_pchan_apply_mat4(pchan, delta_mat, true);
 			copy_v3_v3(pchan->size,size);
 		}
 	}

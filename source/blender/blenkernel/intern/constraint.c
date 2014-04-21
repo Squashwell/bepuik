@@ -4237,7 +4237,7 @@ static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, shor
 static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
 { \
 	struct_name *data = con->data; \
-	func(con, (ID **)&data->connection_target, FALSE, userdata); \
+	func(con, (ID **)&data->connection_target, false, userdata); \
 } \
 	
 #define BEPUIK_2_TARGET(func_id,enum_id,struct_name,target_prefix1) \
@@ -4267,8 +4267,8 @@ static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, shor
 static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
 { \
 	struct_name *data = con->data; \
-	func(con, (ID **)&data->connection_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
+	func(con, (ID **)&data->connection_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, false, userdata); \
 }
 
 #define BEPUIK_3_TARGET(func_id,enum_id,struct_name,target_prefix1,target_prefix2) \
@@ -4301,9 +4301,9 @@ static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, shor
 static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
 { \
 	struct_name *data = con->data; \
-	func(con, (ID **)&data->connection_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix2##_target, FALSE, userdata); \
+	func(con, (ID **)&data->connection_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix2##_target, false, userdata); \
 }
 
 #define BEPUIK_4_TARGET(func_id,enum_id,struct_name,target_prefix1,target_prefix2,target_prefix3) \
@@ -4339,10 +4339,10 @@ static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, shor
 static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
 { \
 	struct_name *data = con->data; \
-	func(con, (ID **)&data->connection_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix2##_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix3##_target, FALSE, userdata); \
+	func(con, (ID **)&data->connection_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix2##_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix3##_target, false, userdata); \
 }
 
 #define BEPUIK_5_TARGET(func_id,enum_id,struct_name,target_prefix1,target_prefix2,target_prefix3,target_prefix4) \
@@ -4381,11 +4381,11 @@ static void bepuik_##func_id##_flush_tars(bConstraint *con, ListBase *list, shor
 static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata) \
 { \
 	struct_name *data = con->data; \
-	func(con, (ID **)&data->connection_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix1##_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix2##_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix3##_target, FALSE, userdata); \
-	func(con, (ID **)&data->target_prefix4##_target, FALSE, userdata); \
+	func(con, (ID **)&data->connection_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix1##_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix2##_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix3##_target, false, userdata); \
+	func(con, (ID **)&data->target_prefix4##_target, false, userdata); \
 }
 
 BEPUIK_1_TARGET(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint)
