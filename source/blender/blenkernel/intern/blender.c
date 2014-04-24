@@ -29,6 +29,10 @@
  *  \ingroup bke
  */
 
+#ifndef _GNU_SOURCE
+/* Needed for O_NOFOLLOW on some platforms. */
+#  define _GNU_SOURCE 1
+#endif
 
 #ifndef _WIN32 
 #  include <unistd.h> // for read close
@@ -798,13 +802,16 @@ const char *BKE_undo_get_name(int nr, int *active)
 	return NULL;
 }
 
-/* saves .blend using undo buffer, returns 1 == success */
-int BKE_undo_save_file(const char *filename)
+/**
+ * Saves .blend using undo buffer.
+ *
+ * \return success.
+ */
+bool BKE_undo_save_file(const char *filename)
 {
 	UndoElem *uel;
 	MemFileChunk *chunk;
-	const int flag = O_BINARY + O_WRONLY + O_CREAT + O_TRUNC + O_EXCL;
-	int file;
+	int file, oflags;
 
 	if ((U.uiflag & USER_GLOBALUNDO) == 0) {
 		return 0;
@@ -816,16 +823,21 @@ int BKE_undo_save_file(const char *filename)
 		return 0;
 	}
 
-	/* first try create the file, if it exists call without 'O_CREAT',
-	 * to avoid writing to a symlink - use 'O_EXCL' (CVE-2008-1103) */
-	errno = 0;
-	file = BLI_open(filename, flag, 0666);
-	if (file < 0) {
-		if (errno == EEXIST) {
-			errno = 0;
-			file = BLI_open(filename, flag & ~O_CREAT, 0666);
-		}
-	}
+	/* note: This is currently used for autosave and 'quit.blend', where _not_ following symlinks is OK,
+	 * however if this is ever executed explicitly by the user, we may want to allow writing to symlinks.
+	 */
+
+	oflags = O_BINARY | O_WRONLY | O_CREAT | O_TRUNC;
+#ifdef O_NOFOLLOW
+	/* use O_NOFOLLOW to avoid writing to a symlink - use 'O_EXCL' (CVE-2008-1103) */
+	oflags |= O_NOFOLLOW;
+#else
+	/* TODO(sergey): How to deal with symlinks on windows? */
+#  ifndef _MSC_VER
+#    warning "Symbolic links will be followed on undo save, possibly causing CVE-2008-1103"
+#  endif
+#endif
+	file = BLI_open(filename,  oflags, 0666);
 
 	if (file == -1) {
 		fprintf(stderr, "Unable to save '%s': %s\n",

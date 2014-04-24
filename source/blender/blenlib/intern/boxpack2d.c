@@ -25,15 +25,26 @@
  */
 
 #include <stdlib.h> /* for qsort */
+#include <math.h> /* for fabsf */
 
 #include "MEM_guardedalloc.h"
-#include "BLI_strict_flags.h"
 
+#include "BLI_utildefines.h"
 #include "BLI_boxpack2d.h"  /* own include */
+
+#include "BLI_strict_flags.h"
 
 #ifdef __GNUC__
 #  pragma GCC diagnostic error "-Wpadded"
 #endif
+
+/* de-duplicate as we pack */
+#define USE_MERGE
+/* use strip-free */
+#define USE_FREE_STRIP
+/* slight bias, needed when packing many boxes the _exact_ same size */
+#define USE_PACK_BIAS
+
 
 /* BoxPacker for backing 2D rectangles into a square
  * 
@@ -42,7 +53,9 @@ typedef struct BoxVert {
 	float x;
 	float y;
 
-	int free;  /* could be a char */
+	int          free : 8;  /* vert status */
+	unsigned int used : 1;
+	unsigned int _pad : 23;
 	unsigned int index;
 
 	struct BoxPack *trb; /* top right box */
@@ -53,15 +66,30 @@ typedef struct BoxVert {
 	/* Store last intersecting boxes here
 	 * speedup intersection testing */
 	struct BoxPack *isect_cache[4];
+
+#ifdef USE_PACK_BIAS
+	float bias;
+	int  _pad2;
+#endif
 } BoxVert;
 
 /* free vert flags */
 #define EPSILON 0.0000001f
+#define EPSILON_MERGE 0.00001f
+#ifdef USE_PACK_BIAS
+#  define EPSILON_BIAS 0.000001f
+#endif
 #define BLF 1
 #define TRF 2
 #define TLF 4
 #define BRF 8
 #define CORNERFLAGS (BLF | TRF | TLF | BRF)
+
+BLI_INLINE int quad_flag(unsigned int q)
+{
+	BLI_assert(q < 4 && q >= 0);
+	return (1 << q);
+}
 
 #define BL 0
 #define TR 1
@@ -103,6 +131,15 @@ typedef struct BoxVert {
 /* compiler should inline */
 static float max_ff(const float a, const float b) { return b > a ? b : a; }
 
+#ifdef USE_PACK_BIAS
+/* set when used is enabled */
+static void vert_bias_update(BoxVert *v)
+{
+	BLI_assert(v->used);
+	v->bias = (v->x * v->y) * EPSILON_BIAS;
+}
+#endif
+
 #if 0
 #define BOXDEBUG(b) \
 	printf("\tBox Debug i %i, w:%.3f h:%.3f x:%.3f y:%.3f\n", \
@@ -138,8 +175,20 @@ static int vertex_sort(const void *p1, const void *p2)
 	v1 = vertarray + ((int *)p1)[0];
 	v2 = vertarray + ((int *)p2)[0];
 
+#ifdef USE_FREE_STRIP
+	/* push free verts to the end so we can strip */
+	if      (UNLIKELY(v1->free == 0 && v2->free == 0)) return  0;
+	else if (UNLIKELY(v1->free == 0))                  return  1;
+	else if (UNLIKELY(v2->free == 0))                  return -1;
+#endif
+
 	a1 = max_ff(v1->x + box_width, v1->y + box_height);
 	a2 = max_ff(v2->x + box_width, v2->y + box_height);
+
+#ifdef USE_PACK_BIAS
+	a1 += v1->bias;
+	a2 += v2->bias;
+#endif
 
 	/* sort largest to smallest */
 	if      (a1 > a2) return 1;
@@ -161,7 +210,6 @@ static int vertex_sort(const void *p1, const void *p2)
  *  */
 void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width, float *tot_height)
 {
-	const int quad_flags[4] = {BLF, TRF, TLF, BRF};  /* use for looping */
 	unsigned int box_index, verts_pack_len, i, j, k;
 	unsigned int *vertex_pack_indices;  /* an array of indices used for sorting verts */
 	bool isect;
@@ -189,6 +237,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 		            vert->isect_cache[2] = vert->isect_cache[3] = NULL;
 		vert->free = CORNERFLAGS & ~TRF;
 		vert->trb = box;
+		vert->used = false;
 		vert->index = i++;
 		box->v[BL] = vert; vert++;
 		
@@ -197,6 +246,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 		            vert->isect_cache[2] = vert->isect_cache[3] = NULL;
 		vert->free = CORNERFLAGS & ~BLF;
 		vert->blb = box;
+		vert->used = false;
 		vert->index = i++;
 		box->v[TR] = vert; vert++;
 		
@@ -205,6 +255,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 		            vert->isect_cache[2] = vert->isect_cache[3] = NULL;
 		vert->free = CORNERFLAGS & ~BRF;
 		vert->brb = box;
+		vert->used = false;
 		vert->index = i++;
 		box->v[TL] = vert; vert++;
 		
@@ -212,7 +263,8 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 		            vert->isect_cache[0] = vert->isect_cache[1] =
 		            vert->isect_cache[2] = vert->isect_cache[3] = NULL;
 		vert->free = CORNERFLAGS & ~TLF;
-		vert->tlb = box; 
+		vert->tlb = box;
+		vert->used = false;
 		vert->index = i++;
 		box->v[BR] = vert; vert++;
 	}
@@ -235,6 +287,13 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 	SET_BOXBOTTOM(box, 0.0f);
 	box->x = box->y = 0.0f;
 
+	for (i = 0; i < 4; i++) {
+		box->v[i]->used = true;
+#ifdef USE_PACK_BIAS
+		vert_bias_update(box->v[i]);
+#endif
+	}
+
 	for (i = 0; i < 3; i++)
 		vertex_pack_indices[i] = box->v[i + 1]->index;
 	verts_pack_len = 3;
@@ -249,6 +308,15 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 		box_height = box->h;
 
 		qsort(vertex_pack_indices, (size_t)verts_pack_len, sizeof(int), vertex_sort);
+
+#ifdef USE_FREE_STRIP
+		/* strip free vertices */
+		i = verts_pack_len - 1;
+		while ((i != 0) && vertarray[vertex_pack_indices[i]].free == 0) {
+			i--;
+		}
+		verts_pack_len = i + 1;
+#endif
 
 		/* Pack the box in with the others */
 		/* sort the verts */
@@ -265,7 +333,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 			 * */
 
 			for (j = 0; (j < 4) && isect; j++) {
-				if (vert->free & quad_flags[j]) {
+				if (vert->free & quad_flag(j)) {
 					switch (j) {
 						case BL:
 							SET_BOXRIGHT(box, vert->x);
@@ -325,7 +393,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 						(*tot_height) = max_ff(BOXTOP(box), (*tot_height));
 
 						/* Place the box */
-						vert->free &= ~quad_flags[j];
+						vert->free &= (signed char)(~quad_flag(j));
 
 						switch (j) {
 							case TR:
@@ -367,58 +435,139 @@ void BLI_box_pack_2d(BoxPack *boxarray, const unsigned int len, float *tot_width
 						 * as being used by checking the width or
 						 * height of both boxes */
 						if (vert->tlb && vert->trb && (box == vert->tlb || box == vert->trb)) {
+							if (UNLIKELY(fabsf(vert->tlb->h - vert->trb->h) < EPSILON_MERGE)) {
+#ifdef USE_MERGE
+#  define A (vert->trb->v[TL])
+#  define B (vert->tlb->v[TR])
+#  define MASK (BLF | BRF)
+								BLI_assert(A->used != B->used);
+								if (A->used == false) {
+									A->free &= B->free & ~MASK;
+									B = A;
+								}
+								else {
+									B->free &= A->free & ~MASK;
+									A = B;
+								}
+								BLI_assert((A->free & MASK) == 0);
+#  undef A
+#  undef B
+#  undef MASK
+#else
+								vert->tlb->v[TR]->free &= ~BLF;
+								vert->trb->v[TL]->free &= ~BRF;
+#endif
+							}
 							if (vert->tlb->h > vert->trb->h) {
 								vert->trb->v[TL]->free &= ~(TLF | BLF);
 							}
-							else if (vert->tlb->h < vert->trb->h) {
+							else /* if (vert->tlb->h < vert->trb->h) */ {
 								vert->tlb->v[TR]->free &= ~(TRF | BRF);
-							}
-							else { /*same*/
-								vert->tlb->v[TR]->free &= ~BLF;
-								vert->trb->v[TL]->free &= ~BRF;
 							}
 						}
 						else if (vert->blb && vert->brb && (box == vert->blb || box == vert->brb)) {
-							if (vert->blb->h > vert->brb->h) {
-								vert->brb->v[BL]->free &= ~(TLF | BLF);
-							}
-							else if (vert->blb->h < vert->brb->h) {
-								vert->blb->v[BR]->free &= ~(TRF | BRF);
-							}
-							else { /*same*/
+							if (UNLIKELY(fabsf(vert->blb->h - vert->brb->h) < EPSILON_MERGE)) {
+#ifdef USE_MERGE
+#  define A (vert->blb->v[BR])
+#  define B (vert->brb->v[BL])
+#  define MASK (TRF | TLF)
+								BLI_assert(A->used != B->used);
+								if (A->used == false) {
+									A->free &= B->free & ~MASK;
+									B = A;
+								}
+								else {
+									B->free &= A->free & ~MASK;
+									A = B;
+								}
+								BLI_assert((A->free & MASK) == 0);
+#  undef A
+#  undef B
+#  undef MASK
+#else
 								vert->blb->v[BR]->free &= ~TRF;
 								vert->brb->v[BL]->free &= ~TLF;
+#endif
+							}
+							else if (vert->blb->h > vert->brb->h) {
+								vert->brb->v[BL]->free &= ~(TLF | BLF);
+							}
+							else /* if (vert->blb->h < vert->brb->h) */ {
+								vert->blb->v[BR]->free &= ~(TRF | BRF);
 							}
 						}
 						/* Horizontal */
 						if (vert->tlb && vert->blb && (box == vert->tlb || box == vert->blb)) {
-							if (vert->tlb->w > vert->blb->w) {
-								vert->blb->v[TL]->free &= ~(TLF | TRF);
-							}
-							else if (vert->tlb->w < vert->blb->w) {
-								vert->tlb->v[BL]->free &= ~(BLF | BRF);
-							}
-							else { /*same*/
+							if (UNLIKELY(fabsf(vert->tlb->w - vert->blb->w) < EPSILON_MERGE)) {
+#ifdef USE_MERGE
+#  define A (vert->blb->v[TL])
+#  define B (vert->tlb->v[BL])
+#  define MASK (TRF | BRF)
+								BLI_assert(A->used != B->used);
+								if (A->used == false) {
+									A->free &= B->free & ~MASK;
+									B = A;
+								}
+								else {
+									B->free &= A->free & ~MASK;
+									A = B;
+								}
+								BLI_assert((A->free & MASK) == 0);
+#  undef A
+#  undef B
+#  undef MASK
+#else
 								vert->blb->v[TL]->free &= ~TRF;
 								vert->tlb->v[BL]->free &= ~BRF;
+#endif
+							}
+							else if (vert->tlb->w > vert->blb->w) {
+								vert->blb->v[TL]->free &= ~(TLF | TRF);
+							}
+							else /* if (vert->tlb->w < vert->blb->w) */ {
+								vert->tlb->v[BL]->free &= ~(BLF | BRF);
 							}
 						}
 						else if (vert->trb && vert->brb && (box == vert->trb || box == vert->brb)) {
-							if (vert->trb->w > vert->brb->w) {
-								vert->brb->v[TR]->free &= ~(TLF | TRF);
-							}
-							else if (vert->trb->w < vert->brb->w) {
-								vert->trb->v[BR]->free &= ~(BLF | BRF);
-							}
-							else { /*same*/
+							if (UNLIKELY(fabsf(vert->trb->w - vert->brb->w) < EPSILON_MERGE)) {
+
+#ifdef USE_MERGE
+#  define A (vert->brb->v[TR])
+#  define B (vert->trb->v[BR])
+#  define MASK (TLF | BLF)
+								BLI_assert(A->used != B->used);
+								if (A->used == false) {
+									A->free &= B->free & ~MASK;
+									B = A;
+								}
+								else {
+									B->free &= A->free & ~MASK;
+									A = B;
+								}
+								BLI_assert((A->free & MASK) == 0);
+#  undef A
+#  undef B
+#  undef MASK
+#else
 								vert->brb->v[TR]->free &= ~TLF;
 								vert->trb->v[BR]->free &= ~BLF;
+#endif
+							}
+							else if (vert->trb->w > vert->brb->w) {
+								vert->brb->v[TR]->free &= ~(TLF | TRF);
+							}
+							else /* if (vert->trb->w < vert->brb->w) */ {
+								vert->trb->v[BR]->free &= ~(BLF | BRF);
 							}
 						}
 						/* End logical check */
 
 						for (k = 0; k < 4; k++) {
-							if (box->v[k] != vert) {
+							if (box->v[k]->used == false) {
+								box->v[k]->used = true;
+#ifdef USE_PACK_BIAS
+								vert_bias_update(box->v[k]);
+#endif
 								vertex_pack_indices[verts_pack_len] = box->v[k]->index;
 								verts_pack_len++;
 							}

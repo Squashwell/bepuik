@@ -629,6 +629,8 @@ void SkyTextureNode::compile(SVMCompiler& compiler)
 		sky_texture_precompute_old(&sunsky, sun_direction, turbidity);
 	else if(type_enum[type] == NODE_SKY_NEW)
 		sky_texture_precompute_new(&sunsky, sun_direction, turbidity, ground_albedo);
+	else
+		assert(false);
 
 	if(vector_in->link)
 		compiler.stack_assign(vector_in);
@@ -666,6 +668,8 @@ void SkyTextureNode::compile(OSLCompiler& compiler)
 		sky_texture_precompute_old(&sunsky, sun_direction, turbidity);
 	else if(type_enum[type] == NODE_SKY_NEW)
 		sky_texture_precompute_new(&sunsky, sun_direction, turbidity, ground_albedo);
+	else
+		assert(false);
 		
 	compiler.parameter("sky_model", type);
 	compiler.parameter("theta", sunsky.theta);
@@ -2360,6 +2364,15 @@ void UVMapNode::compile(SVMCompiler& compiler)
 	NodeType attr_node = NODE_ATTR;
 	int attr;
 
+	if(bump == SHADER_BUMP_DX) {
+		texco_node = NODE_TEX_COORD_BUMP_DX;
+		attr_node = NODE_ATTR_BUMP_DX;
+	}
+	else if(bump == SHADER_BUMP_DY) {
+		texco_node = NODE_TEX_COORD_BUMP_DY;
+		attr_node = NODE_ATTR_BUMP_DY;
+	}
+
 	if(!out->links.empty()) {
 		if(from_dupli) {
 			compiler.stack_assign(out);
@@ -2379,6 +2392,13 @@ void UVMapNode::compile(SVMCompiler& compiler)
 
 void UVMapNode::compile(OSLCompiler& compiler)
 {
+	if(bump == SHADER_BUMP_DX)
+		compiler.parameter("bump_offset", "dx");
+	else if(bump == SHADER_BUMP_DY)
+		compiler.parameter("bump_offset", "dy");
+	else
+		compiler.parameter("bump_offset", "center");
+
 	compiler.parameter("from_dupli", from_dupli);
 	compiler.parameter("name", attribute.c_str());
 	compiler.add(this, "node_uv_map");
@@ -2399,6 +2419,7 @@ LightPathNode::LightPathNode()
 	add_output("Is Volume Scatter Ray", SHADER_SOCKET_FLOAT);
 	add_output("Ray Length", SHADER_SOCKET_FLOAT);
 	add_output("Ray Depth", SHADER_SOCKET_FLOAT);
+	add_output("Transparent Depth", SHADER_SOCKET_FLOAT);
 }
 
 void LightPathNode::compile(SVMCompiler& compiler)
@@ -2466,6 +2487,11 @@ void LightPathNode::compile(SVMCompiler& compiler)
 		compiler.add_node(NODE_LIGHT_PATH, NODE_LP_ray_depth, out->stack_offset);
 	}
 
+	out = output("Transparent Depth");
+	if(!out->links.empty()) {
+		compiler.stack_assign(out);
+		compiler.add_node(NODE_LIGHT_PATH, NODE_LP_ray_transparent, out->stack_offset);
+	}
 }
 
 void LightPathNode::compile(OSLCompiler& compiler)

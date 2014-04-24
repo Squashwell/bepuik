@@ -64,6 +64,7 @@ CCL_NAMESPACE_BEGIN
 #define __SUBSURFACE__
 #define __CMJ__
 #define __VOLUME__
+#define __SHADOW_RECORD_ALL__
 #endif
 
 #ifdef __KERNEL_CUDA__
@@ -151,12 +152,6 @@ CCL_NAMESPACE_BEGIN
 #define __HAIR__
 #endif
 
-/* Sanity check */
-
-#if defined(__KERNEL_OPENCL_NEED_ADVANCED_SHADING__) && !defined(__MULTI_CLOSURE__)
-#error "OpenCL: mismatch between advanced shading flags in device_opencl.cpp and kernel_types.h"
-#endif
-
 /* Random Numbers */
 
 typedef uint RNG;
@@ -192,7 +187,7 @@ enum PathTraceDimension {
 	PRNG_LIGHT = 3,
 	PRNG_LIGHT_U = 4,
 	PRNG_LIGHT_V = 5,
-	PRNG_LIGHT_F = 6,
+	PRNG_UNUSED_3 = 6,
 	PRNG_TERMINATE = 7,
 
 #ifdef __VOLUME__
@@ -491,15 +486,17 @@ typedef enum AttributeStandard {
 
 /* Closure data */
 
+#ifdef __MULTI_CLOSURE__
 #define MAX_CLOSURE 64
+#else
+#define MAX_CLOSURE 1
+#endif
 
 typedef struct ShaderClosure {
 	ClosureType type;
 	float3 weight;
 
-#ifdef __MULTI_CLOSURE__
 	float sample_weight;
-#endif
 
 	float data0;
 	float data1;
@@ -609,6 +606,9 @@ typedef struct ShaderData {
 	/* ray bounce depth */
 	int ray_depth;
 
+	/* ray transparent depth */
+	int transparent_depth;
+
 #ifdef __RAY_DIFFERENTIALS__
 	/* differential of P. these are orthogonal to Ng, not N */
 	differential3 dP;
@@ -631,15 +631,10 @@ typedef struct ShaderData {
 	Transform ob_itfm;
 #endif
 
-#ifdef __MULTI_CLOSURE__
 	/* Closure data, we store a fixed array of closures */
 	ShaderClosure closure[MAX_CLOSURE];
 	int num_closure;
 	float randb_closure;
-#else
-	/* Closure data, with a single sampled closure for low memory usage */
-	ShaderClosure closure;
-#endif
 
 	/* ray start position, only set for backgrounds */
 	float3 ray_P;

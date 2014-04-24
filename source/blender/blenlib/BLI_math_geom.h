@@ -215,6 +215,8 @@ void barycentric_transform(float pt_tar[3], float const pt_src[3],
 
 void barycentric_weights_v2(const float v1[2], const float v2[2], const float v3[2],
                             const float co[2], float w[3]);
+void barycentric_weights_v2_persp(const float v1[4], const float v2[4], const float v3[4],
+                                  const float co[2], float w[3]);
 void barycentric_weights_v2_quad(const float v1[2], const float v2[2], const float v3[2], const float v4[2],
                                  const float co[2], float w[4]);
 
@@ -317,6 +319,8 @@ MINLINE int poly_to_tri_count(const int poly_count, const int corner_count);
 MINLINE float shell_angle_to_dist(const float angle);
 MINLINE float shell_v3v3_normalized_to_dist(const float a[3], const float b[3]);
 MINLINE float shell_v2v2_normalized_to_dist(const float a[2], const float b[2]);
+MINLINE float shell_v3v3_mid_normalized_to_dist(const float a[3], const float b[3]);
+MINLINE float shell_v2v2_mid_normalized_to_dist(const float a[2], const float b[2]);
 
 /**************************** Inline Definitions ******************************/
 

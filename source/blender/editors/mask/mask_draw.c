@@ -622,7 +622,7 @@ void ED_mask_draw(const bContext *C,
 
 	ED_mask_get_size(sa, &width, &height);
 	ED_mask_get_aspect(sa, ar, &aspx, &aspy);
-	UI_view2d_getscale(&ar->v2d, &xscale, &yscale);
+	UI_view2d_scale_get(&ar->v2d, &xscale, &yscale);
 
 	draw_masklays(C, mask, draw_flag, draw_type, width, height, xscale * aspx, yscale * aspy);
 }
@@ -738,7 +738,7 @@ void ED_mask_draw_region(Mask *mask, ARegion *ar,
 	float xofs, yofs;
 
 	/* find window pixel coordinates of origin */
-	UI_view2d_to_region_no_clip(&ar->v2d, 0.0f, 0.0f, &x, &y);
+	UI_view2d_view_to_region(&ar->v2d, 0.0f, 0.0f, &x, &y);
 
 
 	/* w = BLI_rctf_size_x(&v2d->tot); */
