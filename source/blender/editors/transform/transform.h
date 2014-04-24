@@ -260,21 +260,8 @@ typedef struct BEPUikUndoData
 	float eul[3];                       /* euler rotation */
 	float quat[4];                      /* quaternion rotation */
 	float rotAxis[3], rotAngle;         /* axis-angle rotation */
-	
-	float chan_mat[4][4];           /* matrix result of loc/quat/size, and where we put deform in, see next line */
-	float pose_mat[4][4];           /* constraints accumulate here. in the end, pose_mat = bone->arm_mat * chan_mat
-	                                 * this matrix is object space */
-	float constinv[4][4];           /* inverse result of constraints.
-	                                 * doesn't include effect of restposition, parent, and local transform*/
-	
-	float pose_head[3];             /* actually pose_mat[3] */
-	float pose_tail[3];             /* also used for drawing help lines... */
-    
-    /* ifdef WITH_BEPUIK tweak values */
-	float bepuik_angular_rigidity;
-    float bepuik_angular_orientation[4];
-    float bepuik_stiffness_pose_mat[4][4];
-	float bepuik_stiffness_pose_tail[3];
+
+	int bepuikflag;
 }BEPUikUndoData;
 
 typedef struct TransData {

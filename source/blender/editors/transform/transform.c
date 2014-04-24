@@ -7779,14 +7779,7 @@ bool checkUseAxisMatrix(TransInfo *t)
 	copy_v3_v3(destination->rotAxis,source->rotAxis); \
     destination->rotAngle = source->rotAngle; \
 	\
-    copy_m4_m4(destination->chan_mat,source->chan_mat); \
-	copy_m4_m4(destination->pose_mat,source->pose_mat); \
-	\
-    copy_v3_v3(destination->pose_head,source->pose_head); \
-    copy_v3_v3(destination->pose_tail,source->pose_tail); \
-	\
-	copy_m4_m4(destination->constinv,source->constinv);
-
+	destination->bepuikflag = source->bepuikflag;
 
 void bepu_store_pchans(TransInfo * t)
 {
