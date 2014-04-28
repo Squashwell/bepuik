@@ -464,6 +464,9 @@ typedef struct bBEPUikLocation {
 typedef struct bBEPUikAngularJoint {
 	struct Object * connection_target;
     char connection_subtarget[64];
+	struct Object * relative_orientation_target;
+	char relative_orientation_subtarget[64];
+	int flag, pad;
 }bBEPUikAngularJoint;
 
 typedef struct bBEPUikBallSocketJoint {
@@ -666,7 +669,8 @@ typedef enum eBEPUikTargetRigidity_Types{
 } eBEPUikTargetRigidity_Flags;
 
 typedef enum eBEPUikConstraint_Flags{
-	BEPUIK_CONSTRAINT_HARD =					(1<<0)
+	BEPUIK_CONSTRAINT_HARD =					(1<<0),
+	BEPUIK_CONSTRAINT_OFFSET_FROM_REST =			(1<<1)
 } eBEPUikConstraint_Flags;
 
 /* ------------------------------------------ */

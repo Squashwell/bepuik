@@ -50,7 +50,6 @@ namespace BEPUik
 		/// <param name="connectionB">Second bone to connect to the joint.</param>
 		IKAngularJoint(IKBone* connectionA, IKBone* connectionB);
         IKAngularJoint(IKBone*connectionA, IKBone*connectionB, Quaternion relativeOrientation);
-        IKAngularJoint(IKBone* connectionA, IKBone* connectionB, IKBone* orientationReferenceA, IKBone* orientationReferenceB);
 		void UpdateJacobiansAndVelocityBias();
 		bool HasError();
 	private:

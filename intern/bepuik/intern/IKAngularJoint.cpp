@@ -40,12 +40,6 @@ namespace BEPUik
 	{
 		Quaternion::RelativeOrientation(connectionA->Orientation,connectionB->Orientation, GoalRelativeOrientation);
 	}
-
-    IKAngularJoint::IKAngularJoint(IKBone* connectionA, IKBone* connectionB, IKBone * orientationReferenceA, IKBone * orientationReferenceB)
-		: IKJoint(connectionA, connectionB)
-	{
-		Quaternion::RelativeOrientation(orientationReferenceA->Orientation,orientationReferenceB->Orientation, GoalRelativeOrientation);
-	}
     
     IKAngularJoint::IKAngularJoint(IKBone*connectionA, IKBone*connectionB, Quaternion relativeOrientation)
         : IKJoint(connectionA,connectionB)

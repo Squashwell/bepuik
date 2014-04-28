@@ -31,10 +31,8 @@
  *
  * perhaps change bepuik constraints (except bepuik target) so they dont use targets and just update the bone rename function
  *
- * blender constraints could be solved before or after bepuik.  The best way to do this would be to have a "node" based
+ * blender constraints could be solved before or after bepuik.  The best way to do this would be to have a node
  * interface with bepuik/blender constraints
- *
- * angular joint should/could be given orientation parameter.
  *
  * bepuik targets could have defined offset (otherwise defined by armature offset)
  * it would make targetting two palms together easier
@@ -288,23 +286,23 @@ if(!ikbone_connection) break;
 #define BEPUIK_DATA(pchan) ((BEPUikTempSolvingData *)((pchan)->bepuik))
 
 #define LOC(IDENTIFIER) bPoseChannel * pchan_##IDENTIFIER = BKE_pose_channel_find_name(ob->pose,bjoint->IDENTIFIER##_subtarget); \
-Vector3 v3_##IDENTIFIER; \
+Vector3 bepuv3_##IDENTIFIER; \
 if(pchan_##IDENTIFIER)	\
 { \
-float bv3_##IDENTIFIER[3]; \
-interp_v3_v3v3(bv3_##IDENTIFIER,BEPUIK_DATA(pchan_##IDENTIFIER)->rest_pose_mat[3],BEPUIK_DATA(pchan_##IDENTIFIER)->rest_tail,bjoint->IDENTIFIER##_head_tail); \
-bepuv3_v3(v3_##IDENTIFIER,bv3_##IDENTIFIER); \
+float v3_##IDENTIFIER[3]; \
+interp_v3_v3v3(v3_##IDENTIFIER,BEPUIK_DATA(pchan_##IDENTIFIER)->rest_pose_mat[3],BEPUIK_DATA(pchan_##IDENTIFIER)->rest_tail,bjoint->IDENTIFIER##_head_tail); \
+bepuv3_v3(bepuv3_##IDENTIFIER,v3_##IDENTIFIER); \
 } else { break; }
 
 
 //Can't use pose_mat for axis, because it causes instability when feedback is in use
 #define AXIS(IDENTIFIER) bPoseChannel * pchan_##IDENTIFIER = BKE_pose_channel_find_name(ob->pose,bjoint->IDENTIFIER##_subtarget); \
-Vector3 v3_##IDENTIFIER; \
+Vector3 bepuv3_##IDENTIFIER; \
 if(pchan_##IDENTIFIER) \
 { \
-float bv3_##IDENTIFIER[3]; \
-mat_get_axis(bv3_##IDENTIFIER,bjoint->IDENTIFIER,BEPUIK_DATA(pchan_##IDENTIFIER)->rest_pose_mat); \
-bepuv3_v3(v3_##IDENTIFIER,bv3_##IDENTIFIER); \
+float v3_##IDENTIFIER[3]; \
+mat_get_axis(v3_##IDENTIFIER,bjoint->IDENTIFIER,BEPUIK_DATA(pchan_##IDENTIFIER)->rest_pose_mat); \
+bepuv3_v3(bepuv3_##IDENTIFIER,v3_##IDENTIFIER); \
 } else { break; }
 
 #define PCHAN_BEPUIK_BONE_LENGTH(pchan) (((BEPUikTempSolvingData *)((pchan)->bepuik))->ikbone->GetLength())
@@ -547,6 +545,14 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 	}
 }
 
+static void rest_space_mat(float r_mat[4][4], bPoseChannel * pchan_a, bPoseChannel * pchan_b)
+{
+	//calculate the rest space delta from pchan to pchan_connection
+	copy_m4_m4(r_mat,pchan_a->bone->arm_mat);
+	invert_m4(r_mat);
+	mul_m4_m4m4(r_mat,r_mat,pchan_b->bone->arm_mat);
+}
+
 void bepu_solve(Object * ob)
 {
 	if(ob->type != OB_ARMATURE) return;
@@ -645,8 +651,31 @@ void bepu_solve(Object * ob)
 			case CONSTRAINT_TYPE_BEPUIK_ANGULAR_JOINT:
 			{
 				CONNECTION_VARS(bBEPUikAngularJoint)
-				
-				ikjoint = new IKAngularJoint(ikbone,ikbone_connection);
+				float goal_mat[4][4];
+
+				bPoseChannel * pchan_relative_orientation = BKE_pose_channel_find_name(ob->pose,bjoint->relative_orientation_subtarget);
+				Quaternion goal_relative_orientation;
+				if(pchan_relative_orientation)
+				{
+					BKE_pchan_to_mat4(pchan_relative_orientation,goal_mat);
+
+					if(bjoint->flag & BEPUIK_CONSTRAINT_OFFSET_FROM_REST)
+					{
+						float rest_mat[4][4];
+						rest_space_mat(rest_mat,pchan,pchan_connection);
+						mul_m4_m4m4(goal_mat,rest_mat,goal_mat);
+					}
+				}
+				else
+				{
+					rest_space_mat(goal_mat,pchan,pchan_connection);
+				}
+
+				float quat[4];
+				mat4_to_quat(quat,goal_mat);
+				bepuqt_qt(goal_relative_orientation,quat);
+				ikjoint = new IKAngularJoint(ikbone,ikbone_connection,goal_relative_orientation);
+
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_BALL_SOCKET_JOINT:
@@ -654,7 +683,7 @@ void bepu_solve(Object * ob)
 				CONNECTION_VARS(bBEPUikBallSocketJoint)
 				LOC(anchor)
 						
-				ikjoint = new IKBallSocketJoint(ikbone,ikbone_connection,v3_anchor);
+				ikjoint = new IKBallSocketJoint(ikbone,ikbone_connection,bepuv3_anchor);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_DISTANCE_JOINT:
@@ -663,7 +692,7 @@ void bepu_solve(Object * ob)
 				LOC(anchor_a)
 				LOC(anchor_b)
 
-				ikjoint = new IKDistanceJoint(ikbone,ikbone_connection,v3_anchor_a,v3_anchor_b);
+				ikjoint = new IKDistanceJoint(ikbone,ikbone_connection,bepuv3_anchor_a,bepuv3_anchor_b);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_DISTANCE_LIMIT:
@@ -672,7 +701,7 @@ void bepu_solve(Object * ob)
 				LOC(anchor_a)
 				LOC(anchor_b)
 				
-				ikjoint = new IKDistanceLimit(ikbone,ikbone_connection,v3_anchor_a,v3_anchor_b,bjoint->min_distance,bjoint->max_distance);
+				ikjoint = new IKDistanceLimit(ikbone,ikbone_connection,bepuv3_anchor_a,bepuv3_anchor_b,bjoint->min_distance,bjoint->max_distance);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_LINEAR_AXIS_LIMIT:
@@ -682,7 +711,7 @@ void bepu_solve(Object * ob)
 				AXIS(line_direction)
 				LOC(anchor_b)
 				
-				ikjoint = new IKLinearAxisLimit(ikbone,ikbone_connection,v3_line_anchor,v3_line_direction,v3_anchor_b,bjoint->min_distance,bjoint->max_distance);
+				ikjoint = new IKLinearAxisLimit(ikbone,ikbone_connection,bepuv3_line_anchor,bepuv3_line_direction,bepuv3_anchor_b,bjoint->min_distance,bjoint->max_distance);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_POINT_ON_LINE_JOINT:
@@ -692,7 +721,7 @@ void bepu_solve(Object * ob)
 				AXIS(line_direction)
 				LOC(anchor_b)
 				
-				ikjoint = new IKPointOnLineJoint(ikbone,ikbone_connection,v3_line_anchor,v3_line_direction,v3_anchor_b);
+				ikjoint = new IKPointOnLineJoint(ikbone,ikbone_connection,bepuv3_line_anchor,bepuv3_line_direction,bepuv3_anchor_b);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_POINT_ON_PLANE_JOINT:
@@ -702,7 +731,7 @@ void bepu_solve(Object * ob)
 				LOC(anchor_b)
 				AXIS(plane_normal)
 				
-				ikjoint = new IKPointOnPlaneJoint(ikbone,ikbone_connection,v3_plane_anchor,v3_plane_normal,v3_anchor_b);
+				ikjoint = new IKPointOnPlaneJoint(ikbone,ikbone_connection,bepuv3_plane_anchor,bepuv3_plane_normal,bepuv3_anchor_b);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_REVOLUTE_JOINT:
@@ -710,7 +739,7 @@ void bepu_solve(Object * ob)
 				CONNECTION_VARS(bBEPUikRevoluteJoint)
 				AXIS(free_axis)
 				
-				ikjoint = new IKRevoluteJoint(ikbone,ikbone_connection,v3_free_axis);
+				ikjoint = new IKRevoluteJoint(ikbone,ikbone_connection,bepuv3_free_axis);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_SWING_LIMIT:
@@ -719,7 +748,7 @@ void bepu_solve(Object * ob)
 				AXIS(axis_a)
 				AXIS(axis_b)
 				
-				ikjoint = new IKSwingLimit(ikbone,ikbone_connection,v3_axis_a,v3_axis_b,bjoint->max_swing);
+				ikjoint = new IKSwingLimit(ikbone,ikbone_connection,bepuv3_axis_a,bepuv3_axis_b,bjoint->max_swing);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_SWIVEL_HINGE_JOINT:
@@ -728,7 +757,7 @@ void bepu_solve(Object * ob)
 				AXIS(hinge_axis)
 				AXIS(twist_axis)
 				
-				ikjoint = new IKSwivelHingeJoint(ikbone,ikbone_connection,v3_hinge_axis,v3_twist_axis);
+				ikjoint = new IKSwivelHingeJoint(ikbone,ikbone_connection,bepuv3_hinge_axis,bepuv3_twist_axis);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_TWIST_JOINT:
@@ -737,8 +766,7 @@ void bepu_solve(Object * ob)
 				AXIS(axis_a)
 				AXIS(axis_b)
 				
-				ikjoint = new IKTwistJoint(ikbone,
-				ikbone_connection,v3_axis_a,v3_axis_b);
+				ikjoint = new IKTwistJoint(ikbone,ikbone_connection,bepuv3_axis_a,bepuv3_axis_b);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_TWIST_LIMIT:
@@ -749,7 +777,7 @@ void bepu_solve(Object * ob)
 				AXIS(measurement_axis_a)
 				AXIS(measurement_axis_b)
 				
-				ikjoint = new IKTwistLimit(ikbone,ikbone_connection,v3_axis_a,v3_measurement_axis_a,v3_axis_b,v3_measurement_axis_b,bjoint->max_twist);
+				ikjoint = new IKTwistLimit(ikbone,ikbone_connection,bepuv3_axis_a,bepuv3_measurement_axis_a,bepuv3_axis_b,bepuv3_measurement_axis_b,bjoint->max_twist);
 				break;
 			}
 			case CONSTRAINT_TYPE_BEPUIK_CONTROL:

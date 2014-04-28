@@ -69,16 +69,16 @@ class ConstraintButtonsPanel():
             elif con.target.type in {'MESH', 'LATTICE'}:
                 layout.prop_search(con, "subtarget", con.target, "vertex_groups", text="Vertex Group")
     
-    def bepuik_template_connection(self, layout, con):
+    def bepuik_template_target(self, layout, con, propprefix="connection"):
         layout = layout.row(align=True)
         layout = layout.split(.5)
         target = con.connection_target
         
-        layout.prop(con, "connection_target")  
+        layout.prop(con, "%s_target" % propprefix)  
 
         if target:
             if con.connection_target.type == 'ARMATURE':
-                layout.prop_search(con, "connection_subtarget", target.data, "bones",text="")
+                layout.prop_search(con, "%s_subtarget" % propprefix, target.data, "bones",text="")
 
             
                 
@@ -903,13 +903,20 @@ class ConstraintButtonsPanel():
         layout.label("Target A:  %s : %s" % (obname,pchanname))
          
     def BEPUIK_ANGULAR_JOINT(self, context, layout, con):
-        self.bepuik_template_connection(layout, con)
+        col = layout.column(align=True)
+        self.connection_a_label(col)
+        self.bepuik_template_target(layout, con, propprefix="relative_orientation")
+        col = layout.column(align=True)
+        col.prop(con,'use_offset_from_rest')
+        col.enabled = con.relative_orientation_subtarget != ""
+        layout.separator();col = layout.column(align=True)
+        self.bepuik_template_target(col, con)
         layout.prop(con,'bepuik_rigidity')
         
     def BEPUIK_BALL_SOCKET_JOINT(self,context,layout,con):
         self.connection_a_label(layout)
         self.bepuik_template_location(layout, con, "anchor")
-        self.bepuik_template_connection(layout, con)
+        self.bepuik_template_target(layout, con)
         layout.prop(con,'bepuik_rigidity')
         
     def BEPUIK_DISTANCE_JOINT(self,context,layout,con):
@@ -917,7 +924,7 @@ class ConstraintButtonsPanel():
         self.connection_a_label(col)
         self.bepuik_template_location(col, con, "anchor_a")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_location(col, con, "anchor_b")
         layout.prop(con,'bepuik_rigidity')
         
@@ -926,7 +933,7 @@ class ConstraintButtonsPanel():
         self.connection_a_label(col)
         self.bepuik_template_location(col, con, "anchor_a")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_location(col, con, "anchor_b")
         layout.prop(con,"min_distance")
         layout.prop(con,"max_distance")
@@ -938,7 +945,7 @@ class ConstraintButtonsPanel():
         self.bepuik_template_location(col, con, "line_anchor")
         self.bepuik_template_axis(col, con, "line_direction")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_location(col, con, "anchor_b")
         layout.prop(con,"min_distance")
         layout.prop(con,"max_distance")
@@ -950,7 +957,7 @@ class ConstraintButtonsPanel():
         self.bepuik_template_location(col, con, "line_anchor")
         self.bepuik_template_axis(col, con, "line_direction")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_location(col, con, "anchor_b")
         layout.prop(con,'bepuik_rigidity')
         
@@ -960,13 +967,13 @@ class ConstraintButtonsPanel():
         self.bepuik_template_location(col, con, "plane_anchor")
         self.bepuik_template_axis(col, con, "plane_normal")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_location(col, con, "anchor_b")
         layout.prop(con,'bepuik_rigidity')
 
     def BEPUIK_REVOLUTE_JOINT(self,context,layout,con):
         self.connection_a_label(layout)
-        self.bepuik_template_connection(layout, con)
+        self.bepuik_template_target(layout, con)
         self.bepuik_template_axis(layout, con, "free_axis")
         layout.prop(con,'bepuik_rigidity')
 
@@ -975,7 +982,7 @@ class ConstraintButtonsPanel():
         self.connection_a_label(col)
         self.bepuik_template_axis(col, con, "axis_a")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_axis(col, con, "axis_b")
         layout.prop(con,"max_swing")
         layout.prop(con,'bepuik_rigidity')
@@ -985,7 +992,7 @@ class ConstraintButtonsPanel():
         self.connection_a_label(col)
         self.bepuik_template_axis(col, con, "hinge_axis")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(con, con)
+        self.bepuik_template_target(con, con)
         self.bepuik_template_axis(con, con, "twist_axis")        
         layout.prop(con,'bepuik_rigidity')
         
@@ -994,7 +1001,7 @@ class ConstraintButtonsPanel():
         self.connection_a_label(col)
         self.bepuik_template_axis(col, con, "axis_a")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_axis(col, con, "axis_b")
         layout.prop(con,'bepuik_rigidity')
         
@@ -1004,7 +1011,7 @@ class ConstraintButtonsPanel():
         self.bepuik_template_axis(col, con, "axis_a")
         self.bepuik_template_axis(col, con, "measurement_axis_a")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_connection(col, con)
+        self.bepuik_template_target(col, con)
         self.bepuik_template_axis(col, con, "axis_b")
         self.bepuik_template_axis(col, con, "measurement_axis_b")
         layout.separator();col = layout.column(align=True)
@@ -1013,7 +1020,7 @@ class ConstraintButtonsPanel():
         
         
     def BEPUIK_CONTROL(self,context,layout,con):
-        self.bepuik_template_connection(layout,con)
+        self.bepuik_template_target(layout,con)
         layout.prop(con,"use_hard_rigidity")
         layout.prop(con,"bepuik_rigidity",text="Position Rigidity")
         layout.prop(con,"orientation_rigidity")

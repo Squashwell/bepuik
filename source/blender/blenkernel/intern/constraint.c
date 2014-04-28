@@ -4388,10 +4388,36 @@ static void bepuik_##func_id##_id_looper(bConstraint *con, ConstraintIDFunc func
 	func(con, (ID **)&data->target_prefix4##_target, false, userdata); \
 }
 
-BEPUIK_1_TARGET(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint)
+static int bepuik_angular_joint_get_tars(bConstraint *con, ListBase *list)
+{
+	if (con && list) {
+		bBEPUikAngularJoint *data = con->data;
+		bConstraintTarget *ct;
+		/* standard target-getting macro for single-target constraints */
+		SINGLETARGET_GET_TARS(con,data->connection_target, data->connection_subtarget, ct, list);
+		return 1;
+	}
+	return 0;
+}
+static void bepuik_angular_joint_flush_tars(bConstraint *con, ListBase *list, short nocopy)
+{
+	if (con && list) {
+		bBEPUikAngularJoint *data = con->data;
+		bConstraintTarget *ct = list->first;
+		SINGLETARGET_FLUSH_TARS(con,data->connection_target, data->connection_subtarget, ct, list, nocopy);
+		SINGLETARGET_FLUSH_TARS(con, data->relative_orientation_target, data->relative_orientation_subtarget, ct, list, nocopy);
+	}
+}
+static void bepuik_angular_joint_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata)
+{
+	bBEPUikAngularJoint *data = con->data;
+	func(con, (ID **)&data->connection_target, false, userdata);
+	func(con, (ID **)&data->relative_orientation_target, false, userdata);
+}
 static void bepuik_angular_joint_new_data(void *cdata)
 {
-
+bBEPUikAngularJoint *data = (bBEPUikAngularJoint *)cdata;
+data->flag |= BEPUIK_CONSTRAINT_OFFSET_FROM_REST;
 }
 BEPUIK_CTI(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint,BEPUik Angular Joint,bepuik_angular_joint_new_data)
 
