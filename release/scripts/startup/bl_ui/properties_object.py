@@ -330,7 +330,7 @@ class BEPUikSolverSettings():
         col.prop(ob,"use_bepuik_dynamic")
         col.prop(ob,"use_bepuik_match_finished_transform")
         col.prop(ob,"use_bepuik_inactive_targets_follow")
-        col.prop(ob,"use_bepuik_parented_peripheral_bones")
+        col.prop(ob,"use_bepuik_solve_peripheral_bones")
         
         col = layout.column()
         col.prop(ob,"bepuik_solve_length")
@@ -344,7 +344,7 @@ class BEPUikSolverSettings():
         box.prop(ob,"bepuik_dynamic_solve_length",text="Solve Length")
         
         col = box.column()
-        col.active = not ob.use_bepuik_parented_peripheral_bones
+        col.active = ob.use_bepuik_solve_peripheral_bones
         col.prop(ob,"bepuik_dynamic_peripheral_stiffness",text="Peripheral Stiffness")
         
         col = box.column()

@@ -926,7 +926,7 @@ void bepu_solve(Object * ob)
 	
 	ob->pose->bepuikflag &= ~POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT;
 	
-	if(ob->bepuikflag & OB_BEPUIK_PARENTED_PERIPHERAL_BONES)
+	if(!(ob->bepuikflag & OB_BEPUIK_SOLVE_PERIPHERAL_BONES))
 	{
 		ikjoints_enable_by_partition(joints);
 	}

@@ -2776,9 +2776,9 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Match Finished Transform", "Attempt to match bones and targets to the finished result of transform operators");
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
-	prop = RNA_def_property(srna, "use_bepuik_parented_peripheral_bones", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", OB_BEPUIK_PARENTED_PERIPHERAL_BONES);
-	RNA_def_property_ui_text(prop, "Parented Peripheral Bones", "Parent peripheral bones, rather than solve them");
+	prop = RNA_def_property(srna, "use_bepuik_solve_peripheral_bones", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", OB_BEPUIK_SOLVE_PERIPHERAL_BONES);
+	RNA_def_property_ui_text(prop, "Solve Peripheral Bones", "Solve peripheral BEPUik bones");
 	
 	prop = RNA_def_property(srna, "bepuik_solve_length", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(prop, "Solve Length", "Length of the BEPUik solve during non-dynamic mode");
