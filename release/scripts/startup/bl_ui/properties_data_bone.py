@@ -249,8 +249,9 @@ class BONE_PT_bepuik(BoneButtonsPanel, Panel):
         
         col = layout.column()
         col.active = pchan.use_bepuik
-        col.prop(pchan,'bepuik_ball_socket_rigidity',text="Ball Socket Rigidity")
-        col.prop(pchan,'bepuik_rotational_heaviness')
+        col.prop(pchan,"bepuik_ball_socket_rigidity",text="Ball Socket Rigidity")
+        col.prop(pchan,"bepuik_rotational_heaviness")
+        col.prop(pchan,"use_bepuik_always_solve")
 
 class BONE_PT_inverse_kinematics(BoneButtonsPanel, Panel):
     bl_label = "Inverse Kinematics"

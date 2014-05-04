@@ -313,17 +313,6 @@ static float get_bone_length_normalized_orientation_rigidity(IKBone * ikbone, fl
 	return length * length * orientation_rigidity;
 }
 
-static void ikjoints_enable_by_partition(vector <IKJoint *> &joints)
-{
-	BOOST_FOREACH(IKJoint * ikjoint, joints)
-	{
-		if((ikjoint->GetConnectionA()->pchan->bepuikflag & BONE_BEPUIK_IN_SOLVING_PARTITION) && (ikjoint->GetConnectionB()->pchan->bepuikflag & BONE_BEPUIK_IN_SOLVING_PARTITION))
-			ikjoint->SetEnabled(true);
-		else
-			ikjoint->SetEnabled(false);
-	}	
-}
-
 static void get_scale_applied_bone_local_offsets(float r_scale_applied_bone_local_offset[3], float r_scale_applied_bone_local_offset_bepuik_internal[3], float length, float size[3], float bone_local_offset[3])
 {
 	zero_v3(r_scale_applied_bone_local_offset);
@@ -343,14 +332,14 @@ static void get_scale_applied_bone_local_offsets(float r_scale_applied_bone_loca
 
 
 
-static void flag_child_to_root_for_solve(bPoseChannel * pchan)
+static void flag_child_to_root_as_core(bPoseChannel * pchan)
 {
-	if(!(pchan->bepuikflag & BONE_BEPUIK_IN_SOLVING_PARTITION))
+	if(!(pchan->bepuikflag & BONE_BEPUIK_CORE))
 	{
-		pchan->bepuikflag |= BONE_BEPUIK_IN_SOLVING_PARTITION;
+		pchan->bepuikflag |= BONE_BEPUIK_CORE;
 		if(pchan->parent)
 		{
-			flag_child_to_root_for_solve(pchan->parent);
+			flag_child_to_root_as_core(pchan->parent);
 		}
 	}
 		
@@ -486,6 +475,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
 			{
 				pchan_target->bepuikflag |= BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET;
+				pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_CONTROL;
 				
 				StateControl * statecontrol = new_statecontrol(ikbone,scale_applied_local_offset_bepuik_internal,motor_target_position,motor_target_orientation,effective_position_rigidity,effective_orientation_rigidity);
 				
@@ -536,7 +526,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 		
 		if((effective_position_rigidity >= FLT_EPSILON) || (effective_orientation_rigidity >= FLT_EPSILON))
 		{
-			
+			pchan_controlled->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_CONTROL;
 			StateControl * statecontrol = new_statecontrol(ikbone,scale_applied_local_offset_bepuik_internal,destination_position,destination_orientation,effective_position_rigidity,effective_orientation_rigidity);
 			
 			controls.push_back(statecontrol);
@@ -637,7 +627,7 @@ void bepu_solve(Object * ob)
 			setup_bepuik_control(ob,constraint,ikbone,controls);
 		}
 		
-		//create constraints but exclude bepuik controls if there was an absolute control found earlier
+		//create constraints but exclude hard bepuik controls
 		for(bConstraint * constraint = (bConstraint *)pchan->constraints.first; constraint; constraint = constraint->next)
 		{
 			if(constraint->flag & (CONSTRAINT_DISABLE|CONSTRAINT_OFF))
@@ -831,6 +821,7 @@ void bepu_solve(Object * ob)
 				bepuv3_v3(dragControl->GetLinearMotor()->LocalOffset,local_offset);
 				bepuv3_v3(dragControl->GetLinearMotor()->TargetPosition,pchan->bepuik_transform_position);
 				controls.push_back(dragControl);
+				pchan->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_CONTROL;
 			}
 			else if(ob->pose->bepuikflag & POSE_BEPUIK_SELECTION_AS_STATECONTROL) 
 			{
@@ -847,43 +838,35 @@ void bepu_solve(Object * ob)
 				bepuqt_qt(statecontrol->GetAngularMotor()->TargetOrientation,quat);
 				pchan_bepuik_position_to_internal_bepuik_position(statecontrol->GetLinearMotor()->TargetPosition,pchan->bepuik_transform_position,quat,PCHAN_BEPUIK_BONE_LENGTH(pchan));
 				controls.push_back(statecontrol);
+				pchan->bepuikflag |= BONE_BEPUIK_AFFECTED_BY_CONTROL;
 			}
 		}
-	}	
+	}
 
-	//setup iksolver parameters
-	IKSolver * iksolver = new IKSolver();
+	//this is a gross hack to always solve some bones... blehgahhhhh
+	for(bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
+	{
+		if((pchan->bepuikflag & BONE_BEPUIK_ALWAYS_SOLVE) && !(pchan->bepuikflag & BONE_BEPUIK_AFFECTED_BY_CONTROL))
+		{
+			IKBone * ikbone = pchan_get_bepuik_bone(pchan);
+			if(ikbone)
+			{
+				DragControl * dragControl = new DragControl();
+				dragControl->SetTargetBone(ikbone);
+				dragControl->GetLinearMotor()->SetRigidity(0.0f);
+				dragControl->GetLinearMotor()->LocalOffset = Vector3(0,0,0);
+				dragControl->GetLinearMotor()->TargetPosition = Vector3(0,0,0);
+				controls.push_back(dragControl);
+			}
+		}
+	}
 
-	float bepuik_solve_length = (float)((ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC) ? ob->bepuik_dynamic_solve_length : ob->bepuik_solve_length);
-	float bepuik_solve_quality = ob->bepuik_solve_quality;
-	
-	CLAMP(bepuik_solve_length,BEPUIK_SOLVE_LENGTH_MIN,BEPUIK_SOLVE_LENGTH_MAX);
-	CLAMP(bepuik_solve_quality,BEPUIK_SOLVE_QUALITY_MIN,BEPUIK_SOLVE_QUALITY_MAX);
-	
-	float timestep_duration = 1 / (float)bepuik_solve_quality;
-	iksolver->ControlIterationCount = bepuik_solve_length / timestep_duration;
-	iksolver->SetTimeStepDuration(timestep_duration);
-	iksolver->FixerIterationCount = ob->bepuik_fixer_iterations;
-	iksolver->AutoscaleControlMaximumLinearForce = MAXFLOAT;
-	iksolver->AutoscaleControlMaximumAngularForce = MAXFLOAT;
-
-	int velocity_subiteration_count = ob->bepuik_solve_quality * 3;
-	CLAMP(velocity_subiteration_count,1,10);
-	iksolver->VelocitySubiterationCount = velocity_subiteration_count;
-	
-	vector <Control *> controls_to_solve = vector <Control *>();
-	
 	BOOST_FOREACH(Control * control, controls)
 	{
 		IKBone * target_ikbone = (IKBone *)control->GetTargetBone();
-		if(!target_ikbone->Pinned)
-		{
-			controls_to_solve.push_back(control);
-			flag_child_to_root_for_solve(target_ikbone->pchan);
-		}
-		
+		flag_child_to_root_as_core(target_ikbone->pchan);
 	}
-	
+
 	if((ob->bepuik_dynamic_peripheral_stiffness >= FLT_EPSILON) && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC))
 	{
 		Quaternion dynamic_stiffness_orientation;
@@ -895,7 +878,7 @@ void bepu_solve(Object * ob)
 		
 		for(bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)
 		{
-			if(pchan->parent && !(pchan->bepuikflag & BONE_BEPUIK_IN_SOLVING_PARTITION)) {
+			if(pchan->parent && !(pchan->bepuikflag & BONE_BEPUIK_CORE)) {
 				IKBone * child = pchan_get_bepuik_bone(pchan);
 				if(!child) continue;
 				IKBone * parent = pchan_get_bepuik_bone(pchan->parent);
@@ -928,7 +911,14 @@ void bepu_solve(Object * ob)
 	
 	if(!(ob->bepuikflag & OB_BEPUIK_SOLVE_PERIPHERAL_BONES))
 	{
-		ikjoints_enable_by_partition(joints);
+		//enable only ikjoints connectect to core bones
+		BOOST_FOREACH(IKJoint * ikjoint, joints)
+		{
+			if((ikjoint->GetConnectionA()->pchan->bepuikflag & BONE_BEPUIK_CORE) && (ikjoint->GetConnectionB()->pchan->bepuikflag & BONE_BEPUIK_CORE))
+				ikjoint->SetEnabled(true);
+			else
+				ikjoint->SetEnabled(false);
+		}
 	}
 	
 	//Finally, after all constraints have been built based on the ikbones at their "bepuik rest pose," 
@@ -951,9 +941,29 @@ void bepu_solve(Object * ob)
 		}
 	}
 	
-	if(controls_to_solve.size()>0)
+	//setup iksolver parameters
+	IKSolver * iksolver = new IKSolver();
+
+	float bepuik_solve_length = (float)((ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC) ? ob->bepuik_dynamic_solve_length : ob->bepuik_solve_length);
+	float bepuik_solve_quality = ob->bepuik_solve_quality;
+
+	CLAMP(bepuik_solve_length,BEPUIK_SOLVE_LENGTH_MIN,BEPUIK_SOLVE_LENGTH_MAX);
+	CLAMP(bepuik_solve_quality,BEPUIK_SOLVE_QUALITY_MIN,BEPUIK_SOLVE_QUALITY_MAX);
+
+	float timestep_duration = 1 / (float)bepuik_solve_quality;
+	iksolver->ControlIterationCount = bepuik_solve_length / timestep_duration;
+	iksolver->SetTimeStepDuration(timestep_duration);
+	iksolver->FixerIterationCount = ob->bepuik_fixer_iterations;
+	iksolver->AutoscaleControlMaximumLinearForce = MAXFLOAT;
+	iksolver->AutoscaleControlMaximumAngularForce = MAXFLOAT;
+
+	int velocity_subiteration_count = ob->bepuik_solve_quality * 3;
+	CLAMP(velocity_subiteration_count,1,10);
+	iksolver->VelocitySubiterationCount = velocity_subiteration_count;
+
+	if(controls.size()>0)
 	{
-		iksolver->Solve(controls_to_solve);
+		iksolver->Solve(controls);
 
 		// match pchans to their solved state
 		for(bPoseChannel * pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next)

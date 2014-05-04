@@ -2551,8 +2551,9 @@ void BKE_pose_where_is(Scene *scene, Object *ob)
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 			pchan->flag &= ~(POSE_DONE | POSE_CHAIN | POSE_IKTREE | POSE_IKSPLINE);
 
-			pchan->bepuikflag &= ~(BONE_BEPUIK_IN_SOLVING_PARTITION |
+			pchan->bepuikflag &= ~(BONE_BEPUIK_CORE |
 								   BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL |
+			                       BONE_BEPUIK_AFFECTED_BY_CONTROL |
 								   BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET);
 			
 #ifdef WITH_BEPUIK
