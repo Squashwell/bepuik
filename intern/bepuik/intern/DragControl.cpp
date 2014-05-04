@@ -61,27 +61,32 @@ namespace BEPUik
 	
 	void DragControl::Preupdate(float dt, float updateRate)
 	{
-		linearMotor.Preupdate(dt, updateRate);
+		if(linearMotor.GetRigidity() >= FLT_EPSILON)
+			linearMotor.Preupdate(dt, updateRate);
 	}
 
 	void DragControl::UpdateJacobiansAndVelocityBias()
 	{
-		linearMotor.UpdateJacobiansAndVelocityBias();
+		if(linearMotor.GetRigidity() >= FLT_EPSILON)
+			linearMotor.UpdateJacobiansAndVelocityBias();
 	}
 
 	void DragControl::ComputeEffectiveMass()
 	{
-		linearMotor.ComputeEffectiveMass();
+		if(linearMotor.GetRigidity() >= FLT_EPSILON)
+			linearMotor.ComputeEffectiveMass();
 	}
 
 	void DragControl::WarmStart()
 	{
-		linearMotor.WarmStart();
+		if(linearMotor.GetRigidity() >= FLT_EPSILON)
+			linearMotor.WarmStart();
 	}
 
 	void DragControl::SolveVelocityIteration()
 	{
-		linearMotor.SolveVelocityIteration();
+		if(linearMotor.GetRigidity() >= FLT_EPSILON)
+			linearMotor.SolveVelocityIteration();
 	}
 
 	void DragControl::ClearAccumulatedImpulses()
