@@ -255,7 +255,7 @@ static int pose_bepuik_visual_transform_apply_exec(bContext *C, wmOperator *UNUS
 	if (ob->type != OB_ARMATURE)
 		return OPERATOR_CANCELLED;
 
-	BKE_pose_bepuik_visual_transform_apply(CTX_data_scene(C),ob,true,true,(POSE_BEPUIK_IGNORE_CONTROLS |
+	BKE_pose_bepuik_visual_transform_apply(CTX_data_scene(C),ob,true,true,(POSE_BEPUIK_IGNORE_SOFT_CONTROLS |
 																		   POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW));
 
 	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);

@@ -2329,7 +2329,7 @@ static void bepuik_match_finished(TransInfo * t)
 	int bepuikflags = ob->pose->bepuikflag;
 	bool do_visual_transform_apply = false;
 	if(t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM) {
-		bepuikflags |= POSE_BEPUIK_IGNORE_CONTROLS;
+		bepuikflags |= POSE_BEPUIK_IGNORE_SOFT_CONTROLS;
 		bepuikflags |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
 		do_visual_transform_apply = true;
 	}

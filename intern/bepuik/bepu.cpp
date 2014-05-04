@@ -454,7 +454,6 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 
 			//if an absolute target was previously created for this bone, then we dont need to create any other targets
 			if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
-			if(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_CONTROLS) return;
 			
 			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 			{
@@ -465,6 +464,10 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 				
 				effective_orientation_rigidity += 1000.0f;
 				effective_position_rigidity += 1000.0f;
+			}
+			else
+			{
+				if(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_SOFT_CONTROLS) return;
 			}
 			
 			if(effective_orientation_rigidity >= FLT_EPSILON)
@@ -506,7 +509,7 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 
 		//if an absolute target was previously created for this bone, then we dont need to create any other targets
 		if(pchan_controlled->bepuikflag & BONE_BEPUIK_AFFECTED_BY_HARD_CONTROL) return;
-		if(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_CONTROLS) return;
+
 		
 		if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
 		{
@@ -517,6 +520,10 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			
 			effective_orientation_rigidity += 1000.0f;
 			effective_position_rigidity += 1000.0f;
+		}
+		else
+		{
+			if(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_SOFT_CONTROLS) return;
 		}
 		
 		if(effective_orientation_rigidity >= FLT_EPSILON)
@@ -802,7 +809,7 @@ void bepu_solve(Object * ob)
 			joints.push_back(auto_ballsocket);
 		}
 		
-		if(pchan->bone->flag & BONE_TRANSFORM && !(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_CONTROLS))
+		if(pchan->bone->flag & BONE_TRANSFORM && !(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_SOFT_CONTROLS))
 		{
 			if(ob->pose->bepuikflag & POSE_BEPUIK_SELECTION_AS_DRAGCONTROL) 
 			{
@@ -1007,7 +1014,7 @@ void bepu_solve(Object * ob)
 			bool do_feedback = true;
 			if (pchan->bepuikflag & BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET) do_feedback = false;
 			else if (num_controlled_to_target_info == 0) do_feedback = false;
-			else if ((pchan->bone->flag & BONE_TRANSFORM) && !(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_CONTROLS)) do_feedback = false;
+			else if ((pchan->bone->flag & BONE_TRANSFORM) && !(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_SOFT_CONTROLS)) do_feedback = false;
 
 			if(do_feedback)
 			{

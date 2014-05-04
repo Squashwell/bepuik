@@ -421,7 +421,7 @@ typedef enum ePose_BEPUik_Flags{
 	POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW = (1 << 5),
 	POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT = (1 << 6),
 	POSE_BEPUIK_FEEDBACK = (1 << 7),
-	POSE_BEPUIK_IGNORE_CONTROLS = (1 << 8)
+	POSE_BEPUIK_IGNORE_SOFT_CONTROLS = (1 << 8)
 }ePose_BEPUikFlags;
 
 /* IK Solvers ------------------------------------ */
