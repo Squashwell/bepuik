@@ -2327,12 +2327,20 @@ static void bepuik_match_finished(TransInfo * t)
 {
 	Object * ob  = t->poseobj;
 	int bepuikflags = ob->pose->bepuikflag;
+	bool do_visual_transform_apply = false;
 	if(t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM) {
 		bepuikflags |= POSE_BEPUIK_IGNORE_CONTROLS;
 		bepuikflags |= POSE_BEPUIK_INACTIVE_TARGETS_FOLLOW;
+		do_visual_transform_apply = true;
+	}
+	else
+	{
+		bepuikflags &= ~POSE_BEPUIK_SELECTION_AS_DRAGCONTROL;
+		bepuikflags &= ~POSE_BEPUIK_SELECTION_AS_STATECONTROL;
 	}
 
-	BKE_pose_bepuik_visual_transform_apply(t->scene,ob,(t->bepuikflag & T_BEPUIK_MATCH_FINISHED_TRANSFORM),true,bepuikflags);
+	bepuikflags &= ~POSE_BEPUIK_DYNAMIC;
+	BKE_pose_bepuik_visual_transform_apply(t->scene,ob,do_visual_transform_apply,true,bepuikflags);
 }
 
 
