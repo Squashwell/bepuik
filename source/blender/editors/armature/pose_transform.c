@@ -560,7 +560,7 @@ static int pose_paste_exec(bContext *C, wmOperator *op)
 			selOnly = 0;
 	}
 
-	BKE_bepuik_set_target_flags(ob,0,0,POSE_KEY);
+	BKE_pose_set_bepuik_constraint_flags(ob,0,0,POSE_KEY);
 	
 	/* Safely merge all of the channels in the buffer pose into any existing pose */
 	for (chan = g_posebuf->chanbase.first; chan; chan = chan->next) {

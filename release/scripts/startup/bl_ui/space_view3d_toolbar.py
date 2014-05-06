@@ -821,19 +821,19 @@ class VIEW3D_PT_tools_bepuik(View3DPanel, Panel):
         op = col.operator("transform.bepuik_control_rigidity_modify", text="Soft Position")
         op.value = 1
         op.set = True
-        op.only_top_target = True
+        op.only_first_control = True
         op.rigidity_types = {'POSITION'}
         
         op = col.operator("transform.bepuik_control_rigidity_modify", text="Soft Orientation")
         op.value = 1
         op.set = True
-        op.only_top_target = True
+        op.only_first_control = True
         op.rigidity_types = {'ORIENTATION'}
         
         op = col.operator("transform.bepuik_control_rigidity_modify", text="Hard")
         op.value = 1
         op.set = True
-        op.only_top_target = True
+        op.only_first_control = True
         op.rigidity_types = {'HARD'}
         
         col = layout.column(align=True)

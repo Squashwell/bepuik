@@ -916,7 +916,7 @@ static int count_set_bepuik_target_constraints(Object * ob, int bepuikflags)
 	if(bepuikflags & T_BEPUIK_CONTROL_ORIENTATION) rigidity_types_affected++;
 	if(bepuikflags & T_BEPUIK_CONTROL_HARD) rigidity_types_affected++;
 	
-	BKE_bepuik_set_target_flags(ob,bepuikflags & T_BEPUIK_TOP_TARGET,1,0);
+	BKE_pose_set_bepuik_constraint_flags(ob,bepuikflags & T_BEPUIK_FIRST_CONTROL,true,0);
 	
 	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next)
 		for(constraint = pchan->constraints.first; constraint; constraint = constraint->next)

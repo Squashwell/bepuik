@@ -123,7 +123,7 @@ void BKE_pchan_to_pose_mat(struct bPoseChannel *pchan, float rotscale_mat[4][4],
 /* Rotation Mode Conversions - Used for PoseChannels + Objects... */
 void BKE_rotMode_change_values(float quat[4], float eul[3], float axis[3], float *angle, short oldMode, short newMode);
 
-void BKE_bepuik_set_target_flags(struct Object * ob, int top_targets_only, int require_selected_visible, int required_pchan_flags);
+void BKE_pose_set_bepuik_constraint_flags(struct Object * ob, bool first_controls_only, bool require_selected_visible, int required_pchan_flags);
 void BKE_pose_bepuik_visual_transform_apply(struct Scene * scene, struct Object * ob, bool visual_transform_apply, bool bepuik_solve, int bepuik_pose_flags);
 
 /* B-Bone support */

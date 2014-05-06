@@ -897,7 +897,7 @@ static void TRANSFORM_OT_bepuik_control_rigidity_modify(struct wmOperatorType *o
 
 	RNA_def_float(ot->srna,"value",0.0f,-FLT_MAX,FLT_MAX,"Rigidity","Control Rigidity",-FLT_MAX,FLT_MAX);
 	RNA_def_boolean(ot->srna,"set",0,"Set","Set the values instead of transforming them");
-	RNA_def_boolean(ot->srna,"only_top_target",0,"Only Top Control","Affect only the top most BEPUik Control on each selected bepuik bone");
+	RNA_def_boolean(ot->srna,"only_first_control",0,"Only First Control","Affect only the first BEPUik Control on each selected bepuik bone's constraint stack");
 	RNA_def_enum_flag(ot->srna, "rigidity_types", bepuik_control_rigidity_type_items, 0, "Set Rigidity Types", "Rigidity types to modify on the selected controls");
 }
 

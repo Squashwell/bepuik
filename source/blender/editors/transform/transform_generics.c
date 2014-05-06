@@ -1299,14 +1299,14 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 			
 		}
 		
-		if ((prop = RNA_struct_find_property(op->ptr, "only_top_target"))) {
+		if ((prop = RNA_struct_find_property(op->ptr, "only_first_control"))) {
 			if(RNA_property_is_set(op->ptr, prop)) {
 				if(RNA_property_boolean_get(op->ptr, prop))
-					t->bepuikflag |= T_BEPUIK_TOP_TARGET;
+					t->bepuikflag |= T_BEPUIK_FIRST_CONTROL;
 				else
-					t->bepuikflag &= ~T_BEPUIK_TOP_TARGET;
+					t->bepuikflag &= ~T_BEPUIK_FIRST_CONTROL;
 			} else
-				RNA_boolean_set(op->ptr, "only_top_target", t->bepuikflag & T_BEPUIK_TOP_TARGET);
+				RNA_boolean_set(op->ptr, "only_first_control", t->bepuikflag & T_BEPUIK_FIRST_CONTROL);
 			
 		}
 	}

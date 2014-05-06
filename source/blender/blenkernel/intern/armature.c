@@ -2669,7 +2669,7 @@ BoundBox *BKE_armature_boundbox_get(Object *ob)
 	return ob->bb;
 }
 
-static int pchan_meets_flag_requirements(Object * ob, bPoseChannel * pchan, int require_selected_visible, int required_pchan_flags)
+static int pchan_meets_flag_requirements(Object * ob, bPoseChannel * pchan, bool require_selected_visible, int required_pchan_flags)
 {
 	bArmature * arm = ob->data;
 	Bone * bone = pchan->bone;
@@ -2683,11 +2683,10 @@ static int pchan_meets_flag_requirements(Object * ob, bPoseChannel * pchan, int 
 }
 
 /* This translates the current pchan context into an implicit "selection"
- * of bepuik_control constraints.  Affected bepuik target constraints have their
- * CONSTRAINT_BEPUIK_TRANSFORM flag set.
+ * of bepuik control constraints by setting their CONSTRAINT_BEPUIK_TRANSFORM flag.
  *
- * Any bone that holds an affected bepuik target has its BONE_TRANSFORM flag set */
-void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_selected_visible, int required_pchan_flags)
+ * Any bone that holds an affected bepuik control has its BONE_TRANSFORM flag set too*/
+void BKE_pose_set_bepuik_constraint_flags(Object * ob, bool first_controls_only, bool require_selected_visible, int required_pchan_flags)
 {
 	bPoseChannel * pchan;
 	bConstraint * con;
@@ -2699,7 +2698,7 @@ void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_
 			con->flag &= ~CONSTRAINT_BEPUIK_TRANSFORM;
 	}
 	
-	/* walk thru all the bepuik targets in the object */
+	/* walk thru all the bepuik constraints in the object */
 	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {	
 		short flagged_first_bepuik_control = 0;
 		
@@ -2716,8 +2715,8 @@ void BKE_bepuik_set_target_flags(Object * ob, int top_targets_only, int require_
 				
 				/* what about the owner pchan? */
 				if(pchan_meets_flag_requirements(ob,pchan,require_selected_visible,required_pchan_flags)) {
-					if(top_targets_only) {
-						/* sometimes we want to affect ONLY the top target on the selected owner pchan */
+					if(first_controls_only) {
+						/* sometimes we want to affect ONLY the first control on the selected owner pchan */
 						if(!flagged_first_bepuik_control) {
 							flagged_first_bepuik_control = 1;
 							con->flag |= CONSTRAINT_BEPUIK_TRANSFORM;
