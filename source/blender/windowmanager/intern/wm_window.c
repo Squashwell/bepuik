@@ -831,7 +831,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 				/* stop screencast if resize */
 				if (type == GHOST_kEventWindowSize) {
-					WM_jobs_stop(CTX_wm_manager(C), win->screen, NULL);
+					WM_jobs_stop(wm, win->screen, NULL);
 				}
 				
 				/* win32: gives undefined window size when minimized */
@@ -918,7 +918,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 			{
 				PointerRNA props_ptr;
 				wmWindow *oldWindow;
-				char *path = GHOST_GetEventData(evt);
+				const char *path = GHOST_GetEventData(evt);
 				
 				if (path) {
 					/* operator needs a valid window in context, ensures

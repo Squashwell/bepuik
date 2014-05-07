@@ -30,7 +30,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_math.h"
-#include "BLI_memarena.h"
 #include "BLI_utildefines.h"
 
 #include "BLI_strict_flags.h"
@@ -95,8 +94,8 @@ float normal_quad_v3(float n[3], const float v1[3], const float v2[3], const flo
  */
 float normal_poly_v3(float n[3], const float verts[][3], unsigned int nr)
 {
-	float const *v_prev = verts[nr - 1];
-	float const *v_curr = verts[0];
+	const float *v_prev = verts[nr - 1];
+	const float *v_curr = verts[0];
 	unsigned int i;
 
 	zero_v3(n);
@@ -2357,7 +2356,7 @@ void barycentric_weights_v2_quad(const float v1[2], const float v2[2], const flo
 #endif
 
 		/* inline mean_value_half_tan four times here */
-		float t[4] = {
+		const float t[4] = {
 			MEAN_VALUE_HALF_TAN_V2(area, 0, 1),
 			MEAN_VALUE_HALF_TAN_V2(area, 1, 2),
 			MEAN_VALUE_HALF_TAN_V2(area, 2, 3),
@@ -2554,7 +2553,7 @@ void interp_weights_poly_v3(float *w, float v[][3], const int n, const float co[
 {
 	const float eps = 0.00001f;  /* take care, low values cause [#36105] */
 	const float eps_sq = eps * eps;
-	float *v_curr, *v_next;
+	const float *v_curr, *v_next;
 	float ht_prev, ht;  /* half tangents */
 	float totweight = 0.0f;
 	int i = 0;
@@ -2623,7 +2622,7 @@ void interp_weights_poly_v2(float *w, float v[][2], const int n, const float co[
 {
 	const float eps = 0.00001f;  /* take care, low values cause [#36105] */
 	const float eps_sq = eps * eps;
-	float *v_curr, *v_next;
+	const float *v_curr, *v_next;
 	float ht_prev, ht;  /* half tangents */
 	float totweight = 0.0f;
 	int i = 0;
@@ -2996,9 +2995,10 @@ void polarview_m4(float Vm[4][4], float dist, float azimuth, float incidence, fl
 void lookat_m4(float mat[4][4], float vx, float vy, float vz, float px, float py, float pz, float twist)
 {
 	float sine, cosine, hyp, hyp1, dx, dy, dz;
-	float mat1[4][4] = MAT4_UNITY;
+	float mat1[4][4];
 
 	unit_m4(mat);
+	unit_m4(mat1);
 
 	rotate_m4(mat, 'Z', -twist);
 

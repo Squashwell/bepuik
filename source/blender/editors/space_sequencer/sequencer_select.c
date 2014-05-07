@@ -32,15 +32,7 @@
 #include <math.h>
 #include <string.h>
 
-#ifndef WIN32
-#include <unistd.h>
-#else
-#include <io.h>
-#endif
-#include <sys/types.h>
-
 #include "BLI_blenlib.h"
-#include "BLI_math.h"
 #include "BLI_utildefines.h"
 
 #include "DNA_scene_types.h"
@@ -56,7 +48,6 @@
 
 /* for menu/popup icons etc etc*/
 
-#include "ED_types.h"
 #include "ED_screen.h"
 #include "ED_sequencer.h"
 
@@ -980,7 +971,7 @@ static bool select_grouped_data(Editing *ed, Sequence *actseq)
 {
 	Sequence *seq;
 	bool changed = false;
-	char *dir = actseq->strip ? actseq->strip->dir : NULL;
+	const char *dir = actseq->strip ? actseq->strip->dir : NULL;
 
 	if (!SEQ_USE_DATA(actseq))
 		return changed;

@@ -48,6 +48,7 @@ struct Object;
 
 struct bDopeSheet;
 
+struct bAction;
 struct bActionGroup;
 struct FCurve;
 struct FModifier;
@@ -376,7 +377,8 @@ typedef enum eAnimChannel_Settings {
 	ACHANNEL_SETTING_MUTE     = 2,
 	ACHANNEL_SETTING_EXPAND   = 3,
 	ACHANNEL_SETTING_VISIBLE  = 4,  /* only for Graph Editor */
-	ACHANNEL_SETTING_SOLO     = 5   /* only for NLA Tracks */
+	ACHANNEL_SETTING_SOLO     = 5,  /* only for NLA Tracks */
+	ACHANNEL_SETTING_PINNED   = 6   /* only for NLA Actions */
 } eAnimChannel_Settings;
 
 
@@ -405,14 +407,14 @@ typedef struct bAnimChannelType {
 	
 	/* settings */
 	/* check if the given setting is valid in the current context */
-	bool (*has_setting)(bAnimContext *ac, bAnimListElem *ale, int setting);
+	bool (*has_setting)(bAnimContext *ac, bAnimListElem *ale, eAnimChannel_Settings setting);
 	/* get the flag used for this setting */
-	int (*setting_flag)(bAnimContext *ac, int setting, bool *neg);
+	int (*setting_flag)(bAnimContext *ac, eAnimChannel_Settings setting, bool *neg);
 	/* get the pointer to int/short where data is stored,
 	 * with type being  sizeof(ptr_data) which should be fine for runtime use...
 	 *	- assume that setting has been checked to be valid for current context
 	 */
-	void *(*setting_ptr)(bAnimListElem *ale, int setting, short *type);
+	void *(*setting_ptr)(bAnimListElem *ale, eAnimChannel_Settings setting, short *type);
 } bAnimChannelType;
 
 /* ------------------------ Drawing API -------------------------- */
@@ -529,6 +531,14 @@ int getname_anim_fcurve(char *name, struct ID *id, struct FCurve *fcu);
 
 /* Automatically determine a color for the nth F-Curve */
 void getcolor_fcurve_rainbow(int cur, int tot, float out[3]);
+
+/* ----------------- NLA Drawing ----------------------- */
+/* NOTE: Technically, this is not in the animation module (it's in space_nla)
+ * but these are sometimes needed by various animation apis.
+ */
+
+/* Get color to use for NLA Action channel's background */
+void nla_action_get_color(struct AnimData *adt, struct bAction *act, float color[4]);
 
 /* ----------------- NLA-Mapping ----------------------- */
 /* anim_draw.c */

@@ -35,6 +35,7 @@
 #include "DNA_armature_types.h"
 #include "DNA_group_types.h"
 #include "DNA_lamp_types.h"
+#include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
@@ -45,7 +46,6 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
-#include "BLI_ghash.h"
 
 #include "BKE_animsys.h"
 #include "BKE_context.h"
@@ -57,7 +57,6 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
-#include "BKE_treehash.h"
 
 #include "ED_armature.h"
 #include "ED_object.h"
@@ -192,6 +191,10 @@ static void unlink_texture_cb(bContext *UNUSED(C), Scene *UNUSED(scene), TreeEle
 	else if (GS(tsep->id->name) == ID_WO) {
 		World *wrld = (World *)tsep->id;
 		mtex = wrld->mtex;
+	}
+	else if (GS(tsep->id->name) == ID_LS) {
+		FreestyleLineStyle *ls = (FreestyleLineStyle *)tsep->id;
+		mtex = ls->mtex;
 	}
 	else {
 		return;
@@ -1064,6 +1067,7 @@ void OUTLINER_OT_action_set(wmOperatorType *ot)
 	// TODO: this would be nicer as an ID-pointer...
 	prop = RNA_def_enum(ot->srna, "action", DummyRNA_NULL_items, 0, "Action", "");
 	RNA_def_enum_funcs(prop, RNA_action_itemf);
+	RNA_def_property_flag(prop, PROP_ENUM_NO_TRANSLATE);
 	ot->prop = prop;
 }
 

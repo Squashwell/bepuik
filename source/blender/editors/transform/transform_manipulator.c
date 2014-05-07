@@ -35,18 +35,9 @@
 #include <math.h>
 #include <float.h>
 
-#ifndef WIN32
-#include <unistd.h>
-#else
-#include <io.h>
-#endif
-
-#include "MEM_guardedalloc.h"
-
 #include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
-#include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
@@ -61,7 +52,6 @@
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_global.h"
-#include "BKE_mesh.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 #include "BKE_editmesh.h"
@@ -74,7 +64,6 @@
 
 #include "ED_armature.h"
 #include "ED_curve.h"
-#include "ED_mesh.h"
 #include "ED_particle.h"
 #include "ED_view3d.h"
 
@@ -1189,7 +1178,7 @@ static void draw_manipulator_rotate(
 
 static void drawsolidcube(float size)
 {
-	static float cube[8][3] = {
+	const float cube[8][3] = {
 		{-1.0, -1.0, -1.0},
 		{-1.0, -1.0,  1.0},
 		{-1.0,  1.0,  1.0},
@@ -1507,7 +1496,9 @@ static void draw_manipulator_rotate_cyl(
 
 	/* Screen aligned view rot circle */
 	if (drawflags & MAN_ROT_V) {
-		float unitmat[4][4] = MAT4_UNITY;
+		float unitmat[4][4];
+
+		unit_m4(unitmat);
 
 		if (is_picksel) glLoadName(MAN_ROT_V);
 		UI_ThemeColor(TH_TRANSFORM);
@@ -1719,7 +1710,7 @@ static int manipulator_selectbuf(ScrArea *sa, ARegion *ar, const int mval[2], fl
 
 	glSelectBuffer(64, buffer);
 	glRenderMode(GL_SELECT);
-	glInitNames();  /* these two calls whatfor? It doesnt work otherwise */
+	glInitNames();  /* these two calls whatfor? It doesn't work otherwise */
 	glPushName(-2);
 
 	/* do the drawing */

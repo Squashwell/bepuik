@@ -75,6 +75,17 @@
 
 #include "BLI_threads.h"
 
+#ifdef WITH_OPENEXR
+EnumPropertyItem exr_codec_items[] = {
+	{R_IMF_EXR_CODEC_NONE, "NONE", 0, "None", ""},
+	{R_IMF_EXR_CODEC_PXR24, "PXR24", 0, "Pxr24 (lossy)", ""},
+	{R_IMF_EXR_CODEC_ZIP, "ZIP", 0, "ZIP (lossless)", ""},
+	{R_IMF_EXR_CODEC_PIZ, "PIZ", 0, "PIZ (lossless)", ""},
+	{R_IMF_EXR_CODEC_RLE, "RLE", 0, "RLE (lossless)", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+#endif
+
 EnumPropertyItem uv_sculpt_relaxation_items[] = {
 	{UV_SCULPT_TOOL_RELAX_LAPLACIAN, "LAPLACIAN", 0, "Laplacian", "Use Laplacian method for relaxation"},
 	{UV_SCULPT_TOOL_RELAX_HC, "HC", 0, "HC", "Use HC method for relaxation"},
@@ -292,6 +303,28 @@ EnumPropertyItem image_color_depth_items[] = {
 	{R_IMF_CHAN_DEPTH_16, "16", 0, "16", "16 bit color channels"},
 	/* 24 not used */
 	{R_IMF_CHAN_DEPTH_32, "32", 0, "32", "32 bit color channels"},
+	{0, NULL, 0, NULL, NULL}
+};
+
+EnumPropertyItem normal_space_items[] = {
+	{R_BAKE_SPACE_OBJECT, "OBJECT", 0, "Object", "Bake the normals in object space"},
+	{R_BAKE_SPACE_TANGENT, "TANGENT", 0, "Tangent", "Bake the normals in tangent space"},
+	{0, NULL, 0, NULL, NULL}
+};
+
+EnumPropertyItem normal_swizzle_items[] = {
+	{R_BAKE_POSX, "POS_X", 0, "+X", ""},
+	{R_BAKE_POSY, "POS_Y", 0, "+Y", ""},
+	{R_BAKE_POSZ, "POS_Z", 0, "+Z", ""},
+	{R_BAKE_NEGX, "NEG_X", 0, "-X", ""},
+	{R_BAKE_NEGY, "NEG_Y", 0, "-Y", ""},
+	{R_BAKE_NEGZ, "NEG_Z", 0, "-Z", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+
+EnumPropertyItem bake_save_mode_items[] = {
+	{R_BAKE_SAVE_INTERNAL, "INTERNAL", 0, "Internal", "Save the baking map in an internal image datablock"},
+	{R_BAKE_SAVE_EXTERNAL, "EXTERNAL", 0, "External", "Save the baking map in an external file"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -679,12 +712,6 @@ static void rna_Scene_all_keyingsets_next(CollectionPropertyIterator *iter)
 static char *rna_RenderSettings_path(PointerRNA *UNUSED(ptr))
 {
 	return BLI_sprintfN("render");
-}
-
-static int rna_omp_threads_get(PointerRNA *ptr)
-{
-	Scene *scene = (Scene *)ptr->data;
-	return BKE_scene_num_omp_threads(scene);
 }
 
 static int rna_RenderSettings_threads_get(PointerRNA *ptr)
@@ -2807,7 +2834,7 @@ static void rna_def_freestyle_settings(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "select_external_contour", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "edge_types", FREESTYLE_FE_EXTERNAL_CONTOUR);
-	RNA_def_property_ui_text(prop, "External Contour", "Select external contours (outer silhouettes of occuluding and occuluded objects)");
+	RNA_def_property_ui_text(prop, "External Contour", "Select external contours (outer silhouettes of occluding and occluded objects)");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 
 	prop = RNA_def_property(srna, "select_edge_mark", PROP_BOOLEAN, PROP_NONE);
@@ -3066,6 +3093,110 @@ static void rna_def_scene_game_recast_data(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0.0, 16.0, 1, 2);
 	RNA_def_property_ui_text(prop, "Max Sample Error", "Detail mesh simplification max sample error");
 	RNA_def_property_update(prop, NC_SCENE, NULL);
+}
+
+
+static void rna_def_bake_data(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "BakeSettings", NULL);
+	RNA_def_struct_sdna(srna, "BakeData");
+	RNA_def_struct_nested(brna, srna, "RenderSettings");
+	RNA_def_struct_ui_text(srna, "Bake Data", "Bake data for a Scene datablock");
+
+	prop = RNA_def_property(srna, "cage", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Cage", "Object to use as cage");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
+	RNA_def_property_ui_text(prop, "File Path", "Image filepath to use when saving externally");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "width", PROP_INT, PROP_PIXEL);
+	RNA_def_property_range(prop, 4, 10000);
+	RNA_def_property_ui_text(prop, "Width", "Horizontal dimension of the baking map");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "height", PROP_INT, PROP_PIXEL);
+	RNA_def_property_range(prop, 4, 10000);
+	RNA_def_property_ui_text(prop, "Height", "Vertical dimension of the baking map");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "margin", PROP_INT, PROP_PIXEL);
+	RNA_def_property_range(prop, 0, SHRT_MAX);
+	RNA_def_property_ui_range(prop, 0, 64, 1, 1);
+	RNA_def_property_ui_text(prop, "Margin", "Extends the baked result as a post process filter");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "cage_extrusion", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, 0.0, MAXFLOAT);
+	RNA_def_property_ui_range(prop, 0.0, 1.0, 1, 3);
+	RNA_def_property_ui_text(prop, "Cage Extrusion",
+	                         "Distance to use for the inward ray cast when using selected to active");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "normal_space", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "normal_space");
+	RNA_def_property_enum_items(prop, normal_space_items);
+	RNA_def_property_ui_text(prop, "Normal Space", "Choose normal space for baking");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "normal_r", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "normal_swizzle[0]");
+	RNA_def_property_enum_items(prop, normal_swizzle_items);
+	RNA_def_property_ui_text(prop, "Normal Space", "Axis to bake in red channel");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "normal_g", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "normal_swizzle[1]");
+	RNA_def_property_enum_items(prop, normal_swizzle_items);
+	RNA_def_property_ui_text(prop, "Normal Space", "Axis to bake in green channel");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "normal_b", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "normal_swizzle[2]");
+	RNA_def_property_enum_items(prop, normal_swizzle_items);
+	RNA_def_property_ui_text(prop, "Normal Space", "Axis to bake in blue channel");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "image_settings", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_pointer_sdna(prop, NULL, "im_format");
+	RNA_def_property_struct_type(prop, "ImageFormatSettings");
+	RNA_def_property_ui_text(prop, "Image Format", "");
+
+	prop = RNA_def_property(srna, "save_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "save_mode");
+	RNA_def_property_enum_items(prop, bake_save_mode_items);
+	RNA_def_property_ui_text(prop, "Save Mode", "Choose how to save the baking map");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	/* flags */
+	prop = RNA_def_property(srna, "use_selected_to_active", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", R_BAKE_TO_ACTIVE);
+	RNA_def_property_ui_text(prop, "Selected to Active",
+	                         "Bake shading on the surface of selected objects to the active object");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "use_clear", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", R_BAKE_CLEAR);
+	RNA_def_property_ui_text(prop, "Clear",
+	                         "Clear Images before baking (internal only)");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "use_split_materials", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", R_BAKE_SPLIT_MAT);
+	RNA_def_property_ui_text(prop, "Split Materials",
+	                         "Split external images per material (external only)");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
+	prop = RNA_def_property(srna, "use_automatic_name", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", R_BAKE_AUTO_NAME);
+	RNA_def_property_ui_text(prop, "Automatic Name",
+	                         "Automatically name the output file with the pass type (external only)");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 }
 
 static void rna_def_scene_game_data(BlenderRNA *brna)
@@ -3597,16 +3728,6 @@ static void rna_def_render_layers(BlenderRNA *brna, PropertyRNA *cprop)
 
 static void rna_def_scene_image_format_data(BlenderRNA *brna)
 {
-#ifdef WITH_OPENEXR
-	static EnumPropertyItem exr_codec_items[] = {
-		{R_IMF_EXR_CODEC_NONE, "NONE", 0, "None", ""},
-		{R_IMF_EXR_CODEC_PXR24, "PXR24", 0, "Pxr24 (lossy)", ""},
-		{R_IMF_EXR_CODEC_ZIP, "ZIP", 0, "ZIP (lossless)", ""},
-		{R_IMF_EXR_CODEC_PIZ, "PIZ", 0, "PIZ (lossless)", ""},
-		{R_IMF_EXR_CODEC_RLE, "RLE", 0, "RLE (lossless)", ""},
-		{0, NULL, 0, NULL, NULL}
-	};
-#endif
 
 #ifdef WITH_OPENJPEG
 	static EnumPropertyItem jp2_codec_items[] = {
@@ -4878,6 +4999,21 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0.f, 10000.f);
 	RNA_def_property_ui_text(prop, "Line Thickness", "Line thickness in pixels");
 
+	/* Bake Settings */
+	prop = RNA_def_property(srna, "bake", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_pointer_sdna(prop, NULL, "bake");
+	RNA_def_property_struct_type(prop, "BakeSettings");
+	RNA_def_property_ui_text(prop, "Bake Data", "");
+
+	/* Nestled Data  */
+	/* *** Non-Animated *** */
+	RNA_define_animate_sdna(false);
+	rna_def_bake_data(brna);
+	RNA_define_animate_sdna(true);
+
+	/* *** Animated *** */
+
 	/* Scene API */
 	RNA_api_scene_render(srna);
 }
@@ -5096,12 +5232,6 @@ void RNA_def_scene(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem omp_threads_mode_items[] = {
-		{SCE_OMP_AUTO, "AUTO", 0, "Auto-detect", "Automatically determine the number of threads"},
-		{SCE_OMP_FIXED, "FIXED", 0, "Fixed", "Manually determine the number of threads"},
-		{0, NULL, 0, NULL, NULL}
-	};
-
 	/* Struct definition */
 	srna = RNA_def_struct(brna, "Scene", "ID");
 	RNA_def_struct_ui_text(srna, "Scene",
@@ -5245,6 +5375,14 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_int_sdna(prop, NULL, "r.pefra");
 	RNA_def_property_int_funcs(prop, NULL, "rna_Scene_preview_range_end_frame_set", NULL);
 	RNA_def_property_ui_text(prop, "Preview Range End Frame", "Alternative end frame for UI playback");
+	RNA_def_property_update(prop, NC_SCENE | ND_FRAME, NULL);
+	
+	/* Timeline / Time Navigation settings */
+	prop = RNA_def_property(srna, "show_keys_from_selected_only", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", SCE_KEYS_NO_SELONLY);
+	RNA_def_property_ui_text(prop, "Only Keyframes from Selected Channels",
+	                         "Consider keyframes for active Object and/or its selected bones only "
+	                         "(in timeline and when jumping between keyframes)");
 	RNA_def_property_update(prop, NC_SCENE | ND_FRAME, NULL);
 	
 	/* Stamp */
@@ -5463,16 +5601,6 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "sequencer_colorspace_settings");
 	RNA_def_property_struct_type(prop, "ColorManagedSequencerColorspaceSettings");
 	RNA_def_property_ui_text(prop, "Sequencer Color Space Settings", "Settings of color space sequencer is working in");
-
-	prop = RNA_def_property(srna, "omp_threads", PROP_INT, PROP_NONE);
-	RNA_def_property_range(prop, 1, BLENDER_MAX_THREADS);
-	RNA_def_property_int_funcs(prop, "rna_omp_threads_get", NULL, NULL);
-	RNA_def_property_ui_text(prop, "OpenMP Threads",
-	                         "Number of CPU threads to use for openmp");
-
-	prop = RNA_def_property(srna, "omp_threads_mode", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, omp_threads_mode_items);
-	RNA_def_property_ui_text(prop, "OpenMP Mode", "Determine the amount of openmp threads used");
 
 	/* Nestled Data  */
 	/* *** Non-Animated *** */

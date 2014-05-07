@@ -265,7 +265,7 @@ option(WITH_CYCLES_STANDALONE		"Build cycles standalone application" OFF)
 option(WITH_CYCLES_STANDALONE_GUI	"Build cycles standalone with GUI" OFF)
 option(WITH_CYCLES_OSL				"Build Cycles with OSL support" OFF)
 option(WITH_CYCLES_CUDA_BINARIES	"Build cycles CUDA binaries" OFF)
-set(CYCLES_CUDA_BINARIES_ARCH sm_20 sm_21 sm_30 sm_35 CACHE STRING "CUDA architectures to build binaries for")
+set(CYCLES_CUDA_BINARIES_ARCH sm_20 sm_21 sm_30 sm_35 sm_50 CACHE STRING "CUDA architectures to build binaries for")
 mark_as_advanced(CYCLES_CUDA_BINARIES_ARCH)
 unset(PLATFORM_DEFAULT)
 
@@ -558,14 +558,14 @@ set(PLATFORM_LINKFLAGS_DEBUG "")
 # For alternate Python locations the commandline can be used to override detected/default cache settings, e.g:
 # On Unix:
 #   cmake ../blender \
-#         -D PYTHON_VERSION=3.3 \
-#         -D PYTHON_INCLUDE_DIR=/opt/py33/include/python3.3d \
-#         -D PYTHON_LIBRARY=/opt/py33/lib/libpython3.3d.so
+#         -D PYTHON_VERSION=3.4 \
+#         -D PYTHON_INCLUDE_DIR=/opt/py34/include/python3.4d \
+#         -D PYTHON_LIBRARY=/opt/py34/lib/libpython3.4d.so
 #
 # On Macs:
 #   cmake ../blender \
-#         -D PYTHON_INCLUDE_DIR=/System/Library/Frameworks/Python.framework/Versions/3.3/include/python3.3 \
-#         -D PYTHON_LIBPATH=/System/Library/Frameworks/Python.framework/Versions/3.3/lib/python3.3/config \
+#         -D PYTHON_INCLUDE_DIR=/System/Library/Frameworks/Python.framework/Versions/3.4/include/python3.4 \
+#         -D PYTHON_LIBPATH=/System/Library/Frameworks/Python.framework/Versions/3.4/lib/python3.4/config \
 #         -G Xcode
 #
 # When changing any of this remember to update the notes in doc/build_systems/cmake.txt
@@ -593,7 +593,7 @@ if(UNIX AND NOT APPLE)
 	find_package_wrapper(Freetype REQUIRED)
 
 	if(WITH_PYTHON)
-		# No way to set py33. remove for now.
+		# No way to set py34. remove for now.
 		# find_package(PythonLibs)
 
 		# Use our own instead, since wothout py is such a rare case,
@@ -822,6 +822,7 @@ if(UNIX AND NOT APPLE)
 							OUTPUT_VARIABLE LLVM_LIBPATH
 							OUTPUT_STRIP_TRAILING_WHITESPACE)
 			set(LLVM_LIBPATH ${LLVM_LIBPATH} CACHE PATH "Path to the LLVM library path")
+			mark_as_advanced(LLVM_LIBPATH)
 		endif()
 
 		if(LLVM_STATIC)
@@ -958,6 +959,7 @@ elseif(WIN32)
 	add_definitions(-DWIN32)
 
 	if(MSVC)
+
 		set(PLATFORM_LINKLIBS ws2_32 vfw32 winmm kernel32 user32 gdi32 comdlg32 advapi32 shfolder shell32 ole32 oleaut32 uuid psapi)
 
 		# MSVC11 SDL is not hard linked to dxguid.lib
@@ -1089,6 +1091,9 @@ elseif(WIN32)
 			set(PNG_LIBPATH ${PNG}/lib) # not cmake defined
 		endif()
 
+		if(MSVC90)
+			set(JPEG_NAMES ${JPEG_NAMES} libjpeg)
+		endif()
 		find_package(jpeg REQUIRED)
 
 		set(PTHREADS_INCLUDE_DIRS ${LIBDIR}/pthreads/include)
@@ -1202,7 +1207,7 @@ elseif(WIN32)
 		endif()
 
 		if(WITH_PYTHON)
-			set(PYTHON_VERSION 3.3) # CACHE STRING)
+			set(PYTHON_VERSION 3.4) # CACHE STRING)
 
 			string(REPLACE "." "" _PYTHON_VERSION_NO_DOTS ${PYTHON_VERSION})
 			# Use shared libs for vc2008 and vc2010 until we actually have vc2010 libs
@@ -1454,9 +1459,11 @@ elseif(WIN32)
 
 		if(WITH_PYTHON)
 			# normally cached but not since we include them with blender
-			set(PYTHON_VERSION 3.3) #  CACHE STRING)
+			set(PYTHON_VERSION 3.4) #  CACHE STRING)
+			string(REPLACE "." "" _PYTHON_VERSION_NO_DOTS ${PYTHON_VERSION})
 			set(PYTHON_INCLUDE_DIR "${LIBDIR}/python/include/python${PYTHON_VERSION}")  # CACHE PATH)
-			set(PYTHON_LIBRARY "${LIBDIR}/python/lib/python33mw.lib")  # CACHE FILEPATH)
+			set(PYTHON_LIBRARY "${LIBDIR}/python/lib/python${_PYTHON_VERSION_NO_DOTS}mw.lib")  # CACHE FILEPATH)
+			unset(_PYTHON_VERSION_NO_DOTS)
 
 			# uncached vars
 			set(PYTHON_INCLUDE_DIRS "${PYTHON_INCLUDE_DIR}")

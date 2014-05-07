@@ -47,7 +47,6 @@
 #include "DNA_mesh_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_nla_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
 
@@ -598,7 +597,6 @@ static void pchan_b_bone_defmats(bPoseChannel *pchan, bPoseChanDeform *pdef_info
 	Mat4 b_bone[MAX_BBONE_SUBDIV], b_bone_rest[MAX_BBONE_SUBDIV];
 	Mat4 *b_bone_mats;
 	DualQuat *b_bone_dual_quats = NULL;
-	float tmat[4][4] = MAT4_UNITY;
 	int a;
 
 	b_bone_spline_setup(pchan, 0, b_bone);
@@ -624,6 +622,8 @@ static void pchan_b_bone_defmats(bPoseChannel *pchan, bPoseChanDeform *pdef_info
 	 * - transform back into global space */
 
 	for (a = 0; a < bone->segments; a++) {
+		float tmat[4][4];
+
 		invert_m4_m4(tmat, b_bone_rest[a].mat);
 
 		mul_serie_m4(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, tmat, b_bone_mats[0].mat,
@@ -1112,10 +1112,11 @@ void BKE_armature_mat_world_to_pose(Object *ob, float inmat[4][4], float outmat[
  *       pose-channel into its local space (i.e. 'visual'-keyframing) */
 void BKE_armature_loc_world_to_pose(Object *ob, const float inloc[3], float outloc[3])
 {
-	float xLocMat[4][4] = MAT4_UNITY;
+	float xLocMat[4][4];
 	float nLocMat[4][4];
 
 	/* build matrix for location */
+	unit_m4(xLocMat);
 	copy_v3_v3(xLocMat[3], inloc);
 
 	/* get bone-space cursor matrix and extract location */
@@ -1281,10 +1282,11 @@ void BKE_armature_mat_bone_to_pose(bPoseChannel *pchan, float inmat[4][4], float
  *       pose-channel into its local space (i.e. 'visual'-keyframing) */
 void BKE_armature_loc_pose_to_bone(bPoseChannel *pchan, const float inloc[3], float outloc[3])
 {
-	float xLocMat[4][4] = MAT4_UNITY;
+	float xLocMat[4][4];
 	float nLocMat[4][4];
 
 	/* build matrix for location */
+	unit_m4(xLocMat);
 	copy_v3_v3(xLocMat[3], inloc);
 
 	/* get bone-space cursor matrix and extract location */
@@ -1524,7 +1526,7 @@ void vec_roll_to_mat3(const float vec[3], const float roll, float mat[3][3])
 		else {
 			/* If nor is too close to -Y, apply the special case. */
 			theta = nor[0] * nor[0] + nor[2] * nor[2];
-			bMatrix[0][0] = (nor[0] + nor[2]) * (nor[0] - nor[2]) / theta;
+			bMatrix[0][0] = (nor[0] + nor[2]) * (nor[0] - nor[2]) / -theta;
 			bMatrix[2][2] = -bMatrix[0][0];
 			bMatrix[2][0] = bMatrix[0][2] = 2.0f * nor[0] * nor[2] / theta;
 		}

@@ -43,18 +43,15 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_mask_types.h"
-#include "DNA_object_types.h"	/* SELECT */
 
 #include "BLI_utildefines.h"
 #include "BLI_fileops.h"
 #include "BLI_math.h"
-#include "BLI_string.h"
 #include "BLI_rect.h"
 #include "BLI_threads.h"
 
 #include "BKE_global.h"
 #include "BKE_main.h"
-#include "BKE_mask.h"
 #include "BKE_movieclip.h"
 #include "BKE_context.h"
 #include "BKE_tracking.h"
@@ -281,7 +278,7 @@ bool ED_space_clip_color_sample(Scene *scene, SpaceClip *sc, ARegion *ar, int mv
 	fy = co[1];
 
 	if (fx >= 0.0f && fy >= 0.0f && fx < 1.0f && fy < 1.0f) {
-		float *fp;
+		const float *fp;
 		unsigned char *cp;
 		int x = (int)(fx * ibuf->x), y = (int)(fy * ibuf->y);
 

@@ -126,7 +126,7 @@ class VIEW3D_MT_editor_menus(Menu):
                 layout.menu("VIEW3D_MT_select_paint_mask")
             elif mesh.use_paint_mask_vertex and mode_string == 'PAINT_WEIGHT':
                 layout.menu("VIEW3D_MT_select_paint_mask_vertex")
-        elif mode_string not in {'EDIT_TEXT', 'SCULPT'}:
+        elif mode_string != 'SCULPT':
             layout.menu("VIEW3D_MT_select_%s" % mode_string.lower())
 
         if mode_string == 'OBJECT':
@@ -1786,7 +1786,7 @@ class VIEW3D_MT_pose(Menu):
         layout.separator()
 
         layout.operator_context = 'INVOKE_AREA'
-        layout.operator("pose.armature_layers", text="Change Armature Layers...")
+        layout.operator("armature.armature_layers", text="Change Armature Layers...")
         layout.operator("pose.bone_layers", text="Change Bone Layers...")
 
         layout.separator()

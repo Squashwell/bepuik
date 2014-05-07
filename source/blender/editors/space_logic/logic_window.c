@@ -42,7 +42,6 @@
 #include "DNA_screen_types.h"
 #include "DNA_sensor_types.h"
 #include "DNA_constraint_types.h"
-#include "DNA_windowmanager_types.h"
 #include "DNA_object_types.h"
 
 #include "MEM_guardedalloc.h"
@@ -52,17 +51,10 @@
 
 #include "BKE_action.h"
 #include "BKE_context.h"
-#include "BKE_global.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_sca.h"
-#include "BKE_screen.h"
 
 #include "ED_util.h"
-
-#include "WM_types.h"
-
-#include "BIF_gl.h"
 
 #include "BLF_translation.h"
 
@@ -121,7 +113,7 @@ void make_unique_prop_names(bContext *C, char *str)
 	bActuator *act;
 	ID **idar;
 	short a, obcount, propcount=0, nr;
-	char **names;
+	const char **names;
 	
 	/* this function is called by a Button, and gives the current
 	 * stringpointer as an argument, this is the one that can change

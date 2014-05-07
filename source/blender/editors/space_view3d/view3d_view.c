@@ -32,7 +32,6 @@
 #include "DNA_camera_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
-#include "DNA_lamp_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -52,7 +51,6 @@
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-#include "BKE_screen.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
@@ -569,7 +567,10 @@ static int view3d_setobjectascamera_exec(bContext *C, wmOperator *op)
 		if (v3d->scenelock)
 			scene->camera = ob;
 
-		if (camera_old != ob) {  /* unlikely but looks like a glitch when set to the same */
+		/* unlikely but looks like a glitch when set to the same */
+		if (camera_old != ob) {
+			ED_view3d_lastview_store(rv3d);
+
 			ED_view3d_smooth_view(C, v3d, ar, camera_old, v3d->camera,
 			                      rv3d->ofs, rv3d->viewquat, &rv3d->dist, &v3d->lens,
 			                      smooth_viewtx);
@@ -1405,7 +1406,12 @@ static int localview_exec(bContext *C, wmOperator *op)
 
 	if (changed) {
 		DAG_id_type_tag(bmain, ID_OB);
-		ED_area_tag_redraw(CTX_wm_area(C));
+		ED_area_tag_redraw(sa);
+
+		/* unselected objects become selected when exiting */
+		if (v3d->localvd == NULL) {
+			WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+		}
 
 		return OPERATOR_FINISHED;
 	}

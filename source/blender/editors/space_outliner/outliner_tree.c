@@ -54,8 +54,6 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
-#include "BLI_math.h"
-#include "BLI_ghash.h"
 #include "BLI_mempool.h"
 #include "BLI_fnmatch.h"
 
@@ -78,6 +76,10 @@
 #include "RNA_access.h"
 
 #include "outliner_intern.h"
+
+#ifdef WIN32
+#  include "BLI_math_base.h" /* M_PI */
+#endif
 
 /* ********************************************************* */
 /* Persistent Data */
@@ -792,9 +794,15 @@ static void outliner_add_id_contents(SpaceOops *soops, TreeElement *te, TreeStor
 		case ID_LS:
 		{
 			FreestyleLineStyle *linestyle = (FreestyleLineStyle *)id;
+			int a;
 			
 			if (outliner_animdata_test(linestyle->adt))
 				outliner_add_element(soops, &te->subtree, linestyle, te, TSE_ANIM_DATA, 0);
+
+			for (a = 0; a < MAX_MTEX; a++) {
+				if (linestyle->mtex[a])
+					outliner_add_element(soops, &te->subtree, linestyle->mtex[a]->tex, te, 0, a);
+			}
 			break;
 		}
 	}

@@ -38,8 +38,6 @@ set(SRC
 	intern/blender_interface/BlenderStrokeRenderer.cpp
 	intern/blender_interface/BlenderStrokeRenderer.h
 	intern/blender_interface/BlenderStyleModule.h
-	intern/blender_interface/BlenderTextureManager.cpp
-	intern/blender_interface/BlenderTextureManager.h
 	intern/blender_interface/FRS_freestyle.cpp
 	intern/geometry/BBox.h
 	intern/geometry/Bezier.cpp
@@ -185,6 +183,8 @@ set(SRC
 	intern/python/StrokeShader/BPy_BackboneStretcherShader.h
 	intern/python/StrokeShader/BPy_BezierCurveShader.cpp
 	intern/python/StrokeShader/BPy_BezierCurveShader.h
+	intern/python/StrokeShader/BPy_BlenderTextureShader.cpp
+	intern/python/StrokeShader/BPy_BlenderTextureShader.h
 	intern/python/StrokeShader/BPy_CalligraphicShader.cpp
 	intern/python/StrokeShader/BPy_CalligraphicShader.h
 	intern/python/StrokeShader/BPy_ColorNoiseShader.cpp
@@ -213,6 +213,8 @@ set(SRC
 	intern/python/StrokeShader/BPy_SpatialNoiseShader.h
 	intern/python/StrokeShader/BPy_StrokeTextureShader.cpp
 	intern/python/StrokeShader/BPy_StrokeTextureShader.h
+	intern/python/StrokeShader/BPy_StrokeTextureStepShader.cpp
+	intern/python/StrokeShader/BPy_StrokeTextureStepShader.h
 	intern/python/StrokeShader/BPy_TextureAssignerShader.cpp
 	intern/python/StrokeShader/BPy_TextureAssignerShader.h
 	intern/python/StrokeShader/BPy_ThicknessNoiseShader.cpp

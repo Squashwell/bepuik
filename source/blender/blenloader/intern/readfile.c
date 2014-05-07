@@ -106,54 +106,40 @@
 #include "BLI_endian_switch.h"
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
-#include "BLI_edgehash.h"
 #include "BLI_threads.h"
 #include "BLI_mempool.h"
 
 #include "BLF_translation.h"
 
-#include "BKE_anim.h"
-#include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_brush.h"
-#include "BKE_colortools.h"
 #include "BKE_constraint.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
-#include "BKE_deform.h"
 #include "BKE_depsgraph.h"
 #include "BKE_effect.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h" // for G
 #include "BKE_group.h"
-#include "BKE_image.h"
-#include "BKE_lattice.h"
 #include "BKE_library.h" // for which_libbase
 #include "BKE_idcode.h"
-#include "BKE_idprop.h"
 #include "BKE_material.h"
 #include "BKE_main.h" // for Main
 #include "BKE_mesh.h" // for ME_ defines (patching)
 #include "BKE_modifier.h"
 #include "BKE_multires.h"
 #include "BKE_node.h" // for tree type defines
-#include "BKE_ocean.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
-#include "BKE_property.h" // for BKE_bproperty_object_get
 #include "BKE_report.h"
 #include "BKE_sca.h" // for init_actuator
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
-#include "BKE_text.h" // for txt_extended_ascii_as_utf8
-#include "BKE_texture.h"
-#include "BKE_tracking.h"
 #include "BKE_treehash.h"
 #include "BKE_sound.h"
-#include "BKE_writeffmpeg.h"
 
 #include "IMB_imbuf.h"  // for proxy / timecode versioning stuff
 
@@ -537,7 +523,7 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 //	printf("blo_find_main: converted to %s\n", name1);
 	
 	for (m = mainlist->first; m; m = m->next) {
-		char *libname = (m->curlib) ? m->curlib->filepath : m->name;
+		const char *libname = (m->curlib) ? m->curlib->filepath : m->name;
 		
 		if (BLI_path_cmp(name1, libname) == 0) {
 			if (G.debug & G_DEBUG) printf("blo_find_main: found library %s\n", libname);
@@ -2394,6 +2380,7 @@ static bNodeTree *nodetree_from_id(ID *id)
 		case ID_WO: return ((World *)id)->nodetree;
 		case ID_LA: return ((Lamp *)id)->nodetree;
 		case ID_TE: return ((Tex *)id)->nodetree;
+		case ID_LS: return ((FreestyleLineStyle *)id)->nodetree;
 	}
 	return NULL;
 }
@@ -3052,7 +3039,7 @@ static void lib_link_key(FileData *fd, Main *main)
 static void switch_endian_keyblock(Key *key, KeyBlock *kb)
 {
 	int elemsize, a, b;
-	char *data, *poin, *cp;
+	const char *data, *poin, *cp;
 	
 	elemsize = key->elemsize;
 	data = kb->data;
@@ -4333,7 +4320,7 @@ static void lib_link_object(FileData *fd, Main *main)
 			/* When the object is local and the data is library its possible
 			 * the material list size gets out of sync. [#22663] */
 			if (ob->data && ob->id.lib != ((ID *)ob->data)->lib) {
-				short *totcol_data = give_totcolp(ob);
+				const short *totcol_data = give_totcolp(ob);
 				/* Only expand so as not to loose any object materials that might be set. */
 				if (totcol_data && (*totcol_data > ob->totcol)) {
 					/* printf("'%s' %d -> %d\n", ob->id.name, ob->totcol, *totcol_data); */
@@ -6924,6 +6911,8 @@ static void lib_link_linestyle(FileData *fd, Main *main)
 {
 	FreestyleLineStyle *linestyle;
 	LineStyleModifier *m;
+	MTex *mtex;
+	int a;
 
 	linestyle = main->linestyle.first;
 	while (linestyle) {
@@ -6963,6 +6952,17 @@ static void lib_link_linestyle(FileData *fd, Main *main)
 					}
 					break;
 				}
+			}
+			for (a=0; a < MAX_MTEX; a++) {
+				mtex = linestyle->mtex[a];
+				if (mtex) {
+					mtex->tex = newlibadr_us(fd, linestyle->id.lib, mtex->tex);
+					mtex->object = newlibadr(fd, linestyle->id.lib, mtex->object);
+				}
+			}
+			if (linestyle->nodetree) {
+				lib_link_ntree(fd, &linestyle->id, linestyle->nodetree);
+				linestyle->nodetree->id.lib = linestyle->id.lib;
 			}
 		}
 		linestyle = linestyle->id.next;
@@ -7073,6 +7073,7 @@ static void direct_link_linestyle_geometry_modifier(FileData *UNUSED(fd), LineSt
 
 static void direct_link_linestyle(FileData *fd, FreestyleLineStyle *linestyle)
 {
+	int a;
 	LineStyleModifier *modifier;
 
 	linestyle->adt= newdataadr(fd, linestyle->adt);
@@ -7089,6 +7090,14 @@ static void direct_link_linestyle(FileData *fd, FreestyleLineStyle *linestyle)
 	link_list(fd, &linestyle->geometry_modifiers);
 	for (modifier = linestyle->geometry_modifiers.first; modifier; modifier = modifier->next)
 		direct_link_linestyle_geometry_modifier(fd, modifier);
+	for (a = 0; a < MAX_MTEX; a++) {
+		linestyle->mtex[a] = newdataadr(fd, linestyle->mtex[a]);
+	}
+	linestyle->nodetree = newdataadr(fd, linestyle->nodetree);
+	if (linestyle->nodetree) {
+		direct_link_id(fd, &linestyle->nodetree->id);
+		direct_link_nodetree(fd, linestyle->nodetree);
+	}
 }
 
 /* ************** GENERAL & MAIN ******************** */
@@ -8489,6 +8498,8 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 		{
 			if (seq->scene) expand_doit(fd, mainvar, seq->scene);
 			if (seq->scene_camera) expand_doit(fd, mainvar, seq->scene_camera);
+			if (seq->clip) expand_doit(fd, mainvar, seq->clip);
+			if (seq->mask) expand_doit(fd, mainvar, seq->mask);
 			if (seq->sound) expand_doit(fd, mainvar, seq->sound);
 		}
 		SEQ_END
@@ -8574,7 +8585,17 @@ static void expand_mask(FileData *fd, Main *mainvar, Mask *mask)
 
 static void expand_linestyle(FileData *fd, Main *mainvar, FreestyleLineStyle *linestyle)
 {
+	int a;
 	LineStyleModifier *m;
+
+	for (a = 0; a < MAX_MTEX; a++) {
+		if (linestyle->mtex[a]) {
+			expand_doit(fd, mainvar, linestyle->mtex[a]->tex);
+			expand_doit(fd, mainvar, linestyle->mtex[a]->object);
+		}
+	}
+	if (linestyle->nodetree)
+		expand_nodetree(fd, mainvar, linestyle->nodetree);
 
 	if (linestyle->adt)
 		expand_animdata(fd, mainvar, linestyle->adt);

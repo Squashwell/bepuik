@@ -240,7 +240,7 @@ ccl_device_inline float object_random_number(KernelGlobals *kg, int object)
 
 /* Particle ID from which this object was generated */
 
-ccl_device_inline uint object_particle_id(KernelGlobals *kg, int object)
+ccl_device_inline int object_particle_id(KernelGlobals *kg, int object)
 {
 	if(object == OBJECT_NONE)
 		return 0.0f;
@@ -364,10 +364,10 @@ ccl_device float3 particle_angular_velocity(KernelGlobals *kg, int particle)
 ccl_device_inline float3 bvh_clamp_direction(float3 dir)
 {
 	/* clamp absolute values by exp2f(-80.0f) to avoid division by zero when calculating inverse direction */
-	float ooeps = 8.271806E-25;
+	float ooeps = 8.271806E-25f;
 	return make_float3((fabsf(dir.x) > ooeps)? dir.x: copysignf(ooeps, dir.x),
-					   (fabsf(dir.y) > ooeps)? dir.y: copysignf(ooeps, dir.y),
-					   (fabsf(dir.z) > ooeps)? dir.z: copysignf(ooeps, dir.z));
+	                   (fabsf(dir.y) > ooeps)? dir.y: copysignf(ooeps, dir.y),
+	                   (fabsf(dir.z) > ooeps)? dir.z: copysignf(ooeps, dir.z));
 }
 
 ccl_device_inline float3 bvh_inverse_direction(float3 dir)

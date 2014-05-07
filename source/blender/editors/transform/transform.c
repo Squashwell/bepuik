@@ -35,19 +35,11 @@
 #include <math.h>
 #include <float.h>
 
-#ifndef WIN32
-#  include <unistd.h>
-#else
-#  include <io.h>
-#endif
-
 #include "MEM_guardedalloc.h"
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_constraint_types.h"
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_scene_types.h"  /* PET modes */
@@ -58,15 +50,12 @@
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_ghash.h"
-#include "BLI_linklist.h"
 
 #include "BKE_nla.h"
 #include "BKE_editmesh_bvh.h"
 #include "BKE_context.h"
 #include "BKE_constraint.h"
-#include "BKE_global.h"
 #include "BKE_particle.h"
-#include "BKE_pointcache.h"
 #include "BKE_unit.h"
 #include "BKE_mask.h"
 #include "BKE_armature.h"
@@ -82,7 +71,6 @@
 #include "ED_view3d.h"
 #include "ED_mesh.h"
 #include "ED_clip.h"
-#include "ED_mask.h"
 #include "ED_node.h"
 
 #include "WM_types.h"
@@ -949,7 +937,6 @@ static void transform_event_xyz_constraint(TransInfo *t, short key_type, char cm
 
 int transformEvent(TransInfo *t, const wmEvent *event)
 {
-	float mati[3][3] = MAT3_UNITY;
 	char cmode = constraintModeToChar(t);
 	bool handled = false;
 
@@ -1310,7 +1297,9 @@ int transformEvent(TransInfo *t, const wmEvent *event)
 							}
 							else {
 								/* bit hackish... but it prevents mmb select to print the orientation from menu */
+								float mati[3][3];
 								strcpy(t->spacename, "global");
+								unit_m3(mati);
 								initSelectConstraint(t, mati);
 							}
 							postSelectConstraint(t);
@@ -1566,7 +1555,7 @@ bool calculateTransformCenter(bContext *C, int centerMode, float cent3d[3], floa
 	}
 
 
-	/* aftertrans does insert ipos and action channels, and clears base flags, doesnt read transdata */
+	/* aftertrans does insert keyframes, and clears base flags; doesn't read transdata */
 	special_aftertrans_update(C, t);
 
 	postTrans(C, t);
@@ -1888,7 +1877,7 @@ void saveTransform(bContext *C, TransInfo *t, wmOperator *op)
 	}
 
 	if ((prop = RNA_struct_find_property(op->ptr, "value"))) {
-		float *values = (t->flag & T_AUTOVALUES) ? t->auto_values : t->values;
+		const float *values = (t->flag & T_AUTOVALUES) ? t->auto_values : t->values;
 		if (RNA_property_array_check(prop)) {
 			RNA_property_float_set_array(op->ptr, prop, values);
 		}
@@ -2370,7 +2359,7 @@ int transformEnd(bContext *C, TransInfo *t)
 			exit_code = OPERATOR_FINISHED;
 		}
 
-		/* aftertrans does insert keyframes, and clears base flags, doesnt read transdata */
+		/* aftertrans does insert keyframes, and clears base flags; doesn't read transdata */
 		special_aftertrans_update(C, t);
 
 		/* free data */
@@ -4236,7 +4225,7 @@ static void applyTranslationValue(TransInfo *t, float vec[3])
 		/* handle snapping rotation before doing the translation */
 		if (usingSnappingNormal(t)) {
 			if (validSnappingNormal(t)) {
-				float *original_normal;
+				const float *original_normal;
 				float axis[3];
 				float quat[4];
 				float mat[3][3];
@@ -6283,8 +6272,8 @@ static void calcVertSlideCustomPoints(struct TransInfo *t)
 {
 	VertSlideData *sld = t->customData;
 	TransDataVertSlideVert *sv = &sld->sv[sld->curr_sv_index];
-	float *co_orig = sv->co_orig_2d;
-	float *co_curr = sv->co_link_orig_2d[sv->co_link_curr];
+	const float *co_orig = sv->co_orig_2d;
+	const float *co_curr = sv->co_link_orig_2d[sv->co_link_curr];
 	const int mval_start[2] = {co_orig[0], co_orig[1]};
 	const int mval_end[2]   = {co_curr[0], co_curr[1]};
 
@@ -7716,7 +7705,8 @@ static void applyTimeScale(TransInfo *t, const int UNUSED(mval[2]))
 /* TODO, move to: transform_queries.c */
 bool checkUseLocalCenter_GraphEdit(TransInfo *t)
 {
-	return ((t->around == V3D_LOCAL) && !ELEM3(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE));
+	return ((t->around == V3D_LOCAL) &&
+	        !ELEM4(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE, TFM_TIME_DUPLICATE));
 }
 
 bool checkUseAxisMatrix(TransInfo *t)

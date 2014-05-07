@@ -45,7 +45,6 @@
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_string_utf8.h"
-#include "BLI_path_util.h"
 #include "BLI_rect.h"
 
 #include "BLI_utildefines.h"
@@ -887,11 +886,12 @@ static void ui_menu_block_set_keyaccels(uiBlock *block)
 void ui_but_add_shortcut(uiBut *but, const char *shortcut_str, const bool do_strip)
 {
 
-	if (do_strip) {
-		char *cpoin = strchr(but->str, UI_SEP_CHAR);
+	if (do_strip && (but->flag & UI_BUT_HAS_SEP_CHAR)) {
+		char *cpoin = strrchr(but->str, UI_SEP_CHAR);
 		if (cpoin) {
 			*cpoin = '\0';
 		}
+		but->flag &= ~UI_BUT_HAS_SEP_CHAR;
 	}
 
 	/* without this, just allow stripping of the shortcut */
@@ -910,6 +910,7 @@ void ui_but_add_shortcut(uiBut *but, const char *shortcut_str, const bool do_str
 		             butstr_orig, shortcut_str);
 		MEM_freeN(butstr_orig);
 		but->str = but->strdata;
+		but->flag |= UI_BUT_HAS_SEP_CHAR;
 		ui_check_but(but);
 	}
 }
@@ -1534,14 +1535,14 @@ void ui_get_but_vectorf(uiBut *but, float vec[3])
 		}
 	}
 	else if (but->pointype == UI_BUT_POIN_CHAR) {
-		char *cp = (char *)but->poin;
+		const char *cp = (char *)but->poin;
 
 		vec[0] = ((float)cp[0]) / 255.0f;
 		vec[1] = ((float)cp[1]) / 255.0f;
 		vec[2] = ((float)cp[2]) / 255.0f;
 	}
 	else if (but->pointype == UI_BUT_POIN_FLOAT) {
-		float *fp = (float *)but->poin;
+		const float *fp = (float *)but->poin;
 		copy_v3_v3(vec, fp);
 	}
 	else {
@@ -2696,7 +2697,7 @@ void ui_check_but(uiBut *but)
 
 	/* if we are doing text editing, this will override the drawstr */
 	if (but->editstr)
-		BLI_strncpy(but->drawstr, but->editstr, UI_MAX_DRAW_STR);
+		but->drawstr[0] = '\0';
 	
 	/* text clipping moved to widget drawing code itself */
 }

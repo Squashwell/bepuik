@@ -34,12 +34,6 @@
 #include <wchar.h>
 #include <errno.h>
 
-#ifndef WIN32 
-#  include <unistd.h>
-#else
-#  include <io.h>
-#endif
-
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
@@ -57,7 +51,6 @@
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_font.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
@@ -1790,7 +1783,7 @@ static int font_open_exec(bContext *C, wmOperator *op)
 static int open_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	VFont *vfont = NULL;
-	char *path;
+	const char *path;
 
 	PointerRNA idptr;
 	PropertyPointerRNA *pprop;
@@ -1879,7 +1872,7 @@ static void undoFont_to_editFont(void *strv, void *ecu, void *UNUSED(obdata))
 {
 	Curve *cu = (Curve *)ecu;
 	EditFont *ef = cu->editfont;
-	char *str = strv;
+	const char *str = strv;
 
 	ef->pos = *((short *)str);
 	ef->len = *((short *)(str + 2));

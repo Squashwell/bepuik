@@ -35,30 +35,16 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_math.h"
 #include "BLI_utildefines.h"
 #include "BLI_lasso.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
-#include "DNA_camera_types.h"
-#include "DNA_key_types.h"
-#include "DNA_lamp_types.h"
-#include "DNA_lattice_types.h"
-#include "DNA_mesh_types.h"
-#include "DNA_material_types.h"
 #include "DNA_object_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_node_types.h"
-#include "DNA_particle_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_space_types.h"
-#include "DNA_world_types.h"
 
 #include "BKE_fcurve.h"
-#include "BKE_key.h"
-#include "BKE_material.h"
-
 
 #include "ED_anim_api.h"
 #include "ED_keyframes_edit.h"
@@ -1103,6 +1089,13 @@ static short set_easingtype_easeinout(KeyframeEditData *UNUSED(ked), BezTriple *
 	return 0;
 }
 
+static short set_easingtype_easeauto(KeyframeEditData *UNUSED(ked), BezTriple *bezt)
+{
+	if (bezt->f2 & SELECT)
+		bezt->easing = BEZT_IPO_EASE_AUTO;
+	return 0;
+}
+
 /* Set the easing type of the selected BezTriples in each F-Curve to the specified one */
 KeyframeEditFunc ANIM_editkeyframes_easing(short mode)
 {
@@ -1114,8 +1107,10 @@ KeyframeEditFunc ANIM_editkeyframes_easing(short mode)
 			return set_easingtype_easeout;
 		
 		case BEZT_IPO_EASE_IN_OUT: /* both */
-		default:
 			return set_easingtype_easeinout;
+			
+		default: /* auto */
+			return set_easingtype_easeauto;
 	}
 }
 
@@ -1292,7 +1287,7 @@ KeyframeEditFunc ANIM_editkeyframes_buildselmap(short mode)
 /* flush selection map values to the given beztriple */
 short bezt_selmap_flush(KeyframeEditData *ked, BezTriple *bezt)
 {
-	char *map = ked->data;
+	const char *map = ked->data;
 	short on = map[ked->curIndex];
 	
 	/* select or deselect based on whether the map allows it or not */

@@ -1156,25 +1156,30 @@ static void calc_ortho_extent(KnifeTool_OpData *kcd)
  * s in screen projection of p. */
 static bool point_is_visible(KnifeTool_OpData *kcd, const float p[3], const float s[2], bglMats *mats)
 {
-	float p1[3], no[3], view[3];
 	BMFace *f_hit;
 
 	/* If not cutting through, make sure no face is in front of p */
 	if (!kcd->cut_through) {
+		float dist;
+		float view[3], p_ofs[3];
+
 		/* TODO: I think there's a simpler way to get the required raycast ray */
 		ED_view3d_unproject(mats, view, s[0], s[1], 0.0f);
+
 		mul_m4_v3(kcd->ob->imat, view);
 
-		/* make p1 a little towards view, so ray doesn't hit p's face. */
-		copy_v3_v3(p1, p);
-		sub_v3_v3(view, p1);
-		normalize_v3(view);
-		copy_v3_v3(no, view);
-		mul_v3_fl(no, 3.0f * KNIFE_FLT_EPSBIG);
-		add_v3_v3(p1, no);
+		/* make p_ofs a little towards view, so ray doesn't hit p's face. */
+		sub_v3_v3(view, p);
+		dist = normalize_v3(view);
+		madd_v3_v3v3fl(p_ofs, p, view, KNIFE_FLT_EPSBIG * 3.0f);
+
+		/* avoid projecting behind the viewpoint */
+		if (kcd->is_ortho) {
+			dist = FLT_MAX;
+		}
 
 		/* see if there's a face hit between p1 and the view */
-		f_hit = BKE_bmbvh_ray_cast(kcd->bmbvh, p1, no, KNIFE_FLT_EPS, NULL, NULL, NULL);
+		f_hit = BKE_bmbvh_ray_cast(kcd->bmbvh, p_ofs, view, KNIFE_FLT_EPS, &dist, NULL, NULL);
 		if (f_hit)
 			return false;
 	}
@@ -2934,7 +2939,7 @@ static void edvm_mesh_knife_face_point(BMFace *f, float r_cent[3])
 	unsigned int  (*index)[3] = BLI_array_alloca(index, tottri);
 	int j;
 
-	float const *best_co[3] = {NULL};
+	const float *best_co[3] = {NULL};
 	float best_area  = -1.0f;
 	bool ok = false;
 

@@ -31,13 +31,10 @@
  *  \ingroup bli
  */
 
-
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-
-#include "MEM_guardedalloc.h"
 
 #include "DNA_listBase.h"
 
@@ -53,6 +50,8 @@
 #include "GHOST_Path-api.h"
 
 #ifdef WIN32
+#  include "MEM_guardedalloc.h"
+
 #  include "utf_winfunc.h"
 #  include "utfconv.h"
 #  include <io.h>
@@ -646,8 +645,8 @@ void BLI_path_rel(char *file, const char *relfile)
 	if (lslash) {
 		/* find the prefix of the filename that is equal for both filenames.
 		 * This is replaced by the two slashes at the beginning */
-		char *p = temp;
-		char *q = file;
+		const char *p = temp;
+		const char *q = file;
 		char *r = res;
 
 #ifdef WIN32
@@ -699,6 +698,48 @@ void BLI_path_rel(char *file, const char *relfile)
 #endif
 		strcpy(file, res);
 	}
+}
+
+/**
+ * Appends a suffix to the string, fitting it before the extension
+ *
+ * string = Foo.png, suffix = 123, separator = _
+ * Foo.png -> Foo_123.png
+ *
+ * \param string  original (and final) string
+ * \param maxlen  Maximum length of string
+ * \param suffix  String to append to the original string
+ * \param sep Optional separator character
+ * \return  true if succeeded
+ */
+bool BLI_path_suffix(char *string, size_t maxlen, const char *suffix, const char *sep)
+{
+	const size_t string_len = strlen(string);
+	const size_t suffix_len = strlen(suffix);
+	const size_t sep_len = strlen(sep);
+	ssize_t a;
+	char extension[FILE_MAX];
+	bool has_extension = false;
+
+	if (string_len + sep_len + suffix_len >= maxlen)
+		return false;
+
+	for (a = string_len - 1; a >= 0; a--) {
+		if (string[a] == '.') {
+			has_extension = true;
+			break;
+		}
+		else if (ELEM(string[a], '/', '\\')) {
+			break;
+		}
+	}
+
+	if (!has_extension)
+		a = string_len;
+
+	BLI_strncpy(extension, string + a, sizeof(extension));
+	sprintf(string + a, "%s%s%s", sep, suffix, extension);
+	return true;
 }
 
 /**
@@ -1723,7 +1764,7 @@ bool BLI_testextensie_glob(const char *str, const char *ext_fnmatch)
 	char pattern[16];
 
 	while (ext_step[0]) {
-		char *ext_next;
+		const char *ext_next;
 		int len_ext;
 
 		if ((ext_next = strchr(ext_step, ';'))) {
@@ -2057,8 +2098,8 @@ int BLI_rebase_path(char *abs, size_t abs_len,
  */
 const char *BLI_first_slash(const char *string)
 {
-	char * const ffslash = strchr(string, '/');
-	char * const fbslash = strchr(string, '\\');
+	const char * const ffslash = strchr(string, '/');
+	const char * const fbslash = strchr(string, '\\');
 	
 	if (!ffslash) return fbslash;
 	else if (!fbslash) return ffslash;

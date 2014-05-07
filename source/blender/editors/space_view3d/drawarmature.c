@@ -271,7 +271,7 @@ static bool set_pchan_glColor(short colCode, int boneflag, short constflag)
 			}
 			else {
 				if (bcolor) {
-					char *cp = bcolor->solid;
+					const char *cp = bcolor->solid;
 					glColor4ub(cp[0], cp[1], cp[2], 204);
 				}
 				else
@@ -1600,7 +1600,7 @@ static void bgl_sphere_project(float ax, float az)
 
 static void draw_dof_ellipse(float ax, float az)
 {
-	static float staticSine[16] = {
+	const float staticSine[16] = {
 		0.0f, 0.104528463268f, 0.207911690818f, 0.309016994375f,
 		0.406736643076f, 0.5f, 0.587785252292f, 0.669130606359f,
 		0.743144825477f, 0.809016994375f, 0.866025403784f,
