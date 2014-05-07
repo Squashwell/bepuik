@@ -51,6 +51,7 @@
 #include "BLI_string.h"
 #include "BLI_ghash.h"
 
+#include "BKE_global.h"
 #include "BKE_nla.h"
 #include "BKE_editmesh_bvh.h"
 #include "BKE_context.h"
