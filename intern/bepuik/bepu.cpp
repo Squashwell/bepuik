@@ -172,6 +172,7 @@ static void ikbone_position_orientation_match_mat(IKBone * ikbone, float mat[4][
 	pchan_bepuik_position_to_internal_bepuik_position(ikbone->Position,mat[3],quat,ikbone->GetLength());
 }
 
+#define BEPUIK_MIN_BONE_LENGTH .001
 static void ikbone_match_mat_length(IKBone * ikbone, float mat[4][4], float bone_rest_length)
 {	
 	float vec[3];
@@ -179,8 +180,13 @@ static void ikbone_match_mat_length(IKBone * ikbone, float mat[4][4], float bone
 	mul_v3_fl(vec, bone_rest_length);
 	
 	float bepuik_length = len_v3(vec);
+
+	bepuik_length = MAX2(bepuik_length,BEPUIK_MIN_BONE_LENGTH);
+
+	float bepuik_radius = MAX2(BEPUIK_BONE_LENGTH_TO_RADIUS(bepuik_length),BEPUIK_MIN_BONE_LENGTH);
+
 	ikbone->SetLength(bepuik_length);
-	ikbone->SetRadius(BEPUIK_BONE_LENGTH_TO_RADIUS(bepuik_length));
+	ikbone->SetRadius(bepuik_radius);
 	
 	ikbone_position_orientation_match_mat(ikbone,mat);
 }

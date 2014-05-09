@@ -33,8 +33,11 @@
 #include "SingleBoneConstraint.hpp"
 #include <cmath>
 
+#ifdef DEBUG
 #include <stdio.h>
-bool alreadydid = false;
+#include <assert.h>
+#endif
+
 namespace BEPUik
 {
 	SingleBoneConstraint::SingleBoneConstraint():
@@ -91,6 +94,11 @@ namespace BEPUik
 
 	void SingleBoneConstraint::SolveVelocityIteration()
 	{
+#ifdef DEBUG
+		assert(!linearJacobian.IsNan());
+		assert(!angularJacobian.IsNan());
+#endif
+
 		//Compute the 'relative' linear and angular velocities. For single bone constraints, it's based entirely on the one bone's velocities!
 		//They have to be pulled into constraint space first to compute the necessary impulse, though.
 		Vector3 linearContribution;
@@ -129,12 +137,23 @@ namespace BEPUik
 			Vector3::Subtract(accumulatedImpulse, preadd, constraintSpaceImpulse);
 		}
 
+#ifdef DEBUG
+		assert(!constraintSpaceImpulse.IsNan());
+		assert(!linearJacobian.IsNan());
+		assert(!angularJacobian.IsNan());
+#endif
+
 		//The constraint space impulse now represents the impulse we want to apply to the bone... but in constraint space.
 		//Bring it out to world space using the transposed jacobian.
 		Vector3 linearImpulse;
 		Matrix3X3::Transform(constraintSpaceImpulse, linearJacobian, linearImpulse);
 		Vector3 angularImpulse;
 		Matrix3X3::Transform(constraintSpaceImpulse, angularJacobian, angularImpulse);
+
+#ifdef DEBUG
+		assert(!linearImpulse.IsNan());
+		assert(!angularImpulse.IsNan());
+#endif
 
 		//Apply them!
 		TargetBone->ApplyLinearImpulse(linearImpulse);

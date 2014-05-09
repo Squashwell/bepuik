@@ -68,45 +68,6 @@ namespace BEPUik
 	}
 
 	/// <summary>
-	/// Constructs a new bone.
-	/// </summary>
-	/// <param name="position">Initial position of the bone.</param>
-	/// <param name="orientation">Initial orientation of the bone.</param>
-	/// <param name="radius">Radius of the bone.</param>
-	/// <param name="length">Length of the bone.</param>
-	/// <param name="mass">Mass of the bone.</param>
-	IKBone::IKBone(Vector3 position, Quaternion orientation, float radius, float length, float mass) :
-		Position(position),
-		Orientation(orientation),
-		Joints(vector<IKJoint*>()),
-		predecessors(vector<IKBone*>()),
-		Pinned(false),
-		IsActive(false),
-		traversed(false),
-		unstressedCycle(false),
-		targetedByOtherControl(false),
-		stressCount(0),
-		pchan(0),
-
-		setMassCalled(false),
-		setLengthCalled(false),
-		setRadiusCalled(false),
-		setInertiaTensorScalingCalled(false),
-
-		inertiaTensorScaling(BEPUIK_INTERTIA_TENSOR_SCALING_MIN),
-		radius(.2f),
-		halfLength(.5f),
-		InverseMass(1.0f),
-
-		linearVelocity(Vector3()),
-		angularVelocity(Vector3())
-	{
-		SetMass(mass);
-		SetRadius(radius);
-		SetLength(length);
-	}
-
-	/// <summary>
 	/// Gets the mass of the bone.
 	/// High mass bones resist motion more than those of small mass.
 	/// Setting the mass updates the inertia tensor of the bone.
@@ -239,7 +200,7 @@ namespace BEPUik
 	/// </summary>
 	void IKBone::UpdateInertiaTensor()
 	{
-#ifdef DEBUG		
+#ifdef DEBUG
 		assert(!Orientation.IsNan());
 		assert(!LocalInertiaTensorInverse.IsNan());
 #endif
@@ -260,6 +221,7 @@ namespace BEPUik
 #ifdef DEBUG
 		assert(!linearVelocity.IsNan());
 		assert(!Position.IsNan());
+		assert(!Orientation.IsNan());
 		assert(!angularVelocity.IsNan());
 #endif
 		
@@ -273,6 +235,10 @@ namespace BEPUik
 		//Update the orientation based on the angular velocity.
 		Vector3 increment;
 		Vector3::Multiply(angularVelocity, .5f, increment);
+
+#ifdef DEBUG
+		assert(!increment.IsNan());
+#endif
 		Quaternion multiplier = Quaternion(increment.X, increment.Y, increment.Z, 0);
 		
 #ifdef DEBUG
@@ -280,9 +246,18 @@ namespace BEPUik
 #endif
 		
 		Quaternion::Multiply(multiplier, Orientation, multiplier);
-		Quaternion::Add(Orientation, multiplier, Orientation);
-		Orientation.Normalize();
 
+#ifdef DEBUG
+		assert(!multiplier.IsNan());
+#endif
+		Quaternion::Add(Orientation, multiplier, Orientation);
+#ifdef DEBUG
+		assert(!Orientation.IsNan());
+#endif
+		Orientation.Normalize();
+#ifdef DEBUG
+		assert(!Orientation.IsNan());
+#endif
 		//Eliminate any latent velocity in the bone to prevent unwanted simulation feedback.
 		//This is the only thing conceptually separating this "IK" solver from the regular dynamics loop in BEPUphysics.
 		//(Well, that and the whole lack of collision detection...)

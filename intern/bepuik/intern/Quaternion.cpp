@@ -30,6 +30,9 @@
 #include "Quaternion.hpp"
 #include <cmath>
 
+#ifdef DEBUG
+#include <assert.h>
+#endif
 namespace BEPUmath
 {
 
@@ -154,10 +157,19 @@ namespace BEPUmath
 	void Quaternion::Normalize()
 	{
 		float inverse = (float)(1 / sqrt(X * X + Y * Y + Z * Z + W * W));
+#ifdef DEBUG
+		assert(inverse==inverse);
+#endif
 		X *= inverse;
 		Y *= inverse;
 		Z *= inverse;
 		W *= inverse;
+#ifdef DEBUG
+		assert(X==X);
+		assert(Y==Y);
+		assert(Z==Z);
+		assert(W==W);
+#endif
 	}
 
 	/// <summary>
