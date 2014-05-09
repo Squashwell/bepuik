@@ -2212,48 +2212,32 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 						}
 					}
 				
-					if(arm->bepuikflag & ARM_BEPUIK_DRAWCONTROLS) {
-//						if(pchan->bone->flag & BONE_SELECTED)
-//						{
-//							/* debug stuff... */
-//							glPushMatrix();
-//							glMultMatrixf(pchan->bepuik_prev_pose_mat);
-//							glScalef(bone->length,bone->length,bone->length);
-							
-//							glColor3fv(bepuik_rigidity_color_soft);
-							
-//							draw_bone_octahedral();
-							
-////							glPointSize(6.0f);
-							
-////							glBegin(GL_POINTS);
-////							glVertex3fv(pchan->bepuik_transform_local_offset);
-////							glEnd();
-							
-//							glPopMatrix();
-//						}
-						
+					if(arm->bepuikflag & ARM_BEPUIK_DRAWCONTROLS) {						
 						if(pchan->bepuikflag & BONE_BEPUIK) {
-							bConstraint * constraint;
-							bBEPUikControl * bepuik_control;
-							
-							for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
-								if(!(constraint->flag & CONSTRAINT_BEPUIK_DRAWABLE)) continue;
-								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_CONTROL) continue;
-								
-								bepuik_control = constraint->data;
-								if(!(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD))
-									draw_bepuik_control(constraint,bone,bepuik_rigidity_color_soft,bepuik_rigidity_outline_color);
-							}
-							
-							/* draw hard targets on top of soft targets */
-							for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
-								if(!(constraint->flag & CONSTRAINT_BEPUIK_DRAWABLE)) continue;
-								if(constraint->type != CONSTRAINT_TYPE_BEPUIK_CONTROL) continue;
-								
-								bepuik_control = constraint->data;
-								if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
-									draw_bepuik_control(constraint,bone,bepuik_rigidity_color_hard,bepuik_rigidity_outline_color);
+							if (!(pchan->bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG))) {
+								if (pchan->bone->layer & arm->layer) {
+									bConstraint * constraint;
+									bBEPUikControl * bepuik_control;
+
+									for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
+										if(!(constraint->flag & CONSTRAINT_BEPUIK_DRAWABLE)) continue;
+										if(constraint->type != CONSTRAINT_TYPE_BEPUIK_CONTROL) continue;
+
+										bepuik_control = constraint->data;
+										if(!(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD))
+											draw_bepuik_control(constraint,bone,bepuik_rigidity_color_soft,bepuik_rigidity_outline_color);
+									}
+
+									/* draw hard targets on top of soft targets */
+									for(constraint = pchan->constraints.first; constraint; constraint = constraint->next) {
+										if(!(constraint->flag & CONSTRAINT_BEPUIK_DRAWABLE)) continue;
+										if(constraint->type != CONSTRAINT_TYPE_BEPUIK_CONTROL) continue;
+
+										bepuik_control = constraint->data;
+										if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_HARD)
+											draw_bepuik_control(constraint,bone,bepuik_rigidity_color_hard,bepuik_rigidity_outline_color);
+									}
+								}
 							}
 						}
 					}
