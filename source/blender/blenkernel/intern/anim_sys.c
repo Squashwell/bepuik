@@ -386,10 +386,10 @@ void BKE_relink_animdata(AnimData *adt)
  * < basepath: (str) shorter path fragment to look for
  * > returns (bool) whether there is a match
  */
-static short animpath_matches_basepath(const char path[], const char basepath[])
+static bool animpath_matches_basepath(const char path[], const char basepath[])
 {
 	/* we need start of path to be basepath */
-	return (path && basepath) && (strstr(path, basepath) == path);
+	return (path && basepath) && STRPREFIX(path, basepath);
 }
 
 /* Move F-Curves in src action to dst action, setting up all the necessary groups 
@@ -2117,7 +2117,6 @@ static void nlastrip_evaluate_transition(PointerRNA *ptr, ListBase *channels, Li
 /* evaluate meta-strip */
 static void nlastrip_evaluate_meta(PointerRNA *ptr, ListBase *channels, ListBase *modifiers, NlaEvalStrip *nes)
 {
-	ListBase tmp_channels = {NULL, NULL};
 	ListBase tmp_modifiers = {NULL, NULL};
 	NlaStrip *strip = nes->strip;
 	NlaEvalStrip *tmp_nes;
@@ -2130,26 +2129,23 @@ static void nlastrip_evaluate_meta(PointerRNA *ptr, ListBase *channels, ListBase
 	 *
 	 * NOTE: keep this in sync with animsys_evaluate_nla()
 	 */
-
+	
 	/* join this strip's modifiers to the parent's modifiers (own modifiers first) */
 	nlaeval_fmodifiers_join_stacks(&tmp_modifiers, &strip->modifiers, modifiers); 
 	
 	/* find the child-strip to evaluate */
 	evaltime = (nes->strip_time * (strip->end - strip->start)) + strip->start;
 	tmp_nes = nlastrips_ctime_get_strip(NULL, &strip->strips, -1, evaltime);
-	if (tmp_nes == NULL)
-		return;
-		
-	/* evaluate child-strip into tmp_channels buffer before accumulating 
-	 * in the accumulation buffer
+	
+	/* directly evaluate child strip into accumulation buffer... 
+	 * - there's no need to use a temporary buffer (as it causes issues [T40082])
 	 */
-	nlastrip_evaluate(ptr, &tmp_channels, &tmp_modifiers, tmp_nes);
-	
-	/* accumulate temp-buffer and full-buffer, using the 'real' strip */
-	nlaevalchan_buffers_accumulate(channels, &tmp_channels, nes);
-	
-	/* free temp eval-strip */
-	MEM_freeN(tmp_nes);
+	if (tmp_nes) {
+		nlastrip_evaluate(ptr, channels, &tmp_modifiers, tmp_nes);
+		
+		/* free temp eval-strip */
+		MEM_freeN(tmp_nes);
+	}
 	
 	/* unlink this strip's modifiers from the parent's modifiers again */
 	nlaeval_fmodifiers_split_stacks(&strip->modifiers, modifiers);
@@ -2159,7 +2155,7 @@ static void nlastrip_evaluate_meta(PointerRNA *ptr, ListBase *channels, ListBase
 void nlastrip_evaluate(PointerRNA *ptr, ListBase *channels, ListBase *modifiers, NlaEvalStrip *nes)
 {
 	NlaStrip *strip = nes->strip;
-
+	
 	/* to prevent potential infinite recursion problems (i.e. transition strip, beside meta strip containing a transition
 	 * several levels deep inside it), we tag the current strip as being evaluated, and clear this when we leave
 	 */
@@ -2269,7 +2265,7 @@ static void animsys_evaluate_nla(ListBase *echannels, PointerRNA *ptr, AnimData 
 		 *	- used for mainly for still allowing normal action evaluation...
 		 */
 		if (nlt->strips.first)
-			has_strips = 1;
+			has_strips = true;
 			
 		/* otherwise, get strip to evaluate for this channel */
 		nes = nlastrips_ctime_get_strip(&estrips, &nlt->strips, track_index, ctime);

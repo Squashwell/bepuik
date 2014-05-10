@@ -77,7 +77,7 @@
 static int bake_modal(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
 	/* no running blender, remove handler and pass through */
-	if (0 == WM_jobs_test(CTX_wm_manager(C), CTX_data_scene(C), WM_JOB_TYPE_RENDER_BAKE))
+	if (0 == WM_jobs_test(CTX_wm_manager(C), CTX_data_scene(C), WM_JOB_TYPE_OBJECT_BAKE))
 		return OPERATOR_FINISHED | OPERATOR_PASS_THROUGH;
 
 	/* running render */
@@ -431,6 +431,7 @@ static int bake(
 	int i;
 
 	re = RE_NewRender(scene->id.name);
+	RE_SetReports(re, NULL);
 
 	is_tangent = pass_type == SCE_PASS_NORMAL && normal_space == R_BAKE_SPACE_TANGENT;
 	tot_materials = ob_low->totcol;
@@ -854,8 +855,6 @@ cleanup:
 	if (me_low)
 		BKE_libblock_free(bmain, me_low);
 
-	RE_SetReports(re, NULL);
-
 	return op_result;
 }
 
@@ -1036,7 +1035,7 @@ static int bake_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event)
 	bake_set_props(op, scene);
 
 	/* only one render job at a time */
-	if (WM_jobs_test(CTX_wm_manager(C), scene, WM_JOB_TYPE_OBJECT_BAKE_TEXTURE))
+	if (WM_jobs_test(CTX_wm_manager(C), scene, WM_JOB_TYPE_OBJECT_BAKE))
 		return OPERATOR_CANCELLED;
 
 	bkr = MEM_callocN(sizeof(BakeAPIRender), "render bake");
@@ -1046,7 +1045,7 @@ static int bake_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event)
 
 	/* setup job */
 	wm_job = WM_jobs_get(CTX_wm_manager(C), CTX_wm_window(C), scene, "Texture Bake",
-	                     WM_JOB_EXCL_RENDER | WM_JOB_PRIORITY | WM_JOB_PROGRESS, WM_JOB_TYPE_OBJECT_BAKE_TEXTURE);
+	                     WM_JOB_EXCL_RENDER | WM_JOB_PRIORITY | WM_JOB_PROGRESS, WM_JOB_TYPE_OBJECT_BAKE);
 	WM_jobs_customdata_set(wm_job, bkr, bake_freejob);
 	WM_jobs_timer(wm_job, 0.5, NC_IMAGE, 0); /* TODO - only draw bake image, can we enforce this */
 	WM_jobs_callbacks(wm_job, bake_startjob, NULL, NULL, NULL);

@@ -1593,13 +1593,14 @@ static void mesh_calc_modifiers(Scene *scene, Object *ob, float (*inputVertexCos
 			continue;
 		}
 		if (sculpt_mode &&
-		    (!has_multires || multires_applied || ob->sculpt->bm))
+		    (!has_multires || multires_applied || sculpt_dyntopo))
 		{
 			bool unsupported = false;
 
 			if (md->type == eModifierType_Multires && ((MultiresModifierData *)md)->sculptlvl == 0) {
 				/* If multires is on level 0 skip it silently without warning message. */
-				continue;
+				if (!sculpt_dyntopo)
+					continue;
 			}
 
 			if (sculpt_dyntopo && !useRenderParams)
@@ -1611,8 +1612,14 @@ static void mesh_calc_modifiers(Scene *scene, Object *ob, float (*inputVertexCos
 			unsupported |= multires_applied;
 
 			if (unsupported) {
-				modifier_setError(md, "Not supported in sculpt mode");
+				if (sculpt_dyntopo)
+					modifier_setError(md, "Not supported in dyntopo");
+				else
+					modifier_setError(md, "Not supported in sculpt mode");
 				continue;
+			}
+			else {
+				modifier_setError(md, "Hide, Mask and optimized display disabled");
 			}
 		}
 		if (needMapping && !modifier_supportsMapping(md)) continue;
@@ -1884,8 +1891,11 @@ static void mesh_calc_modifiers(Scene *scene, Object *ob, float (*inputVertexCos
 		 * which deals with drawing differently.
 		 *
 		 * Only calc vertex normals if they are flagged as dirty.
+		 * If using loop normals, poly nors have already been computed.
 		 */
-		dm_ensure_display_normals(finaldm);
+		if (!do_loop_normals) {
+			dm_ensure_display_normals(finaldm);
+		}
 	}
 
 #ifdef WITH_GAMEENGINE

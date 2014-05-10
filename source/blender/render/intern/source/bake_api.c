@@ -95,6 +95,8 @@ typedef struct BakeDataZSpan {
 	int primitive_id;
 	BakeImage *bk_image;
 	ZSpan *zspan;
+	float du_dx, du_dy;
+	float dv_dx, dv_dy;
 } BakeDataZSpan;
 
 /**
@@ -126,11 +128,10 @@ static void store_bake_pixel(void *handle, int x, int y, float u, float v)
 
 	copy_v2_fl2(pixel->uv, u, v);
 
-	pixel->du_dx =
-	pixel->du_dy =
-	pixel->dv_dx =
-	pixel->dv_dy =
-	0.0f;
+	pixel->du_dx = bd->du_dx;
+	pixel->du_dy = bd->du_dy;
+	pixel->dv_dx = bd->dv_dx;
+	pixel->dv_dy = bd->dv_dy;
 }
 
 void RE_bake_mask_fill(const BakePixel pixel_array[], const int num_pixels, char *mask)
@@ -214,7 +215,8 @@ static void calc_barycentric_from_point(
  */
 static bool cast_ray_highpoly(
         BVHTreeFromMesh *treeData, TriTessFace *triangles[], BakeHighPolyData *highpoly,
-        float const co_low[3], const float dir[3], const int pixel_id, const int tot_highpoly)
+        float const co_low[3], const float dir[3], const int pixel_id, const int tot_highpoly,
+        const float du_dx, const float du_dy, const float dv_dx, const float dv_dy)
 {
 	int i;
 	int primitive_id = -1;
@@ -256,6 +258,13 @@ static bool cast_ray_highpoly(
 			calc_barycentric_from_point(triangles[i], hits[i].index, hits[i].co, &primitive_id, uv);
 			highpoly[i].pixel_array[pixel_id].primitive_id = primitive_id;
 			copy_v2_v2(highpoly[i].pixel_array[pixel_id].uv, uv);
+
+			/* the differentials are relative to the UV/image space, so the highpoly differentials
+			 * are the same as the low poly differentials */
+			highpoly[i].pixel_array[pixel_id].du_dx = du_dx;
+			highpoly[i].pixel_array[pixel_id].du_dy = du_dy;
+			highpoly[i].pixel_array[pixel_id].dv_dx = dv_dx;
+			highpoly[i].pixel_array[pixel_id].dv_dy = dv_dy;
 		}
 		else {
 			highpoly[i].pixel_array[pixel_id].primitive_id = -1;
@@ -420,7 +429,9 @@ void RE_bake_pixels_populate_from_objects(
 		calc_point_from_barycentric(tris_low, primitive_id, u, v, cage_extrusion, co, dir);
 
 		/* cast ray */
-		if (!cast_ray_highpoly(treeData, tris_high, highpoly, co, dir, i, tot_highpoly)) {
+		if (!cast_ray_highpoly(treeData, tris_high, highpoly, co, dir, i, tot_highpoly,
+		                       pixel_array_from[i].du_dx, pixel_array_from[i].du_dy,
+		                       pixel_array_from[i].dv_dx, pixel_array_from[i].dv_dy)) {
 			/* if it fails mask out the original pixel array */
 			pixel_array_from[i].primitive_id = -1;
 		}
@@ -439,6 +450,28 @@ cleanup:
 	MEM_freeN(tris_high);
 	MEM_freeN(treeData);
 	MEM_freeN(dm_highpoly);
+}
+
+static void bake_differentials(BakeDataZSpan *bd, const float *uv1, const float *uv2, const float *uv3)
+{
+	float A;
+
+	/* assumes dPdu = P1 - P3 and dPdv = P2 - P3 */
+	A = (uv2[0] - uv1[0]) * (uv3[1] - uv1[1]) - (uv3[0] - uv1[0]) * (uv2[1] - uv1[1]);
+
+	if (fabsf(A) > FLT_EPSILON) {
+		A = 0.5f / A;
+
+		bd->du_dx = (uv2[1] - uv3[1]) * A;
+		bd->dv_dx = (uv3[1] - uv1[1]) * A;
+
+		bd->du_dy = (uv3[0] - uv2[0]) * A;
+		bd->dv_dy = (uv1[0] - uv3[0]) * A;
+	}
+	else {
+		bd->du_dx = bd->du_dy = 0.0f;
+		bd->dv_dx = bd->dv_dy = 0.0f;
+	}
 }
 
 void RE_bake_pixels_populate(
@@ -494,11 +527,14 @@ void RE_bake_pixels_populate(
 			vec[a][1] = mtf->uv[a][1] * (float)bd.bk_image->height - (0.5f + 0.002f);
 		}
 
+		bake_differentials(&bd, vec[0], vec[1], vec[2]);
 		zspan_scanconvert(&bd.zspan[image_id], (void *)&bd, vec[0], vec[1], vec[2], store_bake_pixel);
 
 		/* 4 vertices in the face */
 		if (mf->v4 != 0) {
 			bd.primitive_id = ++p_id;
+
+			bake_differentials(&bd, vec[0], vec[2], vec[3]);
 			zspan_scanconvert(&bd.zspan[image_id], (void *)&bd, vec[0], vec[2], vec[3], store_bake_pixel);
 		}
 	}
