@@ -907,7 +907,7 @@ class ConstraintButtonsPanel():
         self.connection_a_label(col)
         self.bepuik_template_target(layout, con, propprefix="relative_orientation")
         col = layout.column(align=True)
-        col.prop(con,'use_offset_from_rest')
+        col.prop(con,'use_rest_offset')
         col.enabled = con.relative_orientation_subtarget != ""
         layout.separator();col = layout.column(align=True)
         self.bepuik_template_target(col, con)
@@ -1025,6 +1025,7 @@ class ConstraintButtonsPanel():
         layout.prop(con,"bepuik_rigidity",text="Position Rigidity")
         layout.prop(con,"orientation_rigidity")
         layout.prop(con,"pulled_point")
+        layout.prop(con,"use_rest_offset")
 
 
         

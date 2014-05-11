@@ -441,9 +441,17 @@ static void setup_bepuik_control(Object * ob, bConstraint * constraint, IKBone *
 			mul_m4_m4m4(target_to_control_bepuik_rest,target_inverse_no_scale_bepuik_rest,controlled_no_scale_bepuik_rest_mat);
 			
 			float bone_destination_mat[4][4];//bone destination mat is the mat of the bone assuming it reaches its ideal destination
-			float normalized_target_pose_mat[4][4];
-			normalize_m4_m4(normalized_target_pose_mat,pchan_target->pose_mat);
-			mul_m4_m4m4(bone_destination_mat,normalized_target_pose_mat,target_to_control_bepuik_rest);
+
+			if(bepuik_control->bepuikflag & BEPUIK_CONSTRAINT_REST_OFFSET) {
+				float normalized_target_pose_mat[4][4];
+				normalize_m4_m4(normalized_target_pose_mat,pchan_target->pose_mat);
+				mul_m4_m4m4(bone_destination_mat,normalized_target_pose_mat,target_to_control_bepuik_rest);
+			}
+			else
+			{
+				normalize_m4_m4(bone_destination_mat,pchan_target->pose_mat);
+			}
+
 			
 			float scale_applied_local_offset_mat[4][4];
 			unit_m4(scale_applied_local_offset_mat);
@@ -662,7 +670,7 @@ void bepu_solve(Object * ob)
 				{
 					BKE_pchan_to_mat4(pchan_relative_orientation,goal_mat);
 
-					if(bjoint->flag & BEPUIK_CONSTRAINT_OFFSET_FROM_REST)
+					if(bjoint->flag & BEPUIK_CONSTRAINT_REST_OFFSET)
 					{
 						float rest_mat[4][4];
 						rest_space_mat(rest_mat,pchan,pchan_connection);

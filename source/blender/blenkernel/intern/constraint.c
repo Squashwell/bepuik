@@ -4424,7 +4424,7 @@ static void bepuik_angular_joint_id_looper(bConstraint *con, ConstraintIDFunc fu
 static void bepuik_angular_joint_new_data(void *cdata)
 {
 bBEPUikAngularJoint *data = (bBEPUikAngularJoint *)cdata;
-data->flag |= BEPUIK_CONSTRAINT_OFFSET_FROM_REST;
+data->flag |= BEPUIK_CONSTRAINT_REST_OFFSET;
 }
 BEPUIK_CTI(angular_joint,ANGULAR_JOINT,bBEPUikAngularJoint,BEPUik Angular Joint,bepuik_angular_joint_new_data)
 

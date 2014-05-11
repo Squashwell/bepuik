@@ -679,7 +679,7 @@ typedef enum eBEPUikTargetRigidity_Types{
 
 typedef enum eBEPUikConstraint_Flags{
 	BEPUIK_CONSTRAINT_HARD =					(1<<0),
-	BEPUIK_CONSTRAINT_OFFSET_FROM_REST =			(1<<1)
+	BEPUIK_CONSTRAINT_REST_OFFSET =			(1<<1)
 } eBEPUikConstraint_Flags;
 
 /* ------------------------------------------ */

@@ -2630,9 +2630,9 @@ static void rna_def_constraint_bepuik_angular_joint(BlenderRNA *brna)
 	
 	BEPUIK_CONNECTION
 	BEPUIK_TARGET(relative_orientation,Relative Orientation,Define relative orientation from Bone Target A to Bone Target B)
-	prop = RNA_def_property(srna, "use_offset_from_rest", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop,NULL,"flag",BEPUIK_CONSTRAINT_OFFSET_FROM_REST);
-	RNA_def_property_ui_text(prop, "Offset from Rest", "Include the rest space delta between the two connection bones and then apply the relative orientation");
+	prop = RNA_def_property(srna, "use_rest_offset", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop,NULL,"flag",BEPUIK_CONSTRAINT_REST_OFFSET);
+	RNA_def_property_ui_text(prop, "Rest Offset", "Include the rest space delta from Target A to Target B and then apply the relative orientation");
 	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 }
 
@@ -2829,6 +2829,11 @@ static void rna_def_constraint_bepuik_control(BlenderRNA * brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "bepuikflag", BEPUIK_CONSTRAINT_HARD);
 	RNA_def_property_ui_text(prop, "Hard", "Solve target without any softness");
 	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");	
+
+	prop = RNA_def_property(srna, "use_rest_offset", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop,NULL,"bepuikflag",BEPUIK_CONSTRAINT_REST_OFFSET);
+	RNA_def_property_ui_text(prop, "Rest Offset", "Include the rest space delta from the target to the controlled bone");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
 
 	prop = RNA_def_property(srna,"orientation_rigidity", PROP_FLOAT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(prop, "Orientation Rigidity", "Rigidity of the orientation component of the target");
