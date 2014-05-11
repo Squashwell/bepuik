@@ -1029,7 +1029,8 @@ void bepu_solve(Object * ob)
 			if (pchan->bepuikflag & BONE_BEPUIK_IS_ACTIVE_BEPUIK_TARGET) do_feedback = false;
 			else if (num_controlled_to_target_info == 0) do_feedback = false;
 			else if ((pchan->bone->flag & BONE_TRANSFORM) && !(ob->pose->bepuikflag & POSE_BEPUIK_IGNORE_SOFT_CONTROLS)) do_feedback = false;
-
+			else if (pchan->bone->flag & BONE_CONNECTED) do_feedback = false;
+			
 			if(do_feedback)
 			{
 				float average_position[3];
