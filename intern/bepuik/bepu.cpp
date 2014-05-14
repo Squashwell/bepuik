@@ -41,6 +41,10 @@
 #include <string.h>
 #include <vector>
 
+#ifdef DEBUG
+#include <assert.h>
+#endif
+
 #include "Matrix.hpp"
 #include "Vector3.hpp"
 #include "SingleBoneLinearMotor.hpp"
@@ -805,7 +809,7 @@ void bepu_solve(Object * ob)
 			if(ikjoint)
 			{
 				ikjoint->SetRigidity(constraint->bepuik_rigidity);
-				ikjoint->constraint = constraint;
+				ikjoint->bConstraintType = constraint->type;
 				joints.push_back(ikjoint);
 			}
 		}
@@ -819,6 +823,7 @@ void bepu_solve(Object * ob)
 			Vector3 bepuv3 = Vector3();
 			bepuv3_v3(bepuv3,BEPUIK_DATA(pchan)->rest_pose_mat[3]);
 			IKJoint * auto_ballsocket = new IKBallSocketJoint(child_connection,parent_connection,bepuv3);
+			auto_ballsocket->bConstraintType = CONSTRAINT_TYPE_BEPUIK_BALL_SOCKET_JOINT;
 			auto_ballsocket->SetRigidity(pchan->bepuik_ball_socket_rigidity);
 			joints.push_back(auto_ballsocket);
 		}
@@ -923,11 +928,18 @@ void bepu_solve(Object * ob)
 								
 				IKAngularJoint * ikangularjoint = new IKAngularJoint(parent,child,dynamic_stiffness_orientation);
 				ikangularjoint->SetRigidity(get_bone_length_normalized_orientation_rigidity(child,ob->bepuik_dynamic_peripheral_stiffness));
+				ikangularjoint->bConstraintType=CONSTRAINT_TYPE_BEPUIK_ANGULAR_JOINT;
 				joints.push_back(ikangularjoint);
 			}
 		}
 	}
-	
+
+#ifdef DEBUG
+	BOOST_FOREACH(IKJoint * ikjoint, joints)
+	{
+		assert(ikjoint->bConstraintType!=0);
+	}
+#endif
 	ob->pose->bepuikflag &= ~POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT;
 	
 	if(!(ob->bepuikflag & OB_BEPUIK_SOLVE_PERIPHERAL_BONES))

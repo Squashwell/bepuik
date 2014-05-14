@@ -88,7 +88,7 @@ namespace BEPUik
 		IsActive(false),
 		enabled(false),
 		accumulatedImpulse(Vector3(0,0,0)),
-		constraint(NULL)
+		bConstraintType(0)
 	{
 		SetEnabled(true);
 	}

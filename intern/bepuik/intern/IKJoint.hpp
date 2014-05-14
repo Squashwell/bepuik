@@ -78,7 +78,7 @@ namespace BEPUik
 		IKJoint(IKBone* connectionA, IKBone* connectionB);
 		~IKJoint();
 		
-		bConstraint * constraint;
+		int bConstraintType;
 	protected:
 
 
