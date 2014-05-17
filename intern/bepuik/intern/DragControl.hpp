@@ -70,9 +70,7 @@ namespace BEPUik
 
 		float GetMaximumForce();
 
-		void SetMaximumForce(float maximumLinearImpulse, float maximumAngularImpulse);
-
-		float GetRigidityMassMultiplier();
+		void SetMaximumForce(float maximumForce);
 	private:
 		SingleBoneLinearMotor linearMotor;
 	};

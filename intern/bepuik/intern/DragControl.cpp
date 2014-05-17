@@ -99,13 +99,8 @@ namespace BEPUik
 		return linearMotor.GetMaximumForce();
 	}
 
-	void DragControl::SetMaximumForce(float maximumLinearForce, float maximumAngularForce)
+	void DragControl::SetMaximumForce(float maximumForce)
 	{
-		linearMotor.SetMaximumForce(maximumLinearForce);
-	}
-	
-	float DragControl::GetRigidityMassMultiplier()
-	{
-		return max(FLT_EPSILON,linearMotor.GetRigidity());
+		linearMotor.SetMaximumForce(maximumForce);
 	}
 }

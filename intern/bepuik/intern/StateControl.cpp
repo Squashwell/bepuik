@@ -126,15 +126,10 @@ namespace BEPUik
 		angularMotor.ClearAccumulatedImpulses();
 	}
 
-	void StateControl::SetMaximumForce(float newMaximumLinearForce, float newMaximumAngularForce)
+	void StateControl::SetMaximumForce(float maximumForce)
 	{
-		linearMotor.SetMaximumForce(newMaximumLinearForce);
-		angularMotor.SetMaximumForce(newMaximumAngularForce);
-	}
-
-	float StateControl::GetRigidityMassMultiplier()
-	{
-		return max(FLT_EPSILON,linearMotor.GetRigidity() + angularMotor.GetRigidity());
+		linearMotor.SetMaximumForce(maximumForce);
+		angularMotor.SetMaximumForce(maximumForce);
 	}
 
 }

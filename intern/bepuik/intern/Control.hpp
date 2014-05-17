@@ -61,9 +61,8 @@ namespace BEPUik
 
 		virtual void ClearAccumulatedImpulses() = 0;
 
-		virtual void SetMaximumForce(float maximumLinearForce, float maximumAngularForce) = 0;
+		virtual void SetMaximumForce(float maximumForce) = 0;
 		
-		virtual float GetRigidityMassMultiplier() = 0;
 		virtual ~Control();
 	protected:
 		Control();

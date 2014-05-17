@@ -75,12 +75,7 @@ namespace BEPUik
 		/// <summary>
 		/// Gets or sets the maximum impulse the controls will try to push bones with when AutoscaleControlImpulses is enabled.
 		/// </summary>
-		float AutoscaleControlMaximumLinearForce;
-
-		/// <summary>
-		/// Gets or sets the maximum impulse the controls will try to push bones with when AutoscaleControlImpulses is enabled.
-		/// </summary>
-		float AutoscaleControlMaximumAngularForce;
+		float AutoscaleControlMaximumForce;
 
         
         

@@ -46,8 +46,8 @@ set(SRC
 	bepu.cpp
 	bepu.h
 	
-	
 	intern/ActiveSet.cpp
+    intern/AngularPlaneControl.cpp
 	intern/Control.cpp
 	intern/DragControl.cpp
 	intern/IKAngularJoint.cpp
@@ -72,6 +72,7 @@ set(SRC
 	intern/Matrix3x3.cpp
 	intern/Quaternion.cpp
 	intern/SingleBoneAngularMotor.cpp
+	intern/SingleBoneAngularPlaneConstraint.cpp
 	intern/SingleBoneConstraint.cpp
 	intern/SingleBoneLinearMotor.cpp
 	intern/StateControl.cpp
@@ -79,9 +80,11 @@ set(SRC
 	intern/Vector2.cpp
 	intern/Vector3.cpp
 	intern/PermutationMapper.cpp
+
 	
 	
 	intern/ActiveSet.hpp
+	intern/AngularPlaneControl.hpp
 	intern/Control.hpp
 	intern/DragControl.hpp
 	intern/IKAngularJoint.hpp
@@ -106,6 +109,7 @@ set(SRC
 	intern/Matrix3x3.hpp
 	intern/Quaternion.hpp
 	intern/SingleBoneAngularMotor.hpp
+	intern/SingleBoneAngularPlaneConstraint.hpp
 	intern/SingleBoneConstraint.hpp
 	intern/SingleBoneLinearMotor.hpp
 	intern/StateControl.hpp

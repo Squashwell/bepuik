@@ -31,6 +31,7 @@
 #include <boost/tr1/unordered_set.hpp>
 using namespace boost;
 #include <assert.h>
+#include "float.h"
 
 namespace BEPUik
 {
@@ -45,8 +46,7 @@ namespace BEPUik
 			FixerIterationCount(20),
 			VelocitySubiterationCount(3),
 			AutoscaleControlImpulses(true),
-			AutoscaleControlMaximumLinearForce(7),
-			AutoscaleControlMaximumAngularForce(1),
+			AutoscaleControlMaximumForce(FLT_MAX),
             permutationMapper(PermutationMapper()),
 			timeStepDuration(1.0f)
 
@@ -157,8 +157,7 @@ namespace BEPUik
 				for (unsigned int i = 0; i < controls.size(); ++i)
 				{
 					float mass = controls[i]->GetTargetBone()->GetMass();
-					controls[i]->SetMaximumForce(mass * AutoscaleControlMaximumLinearForce,
-												 mass * AutoscaleControlMaximumAngularForce);
+					controls[i]->SetMaximumForce(mass * AutoscaleControlMaximumForce);
 				}
 			}
 

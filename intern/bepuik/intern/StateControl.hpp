@@ -70,11 +70,10 @@ namespace BEPUik
 
 		void ClearAccumulatedImpulses();
 
-		void SetMaximumForce(float maximumLinearForce, float maximumAngularForce);
+		void SetMaximumForce(float maximumForce);
 
 		void Preupdate(float dt, float updateRate);
 		
-		float GetRigidityMassMultiplier();
 	private:
 		SingleBoneLinearMotor linearMotor;
 		SingleBoneAngularMotor angularMotor;
