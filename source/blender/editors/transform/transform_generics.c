@@ -364,7 +364,7 @@ static void recalcData_actedit(TransInfo *t)
 		}
 		
 		/* now free temp channels */
-		BLI_freelistN(&anim_data);
+		ANIM_animdata_freelist(&anim_data);
 	}
 }
 /* helper for recalcData() - for Graph Editor transforms */
@@ -424,7 +424,7 @@ static void recalcData_graphedit(TransInfo *t)
 	if (dosort) remake_graph_transdata(t, &anim_data);
 	
 	/* now free temp channels */
-	BLI_freelistN(&anim_data);
+	ANIM_animdata_freelist(&anim_data);
 }
 
 /* helper for recalcData() - for NLA Editor transforms */
