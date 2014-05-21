@@ -992,8 +992,8 @@ class ConstraintButtonsPanel():
         self.connection_a_label(col)
         self.bepuik_template_axis(col, con, "hinge_axis")
         layout.separator();col = layout.column(align=True)
-        self.bepuik_template_target(con, con)
-        self.bepuik_template_axis(con, con, "twist_axis")        
+        self.bepuik_template_target(col, con)
+        self.bepuik_template_axis(col, con, "twist_axis")        
         layout.prop(con,'bepuik_rigidity')
         
     def BEPUIK_TWIST_JOINT(self,context,layout,con):
