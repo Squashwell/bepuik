@@ -80,13 +80,13 @@ __INT64_TYPE__ PermutationMapper::GetPermutationIndex()
 
 void PermutationMapper::SetPermutationIndex(__INT64_TYPE__ value)
 {
-        permutationIndex = value < 0 ? value + __INT64_MAX__ + 1 : value;
+        permutationIndex = value < 0 ? value + 0x8000000000000000 : value;
         currentPrime = primes[permutationIndex % primesLength];
 
         currentOffset = currentPrime * permutationIndex;
 
         if (currentOffset < 0)
-            currentOffset = currentOffset + __INT64_MAX__ + 1;
+            currentOffset = currentOffset + 0x8000000000000000;
 }
 
 /// <summary>
