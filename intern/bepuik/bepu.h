@@ -35,15 +35,11 @@ extern "C"
 #endif
 
 #include "DNA_object_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_action_types.h"
-#include "DNA_anim_types.h"
 
 void bepu_solve(Object * ob);
 void bepu_end(Object * ob);
 
 #define BEPUIK_BONE_LENGTH_TO_RADIUS(length) ((length)/5.0f)
-#define BEPUIK_DEFAULT_BONE_RADIUS 0.2f
 #ifdef __cplusplus
 }
 #endif
