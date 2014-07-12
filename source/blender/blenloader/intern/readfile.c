@@ -4450,6 +4450,9 @@ static void lib_link_object(FileData *fd, Main *main)
 					steeringa->target = newlibadr(fd, ob->id.lib, steeringa->target);
 					steeringa->navmesh = newlibadr(fd, ob->id.lib, steeringa->navmesh);
 				}
+				else if(act->type == ACT_MOUSE) {
+					/* bMouseActuator *moa= act->data; */
+				}
 			}
 			
 			{
@@ -8924,7 +8927,7 @@ static ID *append_named_part_ex(const bContext *C, Main *mainl, FileData *fd, co
 				ob->lay = v3d ? v3d->layact : scene->lay;
 			}
 			
-			ob->mode = 0;
+			ob->mode = OB_MODE_OBJECT;
 			base->lay = ob->lay;
 			base->object = ob;
 			ob->id.us++;

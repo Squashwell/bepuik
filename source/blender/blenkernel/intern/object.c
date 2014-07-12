@@ -1491,7 +1491,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 	defgroup_copy_list(&obn->defbase, &ob->defbase);
 	BKE_constraints_copy(&obn->constraints, &ob->constraints, true);
 
-	obn->mode = 0;
+	obn->mode = OB_MODE_OBJECT;
 	obn->sculpt = NULL;
 
 	/* increase user numbers */
@@ -2920,6 +2920,12 @@ void BKE_object_handle_update_ex(EvaluationContext *eval_ctx,
 				{
 					BMEditMesh *em = (ob == scene->obedit) ? BKE_editmesh_from_object(ob) : NULL;
 					uint64_t data_mask = scene->customdata_mask | CD_MASK_BAREMESH;
+#ifdef WITH_FREESTYLE
+					/* make sure Freestyle edge/face marks appear in DM for render (see T40315) */
+					if (eval_ctx->mode != DAG_EVAL_VIEWPORT) {
+						data_mask |= CD_MASK_FREESTYLE_EDGE | CD_MASK_FREESTYLE_FACE;
+					}
+#endif
 					if (em) {
 						makeDerivedMesh(scene, ob, em,  data_mask, 0); /* was CD_MASK_BAREMESH */
 					}
@@ -2982,7 +2988,7 @@ void BKE_object_handle_update_ex(EvaluationContext *eval_ctx,
 				lamp_drivers_update(scene, ob->data, ctime);
 			
 			/* particles */
-			if (ob->particlesystem.first) {
+			if (ob != scene->obedit && ob->particlesystem.first) {
 				ParticleSystem *tpsys, *psys;
 				DerivedMesh *dm;
 				ob->transflag &= ~OB_DUPLIPARTS;
@@ -2996,7 +3002,7 @@ void BKE_object_handle_update_ex(EvaluationContext *eval_ctx,
 
 					if (psys_check_enabled(ob, psys)) {
 						/* check use of dupli objects here */
-						if (psys->part && (psys->part->draw_as == PART_DRAW_REND || eval_ctx->for_render) &&
+						if (psys->part && (psys->part->draw_as == PART_DRAW_REND || eval_ctx->mode == DAG_EVAL_RENDER) &&
 						    ((psys->part->ren_as == PART_DRAW_OB && psys->part->dup_ob) ||
 						     (psys->part->ren_as == PART_DRAW_GR && psys->part->dup_group)))
 						{
@@ -3016,7 +3022,7 @@ void BKE_object_handle_update_ex(EvaluationContext *eval_ctx,
 						psys = psys->next;
 				}
 
-				if (eval_ctx->for_render && ob->transflag & OB_DUPLIPARTS) {
+				if (eval_ctx->mode == DAG_EVAL_RENDER && ob->transflag & OB_DUPLIPARTS) {
 					/* this is to make sure we get render level duplis in groups:
 					 * the derivedmesh must be created before init_render_mesh,
 					 * since object_duplilist does dupliparticles before that */

@@ -1381,18 +1381,43 @@ static void createTransPose(TransInfo *t, Object *ob)
 	if (ik_on) transform_autoik_update(t, 0);
 }
 
-/* ********************* armature ************** */
+void restoreBones(TransInfo *t)
+{
+	BoneInitData *bid = t->customData;
+	EditBone *ebo;
 
+	while (bid->bone) {
+		ebo = bid->bone;
+		ebo->dist = bid->dist;
+		ebo->rad_tail = bid->rad_tail;
+		ebo->roll = bid->roll;
+		ebo->xwidth = bid->xwidth;
+		ebo->zwidth = bid->zwidth;
+		copy_v3_v3(ebo->head, bid->head);
+		copy_v3_v3(ebo->tail, bid->tail);
+
+		bid++;
+	}
+}
+
+
+/* ********************* armature ************** */
 static void createTransArmatureVerts(TransInfo *t)
 {
-	EditBone *ebo;
+	EditBone *ebo, *eboflip;
 	bArmature *arm = t->obedit->data;
 	ListBase *edbo = arm->edbo;
-	TransData *td;
+	TransData *td, *td_old;
 	float mtx[3][3], smtx[3][3], bonemat[3][3];
+	bool mirror = ((arm->flag & ARM_MIRROR_EDIT) != 0);
+	int total_mirrored = 0, i;
+	int oldtot;
+	BoneInitData *bid;
 	
 	t->total = 0;
 	for (ebo = edbo->first; ebo; ebo = ebo->next) {
+		oldtot = t->total;
+
 		if (EBONE_VISIBLE(arm, ebo) && !(ebo->flag & BONE_EDITMODE_LOCKED)) {
 			if (t->mode == TFM_BONESIZE) {
 				if (ebo->flag & BONE_SELECTED)
@@ -1409,6 +1434,12 @@ static void createTransArmatureVerts(TransInfo *t)
 					t->total++;
 			}
 		}
+
+		if (mirror && (oldtot < t->total)) {
+			eboflip = ED_armature_bone_get_mirrored(arm->edbo, ebo);
+			if (eboflip)
+				total_mirrored++;
+		}
 	}
 
 	if (!t->total) return;
@@ -1420,7 +1451,15 @@ static void createTransArmatureVerts(TransInfo *t)
 
 	td = t->data = MEM_callocN(t->total * sizeof(TransData), "TransEditBone");
 
+	if (mirror) {
+		t->customData = bid = MEM_mallocN((total_mirrored + 1) * sizeof(BoneInitData), "BoneInitData");
+		t->flag |= T_FREE_CUSTOMDATA;
+	}
+
+	i = 0;
+
 	for (ebo = edbo->first; ebo; ebo = ebo->next) {
+		td_old = td;
 		ebo->oldlength = ebo->length;   // length==0.0 on extrude, used for scaling radius of bone points
 
 		if (EBONE_VISIBLE(arm, ebo) && !(ebo->flag & BONE_EDITMODE_LOCKED)) {
@@ -1552,6 +1591,26 @@ static void createTransArmatureVerts(TransInfo *t)
 				}
 			}
 		}
+
+		if (mirror && (td_old != td)) {
+			eboflip = ED_armature_bone_get_mirrored(arm->edbo, ebo);
+			if (eboflip) {
+				bid[i].bone = eboflip;
+				bid[i].dist = eboflip->dist;
+				bid[i].rad_tail = eboflip->rad_tail;
+				bid[i].roll = eboflip->roll;
+				bid[i].xwidth = eboflip->xwidth;
+				bid[i].zwidth = eboflip->zwidth;
+				copy_v3_v3(bid[i].head, eboflip->head);
+				copy_v3_v3(bid[i].tail, eboflip->tail);
+				i++;
+			}
+		}
+	}
+
+	if (mirror && total_mirrored) {
+		/* trick to terminate iteration */
+		bid[total_mirrored].bone = NULL;
 	}
 }
 
@@ -2218,6 +2277,7 @@ static void editmesh_set_connectivity_distance(BMesh *bm, float mtx[3][3], float
 				dists[i] = 0.0f;
 			}
 		}
+		bm->elem_index_dirty &= ~BM_VERT;
 	}
 
 	do {
@@ -2227,37 +2287,45 @@ static void editmesh_set_connectivity_distance(BMesh *bm, float mtx[3][3], float
 		memcpy(dists_prev, dists, sizeof(float) * bm->totvert);
 
 		while ((v = BLI_LINKSTACK_POP(queue))) {
-			BMIter iter;
-			BMEdge *e;
-			BMLoop *l;
+			/* quick checks */
+			bool has_edges = (v->e != NULL);
+			bool has_faces = false;
 
 			/* connected edge-verts */
-			BM_ITER_ELEM (e, &iter, v, BM_EDGES_OF_VERT) {
-				if (BM_elem_flag_test(e, BM_ELEM_HIDDEN) == 0) {
-					BMVert *v_other = BM_edge_other_vert(e, v);
-					if (bmesh_test_dist_add(v, v_other, dists, dists_prev, mtx)) {
-						if (BM_elem_flag_test(v_other, BM_ELEM_TAG) == 0) {
-							BM_elem_flag_enable(v_other, BM_ELEM_TAG);
-							BLI_LINKSTACK_PUSH(queue_next, v_other);
-						}
-					}
-				}
-			}
-			
-			/* connected face-verts (excluding adjacent verts) */
-			BM_ITER_ELEM (l, &iter, v, BM_LOOPS_OF_VERT) {
-				if ((BM_elem_flag_test(l->f, BM_ELEM_HIDDEN) == 0) && (l->f->len > 3)) {
-					BMLoop *l_end = l->prev;
-					l = l->next->next;
-					do {
-						BMVert *v_other = l->v;
+			if (has_edges) {
+				BMIter iter;
+				BMEdge *e;
+
+				BM_ITER_ELEM (e, &iter, v, BM_EDGES_OF_VERT) {
+					has_faces |= (BM_edge_is_wire(e) == false);
+
+					if (BM_elem_flag_test(e, BM_ELEM_HIDDEN) == 0) {
+						BMVert *v_other = BM_edge_other_vert(e, v);
 						if (bmesh_test_dist_add(v, v_other, dists, dists_prev, mtx)) {
 							if (BM_elem_flag_test(v_other, BM_ELEM_TAG) == 0) {
 								BM_elem_flag_enable(v_other, BM_ELEM_TAG);
 								BLI_LINKSTACK_PUSH(queue_next, v_other);
 							}
 						}
-					} while ((l = l->next) != l_end);
+					}
+				}
+			}
+			
+			/* imaginary edge diagonally across quad */
+			if (has_faces) {
+				BMIter iter;
+				BMLoop *l;
+
+				BM_ITER_ELEM (l, &iter, v, BM_LOOPS_OF_VERT) {
+					if ((BM_elem_flag_test(l->f, BM_ELEM_HIDDEN) == 0) && (l->f->len == 4)) {
+						BMVert *v_other = l->next->next->v;
+						if (bmesh_test_dist_add(v, v_other, dists, dists_prev, mtx)) {
+							if (BM_elem_flag_test(v_other, BM_ELEM_TAG) == 0) {
+								BM_elem_flag_enable(v_other, BM_ELEM_TAG);
+								BLI_LINKSTACK_PUSH(queue_next, v_other);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2951,7 +3019,7 @@ static void createTransUVs(bContext *C, TransInfo *t)
 
 				if (propconnected) {
 					UvElement *element = BM_uv_element_get(elementmap, efa, l);
-					BLI_BITMAP_SET(island_enabled, element->island);
+					BLI_BITMAP_ENABLE(island_enabled, element->island);
 				}
 
 			}
@@ -2992,7 +3060,7 @@ static void createTransUVs(bContext *C, TransInfo *t)
 
 			if (propconnected) {
 				UvElement *element = BM_uv_element_get(elementmap, efa, l);
-				if (!BLI_BITMAP_GET(island_enabled, element->island)) {
+				if (!BLI_BITMAP_TEST(island_enabled, element->island)) {
 					count_rejected++;
 					continue;
 				}
@@ -3881,12 +3949,17 @@ static void createTransActionData(bContext *C, TransInfo *t)
 
 /* ********************* GRAPH EDITOR ************************* */
 
+typedef struct TransDataGraph {
+	float unit_scale;
+} TransDataGraph;
+
 /* Helper function for createTransGraphEditData, which is responsible for associating
  * source data with transform data
  */
-static void bezt_to_transdata(TransData *td, TransData2D *td2d, AnimData *adt, BezTriple *bezt,
-                              int bi, short selected, short ishandle, short intvals,
-                              float mtx[3][3], float smtx[3][3])
+static void bezt_to_transdata(TransData *td, TransData2D *td2d, TransDataGraph *tdg,
+                              AnimData *adt, BezTriple *bezt,
+                              int bi, bool selected, bool ishandle, bool intvals,
+                              float mtx[3][3], float smtx[3][3], float unit_scale)
 {
 	float *loc = bezt->vec[bi];
 	const float *cent = bezt->vec[1];
@@ -3900,41 +3973,39 @@ static void bezt_to_transdata(TransData *td, TransData2D *td2d, AnimData *adt, B
 	
 	if (adt) {
 		td2d->loc[0] = BKE_nla_tweakedit_remap(adt, loc[0], NLATIME_CONVERT_MAP);
-		td2d->loc[1] = loc[1];
+		td2d->loc[1] = loc[1] * unit_scale;
 		td2d->loc[2] = 0.0f;
 		td2d->loc2d = loc;
 		
 		td->loc = td2d->loc;
 		td->center[0] = BKE_nla_tweakedit_remap(adt, cent[0], NLATIME_CONVERT_MAP);
-		td->center[1] = cent[1];
+		td->center[1] = cent[1] * unit_scale;
 		td->center[2] = 0.0f;
 		
 		copy_v3_v3(td->iloc, td->loc);
 	}
 	else {
 		td2d->loc[0] = loc[0];
-		td2d->loc[1] = loc[1];
+		td2d->loc[1] = loc[1] * unit_scale;
 		td2d->loc[2] = 0.0f;
 		td2d->loc2d = loc;
 		
 		td->loc = td2d->loc;
 		copy_v3_v3(td->center, cent);
+		td->center[1] *= unit_scale;
 		copy_v3_v3(td->iloc, td->loc);
 	}
 
-	if (td->flag & TD_MOVEHANDLE1) {
+	if (!ishandle) {
 		td2d->h1 = bezt->vec[0];
-		copy_v2_v2(td2d->ih1, td2d->h1);
-	}
-	else
-		td2d->h1 = NULL;
-
-	if (td->flag & TD_MOVEHANDLE2) {
 		td2d->h2 = bezt->vec[2];
+		copy_v2_v2(td2d->ih1, td2d->h1);
 		copy_v2_v2(td2d->ih2, td2d->h2);
 	}
-	else 
+	else {
+		td2d->h1 = NULL;
 		td2d->h2 = NULL;
+	}
 
 	memset(td->axismtx, 0, sizeof(td->axismtx));
 	td->axismtx[2][2] = 1.0f;
@@ -3959,6 +4030,18 @@ static void bezt_to_transdata(TransData *td, TransData2D *td2d, AnimData *adt, B
 	/* copy space-conversion matrices for dealing with non-uniform scales */
 	copy_m3_m3(td->mtx, mtx);
 	copy_m3_m3(td->smtx, smtx);
+
+	tdg->unit_scale = unit_scale;
+}
+
+static bool graph_edit_is_translation_mode(TransInfo *t)
+{
+	return ELEM4(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE, TFM_TIME_DUPLICATE);
+}
+
+static bool graph_edit_use_local_center(TransInfo *t)
+{
+	return (t->around == V3D_LOCAL) && !graph_edit_is_translation_mode(t);
 }
 
 static void createTransGraphEditData(bContext *C, TransInfo *t)
@@ -3970,6 +4053,7 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 	
 	TransData *td = NULL;
 	TransData2D *td2d = NULL;
+	TransDataGraph *tdg = NULL;
 	
 	bAnimContext ac;
 	ListBase anim_data = {NULL, NULL};
@@ -3980,8 +4064,9 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 	int count = 0, i;
 	float cfra;
 	float mtx[3][3], smtx[3][3];
+	const bool is_translation_mode = graph_edit_is_translation_mode(t);
 	const bool use_handle = !(sipo->flag & SIPO_NOHANDLES);
-	const bool use_local_center = checkUseLocalCenter_GraphEdit(t);
+	const bool use_local_center = graph_edit_use_local_center(t);
 	short anim_map_flag = ANIM_UNITCONV_ONLYSEL | ANIM_UNITCONV_SELVERTS;
 	
 	/* determine what type of data we are operating on */
@@ -4028,11 +4113,11 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 		/* only include BezTriples whose 'keyframe' occurs on the same side of the current frame as mouse */
 		for (i = 0, bezt = fcu->bezt; i < fcu->totvert; i++, bezt++) {
 			if (FrameOnMouseSide(t->frame_side, bezt->vec[1][0], cfra)) {
-				const char sel2 = bezt->f2 & SELECT;
-				const char sel1 = use_handle ? bezt->f1 & SELECT : sel2;
-				const char sel3 = use_handle ? bezt->f3 & SELECT : sel2;
+				const bool sel2 = bezt->f2 & SELECT;
+				const bool sel1 = use_handle ? bezt->f1 & SELECT : sel2;
+				const bool sel3 = use_handle ? bezt->f3 & SELECT : sel2;
 
-				if (ELEM4(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE, TFM_TIME_DUPLICATE)) {
+				if (is_translation_mode) {
 					/* for 'normal' pivots - just include anything that is selected.
 					 * this works a bit differently in translation modes */
 					if (sel2) {
@@ -4043,9 +4128,9 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 						if (sel3) count++;
 					}
 				}
-				else if (sipo->around == V3D_LOCAL) {
-					/* for local-pivot we only need to count the number of selected handles only, so that centerpoints don't
-					 * don't get moved wrong
+				else if (use_local_center) {
+					/* for local-pivot we only need to count the number of selected handles only,
+					 * so that centerpoints don't get moved wrong
 					 */
 					if (bezt->ipo == BEZT_IPO_BEZ) {
 						if (sel1) count++;
@@ -4077,9 +4162,12 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 	t->data = MEM_callocN(t->total * sizeof(TransData), "TransData (Graph Editor)");
 	/* for each 2d vert a 3d vector is allocated, so that they can be treated just as if they were 3d verts */
 	t->data2d = MEM_callocN(t->total * sizeof(TransData2D), "TransData2D (Graph Editor)");
+	t->customData = MEM_callocN(t->total * sizeof(TransDataGraph), "TransDataGraph");
+	t->flag |= T_FREE_CUSTOMDATA;
 	
 	td = t->data;
 	td2d = t->data2d;
+	tdg = t->customData;
 	
 	/* precompute space-conversion matrices for dealing with non-uniform scaling of Graph Editor */
 	unit_m3(mtx);
@@ -4104,9 +4192,8 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 	for (ale = anim_data.first; ale; ale = ale->next) {
 		AnimData *adt = ANIM_nla_mapping_get(&ac, ale);
 		FCurve *fcu = (FCurve *)ale->key_data;
-		short intvals = (fcu->flag & FCURVE_INT_VALUES);
+		bool intvals = (fcu->flag & FCURVE_INT_VALUES);
 		float unit_scale;
-		float scaled_mtx[3][3], scaled_smtx[3][3];
 
 		/* convert current-frame to action-time (slightly less accurate, especially under
 		 * higher scaling ratios, but is faster than converting all points)
@@ -4122,17 +4209,12 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 		
 		unit_scale = ANIM_unit_mapping_get_factor(ac.scene, ale->id, ale->key_data, anim_map_flag);
 
-		copy_m3_m3(scaled_mtx, mtx);
-		copy_m3_m3(scaled_smtx, smtx);
-		mul_v3_fl(scaled_mtx[1], unit_scale);
-		mul_v3_fl(scaled_smtx[1],  1.0f / unit_scale);
-
 		/* only include BezTriples whose 'keyframe' occurs on the same side of the current frame as mouse (if applicable) */
 		for (i = 0, bezt = fcu->bezt; i < fcu->totvert; i++, bezt++) {
 			if (FrameOnMouseSide(t->frame_side, bezt->vec[1][0], cfra)) {
-				const char sel2 = bezt->f2 & SELECT;
-				const char sel1 = use_handle ? bezt->f1 & SELECT : sel2;
-				const char sel3 = use_handle ? bezt->f3 & SELECT : sel2;
+				const bool sel2 = bezt->f2 & SELECT;
+				const bool sel1 = use_handle ? bezt->f1 & SELECT : sel2;
+				const bool sel3 = use_handle ? bezt->f3 & SELECT : sel2;
 
 				TransDataCurveHandleFlags *hdata = NULL;
 				/* short h1=1, h2=1; */ /* UNUSED */
@@ -4140,10 +4222,10 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 				/* only include handles if selected, irrespective of the interpolation modes.
 				 * also, only treat handles specially if the center point isn't selected. 
 				 */
-				if (!ELEM4(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE, TFM_TIME_DUPLICATE) || !(sel2)) {
+				if (!is_translation_mode || !(sel2)) {
 					if (sel1) {
 						hdata = initTransDataCurveHandles(td, bezt);
-						bezt_to_transdata(td++, td2d++, adt, bezt, 0, 1, 1, intvals, scaled_mtx, scaled_smtx);
+						bezt_to_transdata(td++, td2d++, tdg++, adt, bezt, 0, sel1, true, intvals, mtx, smtx, unit_scale);
 					}
 					else {
 						/* h1 = 0; */ /* UNUSED */
@@ -4152,7 +4234,7 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 					if (sel3) {
 						if (hdata == NULL)
 							hdata = initTransDataCurveHandles(td, bezt);
-						bezt_to_transdata(td++, td2d++, adt, bezt, 2, 1, 1, intvals, scaled_mtx, scaled_smtx);
+						bezt_to_transdata(td++, td2d++, tdg++, adt, bezt, 2, sel3, true, intvals, mtx, smtx, unit_scale);
 					}
 					else {
 						/* h2 = 0; */ /* UNUSED */
@@ -4160,10 +4242,9 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 				}
 				
 				/* only include main vert if selected */
-				if (sel2 && (use_local_center == false)) {
-
+				if (sel2 && !use_local_center) {
 					/* move handles relative to center */
-					if (ELEM4(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE, TFM_TIME_DUPLICATE)) {
+					if (is_translation_mode) {
 						if (sel1) td->flag |= TD_MOVEHANDLE1;
 						if (sel3) td->flag |= TD_MOVEHANDLE2;
 					}
@@ -4173,8 +4254,8 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 						if (hdata == NULL)
 							hdata = initTransDataCurveHandles(td, bezt);
 					}
-				
-					bezt_to_transdata(td++, td2d++, adt, bezt, 1, 1, 0, intvals, scaled_mtx, scaled_smtx);
+					
+					bezt_to_transdata(td++, td2d++, tdg++, adt, bezt, 1, sel2, false, intvals, mtx, smtx, unit_scale);
 					
 				}
 				/* special hack (must be done after initTransDataCurveHandles(), as that stores handle settings to restore...):
@@ -4412,14 +4493,19 @@ void flushTransGraphData(TransInfo *t)
 	SpaceIpo *sipo = (SpaceIpo *)t->sa->spacedata.first;
 	TransData *td;
 	TransData2D *td2d;
+	TransDataGraph *tdg;
 	Scene *scene = t->scene;
 	double secf = FPS;
 	int a;
 
 	/* flush to 2d vector from internally used 3d vector */
-	for (a = 0, td = t->data, td2d = t->data2d; a < t->total; a++, td++, td2d++) {
+	for (a = 0, td = t->data, td2d = t->data2d, tdg = t->customData;
+	     a < t->total;
+	     a++, td++, td2d++, tdg++)
+	{
 		AnimData *adt = (AnimData *)td->extra; /* pointers to relevant AnimData blocks are stored in the td->extra pointers */
-		
+		float inv_unit_scale = 1.0f / tdg->unit_scale;
+
 		/* handle snapping for time values
 		 *	- we should still be in NLA-mapping timespace
 		 *	- only apply to keyframes (but never to handles)
@@ -4476,16 +4562,16 @@ void flushTransGraphData(TransInfo *t)
 		if (td->flag & TD_INTVALUES)
 			td2d->loc2d[1] = floorf(td2d->loc[1] + 0.5f);
 		else
-			td2d->loc2d[1] = td2d->loc[1];
+			td2d->loc2d[1] = td2d->loc[1] * inv_unit_scale;
 		
 		if ((td->flag & TD_MOVEHANDLE1) && td2d->h1) {
 			td2d->h1[0] = td2d->ih1[0] + td->loc[0] - td->iloc[0];
-			td2d->h1[1] = td2d->ih1[1] + td->loc[1] - td->iloc[1];
+			td2d->h1[1] = td2d->ih1[1] + (td->loc[1] - td->iloc[1]) * inv_unit_scale;
 		}
 		
 		if ((td->flag & TD_MOVEHANDLE2) && td2d->h2) {
 			td2d->h2[0] = td2d->ih2[0] + td->loc[0] - td->iloc[0];
-			td2d->h2[1] = td2d->ih2[1] + td->loc[1] - td->iloc[1];
+			td2d->h2[1] = td2d->ih2[1] + (td->loc[1] - td->iloc[1]) * inv_unit_scale;
 		}
 	}
 }
@@ -6982,6 +7068,8 @@ static void MaskHandleToTransData(MaskSplinePoint *point, eMaskWhichHandle which
 	td->flag = 0;
 	td->loc = td2d->loc;
 	mul_v2_m3v2(td->center, parent_matrix, bezt->vec[1]);
+	td->center[0] *= asp[0];
+	td->center[1] *= asp[1];
 	copy_v3_v3(td->iloc, td->loc);
 
 	memset(td->axismtx, 0, sizeof(td->axismtx));
@@ -7043,6 +7131,8 @@ static void MaskPointToTransData(Scene *scene, MaskSplinePoint *point,
 			td->flag = 0;
 			td->loc = td2d->loc;
 			mul_v2_m3v2(td->center, parent_matrix, bezt->vec[1]);
+			td->center[0] *= asp[0];
+			td->center[1] *= asp[1];
 			copy_v3_v3(td->iloc, td->loc);
 
 			memset(td->axismtx, 0, sizeof(td->axismtx));

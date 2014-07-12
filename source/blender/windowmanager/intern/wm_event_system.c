@@ -1261,11 +1261,17 @@ static int wm_operator_call_internal(bContext *C, wmOperatorType *ot, PointerRNA
 
 
 /* invokes operator in context */
+int WM_operator_name_call_ptr(bContext *C, wmOperatorType *ot, short context, PointerRNA *properties)
+{
+	BLI_assert(ot == WM_operatortype_find(ot->idname, true));
+	return wm_operator_call_internal(C, ot, properties, NULL, context, false);
+}
 int WM_operator_name_call(bContext *C, const char *opstring, short context, PointerRNA *properties)
 {
 	wmOperatorType *ot = WM_operatortype_find(opstring, 0);
-	if (ot)
-		return wm_operator_call_internal(C, ot, properties, NULL, context, false);
+	if (ot) {
+		return WM_operator_name_call_ptr(C, ot, context, properties);
+	}
 
 	return 0;
 }
@@ -2140,7 +2146,7 @@ static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *even
 		return;
 	}
 	
-	if (event->type == MOUSEMOVE)
+	if (event->type == MOUSEMOVE || ISKEYMODIFIER(event->type))
 		win->screen->do_draw_drag = true;
 	else if (event->type == ESCKEY) {
 		BLI_freelistN(&wm->drags);
@@ -2301,10 +2307,12 @@ void wm_event_do_handlers(bContext *C)
 									/* call even on non mouse events, since the */
 									wm_region_mouse_co(C, event);
 
-									/* does polls for drop regions and checks uibuts */
-									/* need to be here to make sure region context is true */
-									if (ELEM(event->type, MOUSEMOVE, EVT_DROP)) {
-										wm_drags_check_ops(C, event);
+									if (!BLI_listbase_is_empty(&wm->drags)) {
+										/* does polls for drop regions and checks uibuts */
+										/* need to be here to make sure region context is true */
+										if (ELEM(event->type, MOUSEMOVE, EVT_DROP) || ISKEYMODIFIER(event->type)) {
+											wm_drags_check_ops(C, event);
+										}
 									}
 									
 									action |= wm_handlers_do(C, event, &ar->handlers);
@@ -2559,12 +2567,14 @@ void WM_event_remove_keymap_handler(ListBase *handlers, wmKeyMap *keymap)
 	}
 }
 
-wmEventHandler *WM_event_add_ui_handler(const bContext *C, ListBase *handlers,
-                                        wmUIHandlerFunc func, wmUIHandlerRemoveFunc remove, void *userdata)
+wmEventHandler *WM_event_add_ui_handler(
+        const bContext *C, ListBase *handlers,
+        wmUIHandlerFunc ui_handle, wmUIHandlerRemoveFunc ui_remove,
+        void *userdata)
 {
 	wmEventHandler *handler = MEM_callocN(sizeof(wmEventHandler), "event ui handler");
-	handler->ui_handle = func;
-	handler->ui_remove = remove;
+	handler->ui_handle = ui_handle;
+	handler->ui_remove = ui_remove;
 	handler->ui_userdata = userdata;
 	if (C) {
 		handler->ui_area    = CTX_wm_area(C);
@@ -2584,13 +2594,18 @@ wmEventHandler *WM_event_add_ui_handler(const bContext *C, ListBase *handlers,
 }
 
 /* set "postpone" for win->modalhandlers, this is in a running for () loop in wm_handlers_do() */
-void WM_event_remove_ui_handler(ListBase *handlers,
-                                wmUIHandlerFunc func, wmUIHandlerRemoveFunc remove, void *userdata, const bool postpone)
+void WM_event_remove_ui_handler(
+        ListBase *handlers,
+        wmUIHandlerFunc ui_handle, wmUIHandlerRemoveFunc ui_remove,
+        void *userdata, const bool postpone)
 {
 	wmEventHandler *handler;
 	
 	for (handler = handlers->first; handler; handler = handler->next) {
-		if (handler->ui_handle == func && handler->ui_remove == remove && handler->ui_userdata == userdata) {
+		if ((handler->ui_handle == ui_handle) &&
+		    (handler->ui_remove == ui_remove) &&
+		    (handler->ui_userdata == userdata))
+		{
 			/* handlers will be freed in wm_handlers_do() */
 			if (postpone) {
 				handler->flag |= WM_HANDLER_DO_FREE;
@@ -2604,15 +2619,18 @@ void WM_event_remove_ui_handler(ListBase *handlers,
 	}
 }
 
-void WM_event_free_ui_handler_all(bContext *C, ListBase *handlers,
-                                  wmUIHandlerFunc func, wmUIHandlerRemoveFunc remove)
+void WM_event_free_ui_handler_all(
+        bContext *C, ListBase *handlers,
+        wmUIHandlerFunc ui_handle, wmUIHandlerRemoveFunc ui_remove)
 {
 	wmEventHandler *handler, *handler_next;
 
 	for (handler = handlers->first; handler; handler = handler_next) {
 		handler_next = handler->next;
-		if (handler->ui_handle == func && handler->ui_remove == remove) {
-			remove(C, handler->ui_userdata);
+		if ((handler->ui_handle == ui_handle) &&
+		    (handler->ui_remove == ui_remove))
+		{
+			ui_remove(C, handler->ui_userdata);
 			BLI_remlink(handlers, handler);
 			wm_event_free_handler(handler);
 		}
@@ -3349,7 +3367,7 @@ void WM_set_locked_interface(wmWindowManager *wm, bool lock)
 	 *
 	 * TODO(sergey): Make it different locked states, so different jobs
 	 *               could lock different areas of blender and allow
-	 *               interation with others?
+	 *               interaction with others?
 	 */
 	BKE_spacedata_draw_locks(lock);
 }

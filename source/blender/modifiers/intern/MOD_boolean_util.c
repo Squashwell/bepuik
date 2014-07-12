@@ -383,7 +383,7 @@ static void exporter_InitGeomArrays(ExportMeshData *export_data,
 	DerivedMesh *dm_left = export_data->dm_left,
 	            *dm_right = export_data->dm_right;
 
-	/* Mask for custom data layers to be merhed from operands. */
+	/* Mask for custom data layers to be merged from operands. */
 	CustomDataMask merge_mask = CD_MASK_DERIVEDMESH & ~CD_MASK_ORIGINDEX;
 
 	export_data->dm = dm;
@@ -412,6 +412,9 @@ static void exporter_InitGeomArrays(ExportMeshData *export_data,
 	 */
 	CustomData_merge(&dm_left->polyData, &dm->polyData, merge_mask, CD_DEFAULT, num_polys);
 	CustomData_merge(&dm_right->polyData, &dm->polyData, merge_mask, CD_DEFAULT, num_polys);
+
+	CustomData_merge(&dm_left->edgeData, &dm->edgeData, merge_mask, CD_DEFAULT, num_edges);
+	CustomData_merge(&dm_right->edgeData, &dm->edgeData, merge_mask, CD_DEFAULT, num_edges);
 
 	export_data->vert_origindex = dm->getVertDataArray(dm, CD_ORIGINDEX);
 	export_data->edge_origindex = dm->getEdgeDataArray(dm, CD_ORIGINDEX);
@@ -789,6 +792,7 @@ DerivedMesh *NewBooleanDerivedMesh(DerivedMesh *dm, struct Object *ob,
 		/* Free memory used by export mesh. */
 		BLI_ghash_free(export_data.material_hash, NULL, NULL);
 
+		output_dm->cd_flag |= dm->cd_flag | dm_select->cd_flag;
 		output_dm->dirty |= DM_DIRTY_NORMALS;
 		carve_deleteMesh(output);
 	}

@@ -633,7 +633,7 @@ static void ui_apply_but_funcs_after(bContext *C)
 		}
 
 		if (after.optype)
-			WM_operator_name_call(C, after.optype->idname, after.opcontext, (after.opptr) ? &opptr : NULL);
+			WM_operator_name_call_ptr(C, after.optype, after.opcontext, (after.opptr) ? &opptr : NULL);
 
 		if (after.opptr)
 			WM_operator_properties_free(&opptr);
@@ -2372,6 +2372,18 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
 		data->str = NULL;
 	}
 
+#ifdef USE_DRAG_MULTINUM
+	/* this can happen from multi-drag */
+	if (data->applied_interactive) {
+		/* remove any small changes so canceling edit doesn't restore invalid value: T40538 */
+		data->cancel = true;
+		ui_apply_button(C, but->block, but, data, true);
+		data->cancel = false;
+
+		data->applied_interactive = false;
+	}
+#endif
+
 	/* retrieve string */
 	data->maxlen = ui_get_but_string_max_length(but);
 	data->str = MEM_callocN(sizeof(char) * data->maxlen + 1, "textedit str");
@@ -2391,11 +2403,6 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
 	data->origstr = BLI_strdupn(data->str, len);
 	data->selextend = 0;
 	data->selstartx = 0.0f;
-
-#ifdef USE_DRAG_MULTINUM
-	/* this can happen from multi-drag */
-	data->applied_interactive = false;
-#endif
 
 	/* set cursor pos to the end of the text */
 	but->editstr = data->str;
@@ -3308,6 +3315,11 @@ static bool ui_numedit_but_NUM(uiBut *but, uiHandleButtonData *data,
 	if (data->draglock) {
 		if (abs(mx - data->dragstartx) <= 3)
 			return changed;
+#ifdef USE_DRAG_MULTINUM
+		if (ELEM(data->multi_data.init, BUTTON_MULTI_INIT_UNSET, BUTTON_MULTI_INIT_SETUP)) {
+			return changed;
+		}
+#endif
 
 		data->draglock = false;
 		data->dragstartx = mx;  /* ignore mouse movement within drag-lock */
@@ -5504,7 +5516,6 @@ static uiBlock *menu_change_shortcut(bContext *C, ARegion *ar, void *arg)
 	uiItemR(layout, &ptr, "type", UI_ITEM_R_FULL_EVENT | UI_ITEM_R_IMMEDIATE, "", ICON_NONE);
 	
 	uiPopupBoundsBlock(block, 6, -50, 26);
-	uiEndBlock(C, block);
 	
 	return block;
 }
@@ -5549,9 +5560,20 @@ static uiBlock *menu_add_shortcut(bContext *C, ARegion *ar, void *arg)
 	uiItemR(layout, &ptr, "type", UI_ITEM_R_FULL_EVENT | UI_ITEM_R_IMMEDIATE, "", ICON_NONE);
 	
 	uiPopupBoundsBlock(block, 6, -50, 26);
-	uiEndBlock(C, block);
 	
 	return block;
+}
+
+static void menu_add_shortcut_cancel(struct bContext *C, void *arg1)
+{
+	uiBut *but = (uiBut *)arg1;
+	wmKeyMap *km;
+	wmKeyMapItem *kmi;
+	IDProperty *prop = (but->opptr) ? but->opptr->data : NULL;
+	int kmi_id = WM_key_event_operator_id(C, but->optype->idname, but->opcontext, prop, true, &km);
+	
+	kmi = WM_keymap_item_find_id(km, kmi_id);
+	WM_keymap_remove_item(km, kmi);
 }
 
 static void popup_change_shortcut_func(bContext *C, void *arg1, void *UNUSED(arg2))
@@ -5579,7 +5601,7 @@ static void popup_add_shortcut_func(bContext *C, void *arg1, void *UNUSED(arg2))
 {
 	uiBut *but = (uiBut *)arg1;
 	button_timers_tooltip_remove(C, but);
-	uiPupBlock(C, menu_add_shortcut, but);
+	uiPupBlockEx(C, menu_add_shortcut, NULL, menu_add_shortcut_cancel, but);
 }
 
 /**
@@ -6698,7 +6720,7 @@ static void button_activate_init(bContext *C, ARegion *ar, uiBut *but, uiButtonA
 
 	if (but->type == GRIP) {
 		const bool horizontal = (BLI_rctf_size_x(&but->rect) < BLI_rctf_size_y(&but->rect));
-		WM_cursor_modal_set(data->window, horizontal ? BC_EW_ARROWCURSOR : BC_NS_ARROWCURSOR);
+		WM_cursor_modal_set(data->window, horizontal ? CURSOR_X_MOVE : CURSOR_Y_MOVE);
 	}
 }
 
@@ -6894,7 +6916,7 @@ void uiContextActivePropertyHandle(bContext *C)
 		 * operator redo panel - campbell */
 		uiBlock *block = activebut->block;
 		if (block->handle_func) {
-			block->handle_func(C, block->handle_func_arg, 0);
+			block->handle_func(C, block->handle_func_arg, activebut->retval);
 		}
 	}
 }
@@ -7034,7 +7056,7 @@ void ui_button_activate_do(bContext *C, ARegion *ar, uiBut *but)
 
 void ui_button_execute_begin(struct bContext *UNUSED(C), struct ARegion *ar, uiBut *but, void **active_back)
 {
-	/* note: ideally we would not have to change 'but->active' howevwer
+	/* note: ideally we would not have to change 'but->active' however
 	 * some functions we call don't use data (as they should be doing) */
 	uiHandleButtonData *data;
 	*active_back = but->active;
@@ -7750,6 +7772,8 @@ static int ui_handle_menu_event(
 				sub_v2_v2v2_int(mdiff, &event->x, menu->grab_xy_prev);
 				copy_v2_v2_int(menu->grab_xy_prev, &event->x);
 
+				add_v2_v2v2_int(menu->popup_create_vars.event_xy, menu->popup_create_vars.event_xy, mdiff);
+
 				ui_popup_translate(C, ar, mdiff);
 			}
 
@@ -8358,12 +8382,24 @@ static int ui_handler_region_menu(bContext *C, const wmEvent *event, void *UNUSE
 	but = ui_but_find_activated(ar);
 
 	if (but) {
+		uiBut *but_other;
 		uiHandleButtonData *data;
 
 		/* handle activated button events */
 		data = but->active;
 
-		if (data->state == BUTTON_STATE_MENU_OPEN) {
+		if ((data->state == BUTTON_STATE_MENU_OPEN) &&
+		    (but->type == PULLDOWN) &&
+		    (but_other = ui_but_find_mouse_over(ar, event)) &&
+		    (but != but_other) &&
+		    (but->type == but_other->type))
+		{
+			/* if mouse moves to a different root-level menu button,
+			 * open it to replace the current menu */
+			ui_handle_button_activate(C, ar, but_other, BUTTON_ACTIVATE_OVER);
+			button_activate_state(C, but_other, BUTTON_STATE_MENU_OPEN);
+		}
+		else if (data->state == BUTTON_STATE_MENU_OPEN) {
 			int retval;
 
 			/* handle events for menus and their buttons recursively,
@@ -8402,9 +8438,12 @@ static int ui_handler_region_menu(bContext *C, const wmEvent *event, void *UNUSE
 static int ui_handler_popup(bContext *C, const wmEvent *event, void *userdata)
 {
 	uiPopupBlockHandle *menu = userdata;
-
+	struct ARegion *menu_region;
 	/* we block all events, this is modal interaction, except for drop events which is described below */
 	int retval = WM_UI_HANDLER_BREAK;
+
+	menu_region = CTX_wm_menu(C);
+	CTX_wm_menu_set(C, menu->region);
 
 	if (event->type == EVT_DROP) {
 		/* if we're handling drop event we'll want it to be handled by popup callee as well,
@@ -8437,7 +8476,7 @@ static int ui_handler_popup(bContext *C, const wmEvent *event, void *userdata)
 			if (temp.popup_func)
 				temp.popup_func(C, temp.popup_arg, temp.retvalue);
 			if (temp.optype)
-				WM_operator_name_call(C, temp.optype->idname, temp.opcontext, NULL);
+				WM_operator_name_call_ptr(C, temp.optype, temp.opcontext, NULL);
 		}
 		else if (temp.cancel_func)
 			temp.cancel_func(C, temp.popup_arg);
@@ -8452,6 +8491,8 @@ static int ui_handler_popup(bContext *C, const wmEvent *event, void *userdata)
 
 	/* delayed apply callbacks */
 	ui_apply_but_funcs_after(C);
+
+	CTX_wm_region_set(C, menu_region);
 
 	return retval;
 }

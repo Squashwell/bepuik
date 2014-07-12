@@ -36,8 +36,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "PIL_time.h"
-
 #include "BLI_threads.h"
 #include "BLI_rand.h"
 #include "BLI_math.h"
@@ -117,6 +115,13 @@ double BLI_rng_get_double(RNG *rng)
 float BLI_rng_get_float(RNG *rng)
 {
 	return (float) BLI_rng_get_int(rng) / 0x80000000;
+}
+
+void BLI_rng_get_float_unit_v2(RNG *rng, float v[2])
+{
+	float a = (float)(M_PI * 2.0) * BLI_rng_get_float(rng);
+	v[0] = cosf(a);
+	v[1] = sinf(a);
 }
 
 void BLI_rng_get_float_unit_v3(RNG *rng, float v[3])

@@ -32,6 +32,7 @@
 #include "BLI_array.h"
 #include "BLI_alloca.h"
 #include "BLI_smallhash.h"
+#include "BLI_stackdefines.h"
 
 #include "BLF_translation.h"
 
@@ -198,7 +199,13 @@ static BMLoop *bm_loop_create(BMesh *bm, BMVert *v, BMEdge *e, BMFace *f,
 
 	/* --- assign all members --- */
 	l->head.data = NULL;
-	BM_elem_index_set(l, 0); /* set_loop */
+
+#ifdef USE_DEBUG_INDEX_MEMCHECK
+	DEBUG_MEMCHECK_INDEX_INVALIDATE(l)
+#else
+	BM_elem_index_set(l, -1); /* set_ok_invalid */
+#endif
+
 	l->head.hflag = 0;
 	l->head.htype = BM_LOOP;
 	l->head.api_flag = 0;
@@ -931,6 +938,9 @@ static bool bm_loop_reverse_loop(BMesh *bm, BMFace *f
 
 	BM_CHECK_ELEMENT(f);
 
+	/* Loop indices are no more valid! */
+	bm->elem_index_dirty |= BM_LOOP;
+
 	return true;
 }
 
@@ -1647,7 +1657,8 @@ BMVert *bmesh_semv(BMesh *bm, BMVert *tv, BMEdge *e, BMEdge **r_e)
  * faces with just 2 edges. It is up to the caller to decide what to do with
  * these faces.
  */
-BMEdge *bmesh_jekv(BMesh *bm, BMEdge *e_kill, BMVert *v_kill, const bool check_edge_double)
+BMEdge *bmesh_jekv(BMesh *bm, BMEdge *e_kill, BMVert *v_kill,
+                   const bool do_del, const bool check_edge_double)
 {
 	BMEdge *e_old;
 	BMVert *v_old, *tv;
@@ -1657,6 +1668,8 @@ BMEdge *bmesh_jekv(BMesh *bm, BMEdge *e_kill, BMVert *v_kill, const bool check_e
 #ifndef NDEBUG
 	bool edok;
 #endif
+
+	BLI_assert(BM_vert_in_edge(e_kill, v_kill));
 
 	if (BM_vert_in_edge(e_kill, v_kill) == 0) {
 		return NULL;
@@ -1749,7 +1762,12 @@ BMEdge *bmesh_jekv(BMesh *bm, BMEdge *e_kill, BMVert *v_kill, const bool check_e
 			bm_kill_only_edge(bm, e_kill);
 
 			/* deallocate vertex */
-			bm_kill_only_vert(bm, v_kill);
+			if (do_del) {
+				bm_kill_only_vert(bm, v_kill);
+			}
+			else {
+				v_kill->e = NULL;
+			}
 
 #ifndef NDEBUG
 			/* Validate disk cycle lengths of v_old, tv are unchanged */
@@ -1927,7 +1945,7 @@ BMFace *bmesh_jfke(BMesh *bm, BMFace *f1, BMFace *f2, BMEdge *e)
 	BLI_mempool_free(bm->fpool, f2);
 	bm->totface--;
 	/* account for both above */
-	bm->elem_index_dirty |= BM_EDGE | BM_FACE;
+	bm->elem_index_dirty |= BM_EDGE | BM_LOOP | BM_FACE;
 
 	BM_CHECK_ELEMENT(f1);
 
@@ -2020,7 +2038,7 @@ void bmesh_vert_separate(BMesh *bm, BMVert *v, BMVert ***r_vout, int *r_vout_len
 
 	BLI_smallhash_init_ex(&visithash, v_edgetot);
 
-	STACK_INIT(stack);
+	STACK_INIT(stack, v_edgetot);
 
 	maxindex = 0;
 	BM_ITER_ELEM (e, &eiter, v, BM_EDGES_OF_VERT) {
@@ -2091,7 +2109,7 @@ void bmesh_vert_separate(BMesh *bm, BMVert *v, BMVert ***r_vout, int *r_vout_len
 	 * by modifying data it loops over [#30632], this re-uses the 'stack' variable which is a bit
 	 * bad practice but save alloc'ing a new array - note, the comment above is useful, keep it
 	 * if you are tidying up code - campbell */
-	STACK_INIT(stack);
+	STACK_INIT(stack, v_edgetot);
 	BM_ITER_ELEM (l, &liter, v, BM_LOOPS_OF_VERT) {
 		if (l->v == v) {
 			STACK_PUSH(stack, (BMEdge *)l);
@@ -2103,8 +2121,6 @@ void bmesh_vert_separate(BMesh *bm, BMVert *v, BMVert ***r_vout, int *r_vout_len
 		}
 	}
 #endif
-
-	STACK_FREE(stack);
 
 	BM_ITER_ELEM (e, &eiter, v, BM_EDGES_OF_VERT) {
 		i = GET_INT_FROM_POINTER(BLI_smallhash_lookup(&visithash, (uintptr_t)e));

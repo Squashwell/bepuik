@@ -362,10 +362,12 @@ void ACTION_OT_previewrange_set(wmOperatorType *ot)
 
 /* ****************** View-All Operator ****************** */
 
-/* Find the extents of the active channel
- * > min: (float) bottom y-extent of channel
- * > max: (float) top y-extent of channel
- * > returns: success of finding a selected channel
+/**
+ * Find the extents of the active channel
+ *
+ * \param[out] min Bottom y-extent of channel
+ * \param[out] max Top y-extent of channel
+ * \return Success of finding a selected channel
  */
 static bool actkeys_channels_get_selected_extents(bAnimContext *ac, float *min, float *max)
 {
@@ -876,8 +878,10 @@ static bool delete_action_keys(bAnimContext *ac)
 			changed = delete_fcurve_keys(fcu);
 			
 			/* Only delete curve too if it won't be doing anything anymore */
-			if ((fcu->totvert == 0) && (list_has_suitable_fmodifier(&fcu->modifiers, 0, FMI_TYPE_GENERATE_CURVE) == 0))
+			if ((fcu->totvert == 0) && (list_has_suitable_fmodifier(&fcu->modifiers, 0, FMI_TYPE_GENERATE_CURVE) == 0)) {
 				ANIM_fcurve_delete_from_animdata(ac, adt, fcu);
+				ale->key_data = NULL;
+			}
 		}
 
 		if (changed) {

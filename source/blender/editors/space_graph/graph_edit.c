@@ -907,6 +907,7 @@ static bool delete_graph_keys(bAnimContext *ac)
 		    (fcu->driver == NULL))
 		{
 			ANIM_fcurve_delete_from_animdata(ac, adt, fcu);
+			ale->key_data = NULL;
 		}
 	}
 
@@ -1364,6 +1365,8 @@ static void setexpo_graph_keys(bAnimContext *ac, short mode)
 		if (mode >= 0) {
 			/* just set mode setting */
 			fcu->extend = mode;
+
+			ale->update |= ANIM_UPDATE_HANDLES;
 		}
 		else {
 			/* shortcuts for managing Cycles F-Modifiers to make it easier to toggle cyclic animation 

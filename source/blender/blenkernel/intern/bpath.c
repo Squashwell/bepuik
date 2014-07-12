@@ -94,7 +94,8 @@ static bool checkMissingFiles_visit_cb(void *userdata, char *UNUSED(path_dst), c
 /* high level function */
 void BKE_bpath_missing_files_check(Main *bmain, ReportList *reports)
 {
-	BKE_bpath_traverse_main(bmain, checkMissingFiles_visit_cb, BKE_BPATH_TRAVERSE_ABS, reports);
+	BKE_bpath_traverse_main(bmain, checkMissingFiles_visit_cb,
+	                        BKE_BPATH_TRAVERSE_ABS | BKE_BPATH_TRAVERSE_SKIP_PACKED, reports);
 }
 
 typedef struct BPathRemap_Data {
@@ -210,7 +211,7 @@ static int findFileRecursive(char *filename_new,
 	/* file searching stuff */
 	DIR *dir;
 	struct dirent *de;
-	struct stat status;
+	BLI_stat_t status;
 	char path[FILE_MAX];
 	int size;
 	bool found = false;
@@ -695,7 +696,7 @@ bool BKE_bpath_relocate_visitor(void *pathbase_v, char *path_dst, const char *pa
 /* -------------------------------------------------------------------- */
 /**
  * Backup/Restore/Free functions,
- * \note These functions assume the data won't chane order.
+ * \note These functions assume the data won't change order.
  */
 
 struct PathStore {

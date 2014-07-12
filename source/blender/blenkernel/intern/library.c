@@ -71,6 +71,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 
+#include "BLI_threads.h"
 #include "BLF_translation.h"
 
 #include "BKE_action.h"
@@ -747,12 +748,14 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name)
 	
 	id = alloc_libblock_notest(type);
 	if (id) {
+		BKE_main_lock(bmain);
 		BLI_addtail(lb, id);
 		id->us = 1;
 		id->icon_id = 0;
 		*( (short *)id->name) = type;
 		new_id(lb, id, name);
 		/* alphabetic insertion: is in new_id */
+		BKE_main_unlock(bmain);
 	}
 	DAG_id_type_tag(bmain, type);
 	return id;
@@ -826,6 +829,7 @@ void *BKE_libblock_copy_nolib(ID *id, const bool do_action)
 
 	id->newid = idn;
 	idn->flag |= LIB_NEW;
+	idn->us = 1;
 
 	BKE_libblock_copy_data(idn, id, do_action);
 
@@ -881,10 +885,8 @@ static void animdata_dtar_clear_cb(ID *UNUSED(id), AnimData *adt, void *userdata
 	}
 }
 
-void BKE_libblock_free_data(ID *id)
+void BKE_libblock_free_data(Main *bmain, ID *id)
 {
-	Main *bmain = G.main;  /* should eventually be an arg */
-	
 	if (id->properties) {
 		IDP_FreeProperty(id->properties);
 		MEM_freeN(id->properties);
@@ -1008,12 +1010,15 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, bool do_id_user)
 	}
 
 	/* avoid notifying on removed data */
+	BKE_main_lock(bmain);
+
 	if (free_notifier_reference_cb)
 		free_notifier_reference_cb(id);
 
 	BLI_remlink(lb, id);
 
-	BKE_libblock_free_data(id);
+	BKE_libblock_free_data(bmain, id);
+	BKE_main_unlock(bmain);
 
 	MEM_freeN(id);
 }
@@ -1043,7 +1048,10 @@ void BKE_libblock_free_us(Main *bmain, void *idv)      /* test users */
 Main *BKE_main_new(void)
 {
 	Main *bmain = MEM_callocN(sizeof(Main), "new main");
-	bmain->eval_ctx = MEM_callocN(sizeof(EvaluationContext), "EvaluationContext");
+	bmain->eval_ctx = MEM_callocN(sizeof(EvaluationContext),
+	                              "EvaluationContext");
+	bmain->lock = MEM_mallocN(sizeof(SpinLock), "main lock");
+	BLI_spin_init((SpinLock *)bmain->lock);
 	return bmain;
 }
 
@@ -1106,8 +1114,20 @@ void BKE_main_free(Main *mainvar)
 		}
 	}
 
+	BLI_spin_end((SpinLock *)mainvar->lock);
+	MEM_freeN(mainvar->lock);
 	MEM_freeN(mainvar->eval_ctx);
 	MEM_freeN(mainvar);
+}
+
+void BKE_main_lock(struct Main *bmain)
+{
+	BLI_spin_lock((SpinLock *) bmain->lock);
+}
+
+void BKE_main_unlock(struct Main *bmain)
+{
+	BLI_spin_unlock((SpinLock *) bmain->lock);
 }
 
 /* ***************** ID ************************ */

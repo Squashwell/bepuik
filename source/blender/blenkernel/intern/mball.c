@@ -2280,7 +2280,7 @@ void BKE_mball_polygonize(EvaluationContext *eval_ctx, Scene *scene, Object *ob,
 	mball_count(eval_ctx, &process, scene, ob);
 
 	if (process.totelem == 0) return;
-	if ((eval_ctx->for_render == false) && (mb->flag == MB_UPDATE_NEVER)) return;
+	if ((eval_ctx->mode != DAG_EVAL_RENDER) && (mb->flag == MB_UPDATE_NEVER)) return;
 	if ((G.moving & (G_TRANSFORM_OBJ | G_TRANSFORM_EDIT)) && mb->flag == MB_UPDATE_FAST) return;
 
 	process.thresh = mb->thresh;
@@ -2318,7 +2318,7 @@ void BKE_mball_polygonize(EvaluationContext *eval_ctx, Scene *scene, Object *ob,
 	}
 
 	/* width is size per polygonize cube */
-	if (eval_ctx->for_render) {
+	if (eval_ctx->mode == DAG_EVAL_RENDER) {
 		width = mb->rendersize;
 	}
 	else {
@@ -2361,8 +2361,8 @@ void BKE_mball_polygonize(EvaluationContext *eval_ctx, Scene *scene, Object *ob,
 		process.indices = NULL;
 
 		a = process.vertices.count;
-		dl->verts = co = MEM_mallocN(sizeof(float) * 3 * a, "mballverts");
-		dl->nors = no = MEM_mallocN(sizeof(float) * 3 * a, "mballnors");
+		dl->verts = co = MEM_mallocN(sizeof(float[3]) * a, "mballverts");
+		dl->nors = no = MEM_mallocN(sizeof(float[3]) * a, "mballnors");
 
 		for (a = 0; a < process.vertices.count; ptr++, a++, no += 3, co += 3) {
 			copy_v3_v3(co, ptr->co);

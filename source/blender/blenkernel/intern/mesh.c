@@ -1531,7 +1531,7 @@ void BKE_mesh_from_nurbs(Object *ob)
 }
 
 typedef struct EdgeLink {
-	Link *next, *prev;
+	struct EdgeLink *next, *prev;
 	void *edge;
 } EdgeLink;
 
@@ -1610,13 +1610,11 @@ void BKE_mesh_to_curve_nurblist(DerivedMesh *dm, ListBase *nurblist, const int e
 			BLI_freelinkN(&edges, edges.last);          totedges--;
 
 			while (ok) { /* while connected edges are found... */
+				EdgeLink *edl = edges.last;
 				ok = false;
-				i = totedges;
-				while (i) {
-					EdgeLink *edl;
+				while (edl) {
+					EdgeLink *edl_prev = edl->prev;
 
-					i -= 1;
-					edl = BLI_findlink(&edges, i);
 					med = edl->edge;
 
 					if (med->v1 == endVert) {
@@ -1643,6 +1641,8 @@ void BKE_mesh_to_curve_nurblist(DerivedMesh *dm, ListBase *nurblist, const int e
 						BLI_freelinkN(&edges, edl);                 totedges--;
 						ok = true;
 					}
+
+					edl = edl_prev;
 				}
 			}
 
@@ -2148,7 +2148,7 @@ Mesh *BKE_mesh_new_from_object(
 			 * if it didn't the curve did not have any segments or otherwise 
 			 * would have generated an empty mesh */
 			if (tmpobj->type != OB_MESH) {
-				BKE_libblock_free_us(G.main, tmpobj);
+				BKE_libblock_free_us(bmain, tmpobj);
 				return NULL;
 			}
 
@@ -2179,7 +2179,7 @@ Mesh *BKE_mesh_new_from_object(
 				 *               implemented, this is to be rethinked.
 				 */
 				EvaluationContext eval_ctx = {0};
-				eval_ctx.for_render = render;
+				eval_ctx.mode = DAG_EVAL_RENDER;
 				BKE_displist_make_mball_forRender(&eval_ctx, sce, ob, &disp);
 				BKE_mesh_from_metaball(&disp, tmpmesh);
 				BKE_displist_free(&disp);

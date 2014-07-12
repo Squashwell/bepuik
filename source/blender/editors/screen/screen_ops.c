@@ -166,7 +166,7 @@ int ED_operator_objectmode(bContext *C)
 		return 0;
 	
 	/* add a check for ob->mode too? */
-	if (obact && obact->mode)
+	if (obact && (obact->mode != OB_MODE_OBJECT))
 		return 0;
 	
 	return 1;
@@ -267,7 +267,6 @@ int ED_operator_node_editable(bContext *C)
 	return 0;
 }
 
-/* XXX rename */
 int ED_operator_graphedit_active(bContext *C)
 {
 	return ed_spacetype_test(C, SPACE_IPO);

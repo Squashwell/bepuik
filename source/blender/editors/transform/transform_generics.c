@@ -848,9 +848,12 @@ static void recalcData_objects(TransInfo *t)
 				}
 			}
 			
-			if (arm->flag & ARM_MIRROR_EDIT)
-				transform_armature_mirror_update(t->obedit);
-			
+			if (arm->flag & ARM_MIRROR_EDIT) {
+				if (t->state != TRANS_CANCEL)
+					transform_armature_mirror_update(t->obedit);
+				else
+					restoreBones(t);
+			}
 		}
 		else {
 			if (t->state != TRANS_CANCEL) {
@@ -1621,19 +1624,14 @@ void calculateCenterCursor2D(TransInfo *t, float r_center[2])
 	if (cursor) {
 		if (t->options & CTX_MASK) {
 			float co[2];
-			float frame_size[2];
 
 			if (t->spacetype == SPACE_IMAGE) {
 				SpaceImage *sima = (SpaceImage *)t->sa->spacedata.first;
-				ED_space_image_get_size_fl(sima, frame_size);
-				BKE_mask_coord_from_frame(co, cursor, frame_size);
-				ED_space_image_get_aspect(sima, &aspx, &aspy);
+				BKE_mask_coord_from_image(sima->image, &sima->iuser, co, cursor);
 			}
 			else if (t->spacetype == SPACE_CLIP) {
 				SpaceClip *space_clip = (SpaceClip *) t->sa->spacedata.first;
-				ED_space_clip_get_size_fl(space_clip, frame_size);
-				BKE_mask_coord_from_frame(co, cursor, frame_size);
-				ED_space_clip_get_aspect(space_clip, &aspx, &aspy);
+				BKE_mask_coord_from_movieclip(space_clip->clip, &space_clip->user, co, cursor);
 			}
 			else {
 				BLI_assert(!"Shall not happen");

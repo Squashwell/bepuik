@@ -45,6 +45,7 @@ struct ARegion;
 struct ARegionType;
 struct BMEditMesh;
 struct Base;
+struct BoundBox;
 struct Brush;
 struct CSG_FaceIteratorDescriptor;
 struct CSG_VertexIteratorDescriptor;
@@ -529,7 +530,7 @@ struct uiLayout *uiTemplateConstraint(struct uiLayout *layout, struct PointerRNA
 void uiTemplatePreview(struct uiLayout *layout, struct bContext *C, struct ID *id, int show_buttons, struct ID *parent,
                        struct MTex *slot, const char *preview_id) RET_NONE
 void uiTemplateIDPreview(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname, const char *newop, const char *openop, const char *unlinkop, int rows, int cols) RET_NONE
-void uiTemplateCurveMapping(uiLayout *layout, struct PointerRNA *ptr, const char *propname, int type, int levels, int brush) RET_NONE
+void uiTemplateCurveMapping(uiLayout *layout, struct PointerRNA *ptr, const char *propname, int type, int levels, int brush, int neg_slope) RET_NONE
 void uiTemplateColorRamp(uiLayout *layout, struct PointerRNA *ptr, const char *propname, int expand) RET_NONE
 void uiTemplateLayers(uiLayout *layout, struct PointerRNA *ptr, const char *propname, PointerRNA *used_ptr, const char *used_propname, int active_layer) RET_NONE
 void uiTemplateImageLayers(struct uiLayout *layout, struct bContext *C, struct Image *ima, struct ImageUser *iuser) RET_NONE
@@ -585,6 +586,7 @@ void RE_engine_free(struct RenderEngine *engine) RET_NONE
 struct RenderEngineType *RE_engines_find(const char *idname) RET_NULL
 void RE_engine_update_memory_stats(struct RenderEngine *engine, float mem_used, float mem_peak) RET_NONE
 struct RenderEngine *RE_engine_create(struct RenderEngineType *type) RET_NULL
+void RE_engine_frame_set(struct RenderEngine *engine, int frame, float subframe) RET_NONE
 void RE_FreePersistentData(void) RET_NONE
 
 /* python */

@@ -3063,36 +3063,21 @@ static void add_volume(Render *re, ObjectRen *obr, Material *ma)
 }
 
 #ifdef WITH_FREESTYLE
-static EdgeHash *make_freestyle_edge_mark_hash(Mesh *me, DerivedMesh *dm)
+static EdgeHash *make_freestyle_edge_mark_hash(DerivedMesh *dm)
 {
 	EdgeHash *edge_hash= NULL;
 	FreestyleEdge *fed;
 	MEdge *medge;
 	int totedge, a;
-	const int *index;
 
 	medge = dm->getEdgeArray(dm);
 	totedge = dm->getNumEdges(dm);
-	index = dm->getEdgeDataArray(dm, CD_ORIGINDEX);
-	fed = CustomData_get_layer(&me->edata, CD_FREESTYLE_EDGE);
+	fed = dm->getEdgeDataArray(dm, CD_FREESTYLE_EDGE);
 	if (fed) {
 		edge_hash = BLI_edgehash_new(__func__);
-		if (!index) {
-			if (me->totedge == totedge) {
-				for (a = 0; a < me->totedge; a++) {
-					if (fed[a].flag & FREESTYLE_EDGE_MARK) {
-						BLI_edgehash_insert(edge_hash, medge[a].v1, medge[a].v2, medge + a);
-					}
-				}
-			}
-		}
-		else {
-			for (a = 0; a < totedge; a++) {
-				if (index[a] == ORIGINDEX_NONE)
-					continue;
-				if (fed[index[a]].flag & FREESTYLE_EDGE_MARK)
-					BLI_edgehash_insert(edge_hash, medge[a].v1, medge[a].v2, medge+a);
-			}
+		for (a = 0; a < totedge; a++) {
+			if (fed[a].flag & FREESTYLE_EDGE_MARK)
+				BLI_edgehash_insert(edge_hash, medge[a].v1, medge[a].v2, medge+a);
 		}
 	}
 	return edge_hash;
@@ -3272,7 +3257,7 @@ static void init_render_mesh(Render *re, ObjectRen *obr, int timeoffset)
 			EdgeHash *edge_hash;
 
 			/* create a hash table of Freestyle edge marks */
-			edge_hash = make_freestyle_edge_mark_hash(me, dm);
+			edge_hash = make_freestyle_edge_mark_hash(dm);
 #endif
 
 			/* store customdata names, because DerivedMesh is freed */
@@ -5004,7 +4989,7 @@ static void database_init_objects(Render *re, unsigned int renderlay, int nolamp
 				 * system need to have render settings set for dupli particles */
 				dupli_render_particle_set(re, ob, timeoffset, 0, 1);
 				duplilist = object_duplilist(re->eval_ctx, re->scene, ob);
-				duplilist_apply_data = duplilist_apply_matrix(duplilist);
+				duplilist_apply_data = duplilist_apply(ob, duplilist);
 				dupli_render_particle_set(re, ob, timeoffset, 0, 0);
 
 				for (dob= duplilist->first, i = 0; dob; dob= dob->next, ++i) {
@@ -5099,7 +5084,7 @@ static void database_init_objects(Render *re, unsigned int renderlay, int nolamp
 				}
 
 				if (duplilist_apply_data) {
-					duplilist_restore_matrix(duplilist, duplilist_apply_data);
+					duplilist_restore(duplilist, duplilist_apply_data);
 					duplilist_free_apply_data(duplilist_apply_data);
 				}
 				free_object_duplilist(duplilist);
@@ -5161,8 +5146,10 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 		lay &= 0xFF000000;
 	
 	/* applies changes fully */
-	if ((re->r.scemode & (R_NO_FRAME_UPDATE|R_BUTS_PREVIEW|R_VIEWPORT_PREVIEW))==0)
+	if ((re->r.scemode & (R_NO_FRAME_UPDATE|R_BUTS_PREVIEW|R_VIEWPORT_PREVIEW))==0) {
 		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, lay);
+		render_update_anim_renderdata(re, &re->scene->r);
+	}
 	
 	/* if no camera, viewmat should have been set! */
 	if (use_camera_view && camera) {
