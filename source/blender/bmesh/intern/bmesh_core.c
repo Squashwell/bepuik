@@ -956,54 +956,38 @@ bool bmesh_loop_reverse(BMesh *bm, BMFace *f)
 #endif
 }
 
-static void bm_elements_systag_enable(void *veles, int tot, int flag)
+static void bm_elements_systag_enable(void *veles, int tot, const char api_flag)
 {
 	BMHeader **eles = veles;
 	int i;
 
 	for (i = 0; i < tot; i++) {
-		BM_ELEM_API_FLAG_ENABLE((BMElemF *)eles[i], flag);
+		BM_ELEM_API_FLAG_ENABLE((BMElemF *)eles[i], api_flag);
 	}
 }
 
-static void bm_elements_systag_disable(void *veles, int tot, int flag)
+static void bm_elements_systag_disable(void *veles, int tot, const char api_flag)
 {
 	BMHeader **eles = veles;
 	int i;
 
 	for (i = 0; i < tot; i++) {
-		BM_ELEM_API_FLAG_DISABLE((BMElemF *)eles[i], flag);
+		BM_ELEM_API_FLAG_DISABLE((BMElemF *)eles[i], api_flag);
 	}
 }
 
-static int count_flagged_radial(BMesh *bm, BMLoop *l, int flag)
+static int bm_loop_systag_count_radial(BMLoop *l, const char api_flag)
 {
-	BMLoop *l2 = l;
-	int i = 0, c = 0;
-
+	BMLoop *l_iter = l;
+	int i = 0;
 	do {
-		if (UNLIKELY(!l2)) {
-			BMESH_ASSERT(0);
-			goto error;
-		}
-		
-		i += BM_ELEM_API_FLAG_TEST(l2->f, flag) ? 1 : 0;
-		l2 = l2->radial_next;
-		if (UNLIKELY(c >= BM_LOOP_RADIAL_MAX)) {
-			BMESH_ASSERT(0);
-			goto error;
-		}
-		c++;
-	} while (l2 != l);
+		i += BM_ELEM_API_FLAG_TEST(l_iter->f, api_flag) ? 1 : 0;
+	} while ((l_iter = l_iter->radial_next) != l);
 
 	return i;
-
-error:
-	BMO_error_raise(bm, bm->currentop, BMERR_MESH_ERROR, NULL);
-	return 0;
 }
 
-static int UNUSED_FUNCTION(count_flagged_disk)(BMVert *v, int flag)
+static int UNUSED_FUNCTION(bm_vert_systag_count_disk)(BMVert *v, const char api_flag)
 {
 	BMEdge *e = v->e;
 	int i = 0;
@@ -1012,13 +996,13 @@ static int UNUSED_FUNCTION(count_flagged_disk)(BMVert *v, int flag)
 		return 0;
 
 	do {
-		i += BM_ELEM_API_FLAG_TEST(e, flag) ? 1 : 0;
+		i += BM_ELEM_API_FLAG_TEST(e, api_flag) ? 1 : 0;
 	} while ((e = bmesh_disk_edge_next(e, v)) != v->e);
 
 	return i;
 }
 
-static bool disk_is_flagged(BMVert *v, int flag)
+static bool disk_is_flagged(BMVert *v, const char api_flag)
 {
 	BMEdge *e = v->e;
 
@@ -1036,7 +1020,7 @@ static bool disk_is_flagged(BMVert *v, int flag)
 			return false;
 		
 		do {
-			if (!BM_ELEM_API_FLAG_TEST(l->f, flag))
+			if (!BM_ELEM_API_FLAG_TEST(l->f, api_flag))
 				return false;
 		} while ((l = l->radial_next) != e->l);
 	} while ((e = bmesh_disk_edge_next(e, v)) != v->e);
@@ -1093,7 +1077,7 @@ BMFace *BM_faces_join(BMesh *bm, BMFace **faces, int totface, const bool do_del)
 		f = faces[i];
 		l_iter = l_first = BM_FACE_FIRST_LOOP(f);
 		do {
-			int rlen = count_flagged_radial(bm, l_iter, _FLAG_JF);
+			int rlen = bm_loop_systag_count_radial(l_iter, _FLAG_JF);
 
 			if (rlen > 2) {
 				err = N_("Input faces do not form a contiguous manifold region");
@@ -1969,10 +1953,6 @@ BMFace *bmesh_jfke(BMesh *bm, BMFace *f1, BMFace *f2, BMEdge *e)
  */
 bool BM_vert_splice(BMesh *bm, BMVert *v, BMVert *v_target)
 {
-	void *loops_stack[BM_DEFAULT_ITER_STACK_SIZE];
-	BMLoop **loops;
-	int i, loops_tot;
-
 	BMEdge *e;
 
 	/* verts already spliced */
@@ -1980,21 +1960,23 @@ bool BM_vert_splice(BMesh *bm, BMVert *v, BMVert *v_target)
 		return false;
 	}
 
-	/* we can't modify the vert while iterating so first allocate an array of loops */
-	loops = BM_iter_as_arrayN(bm, BM_LOOPS_OF_VERT, v, &loops_tot,
-	                          loops_stack, BM_DEFAULT_ITER_STACK_SIZE);
-
-	if (LIKELY(loops != NULL)) {
-		for (i = 0; i < loops_tot; i++) {
-			loops[i]->v = v_target;
-		}
-		if (loops != (BMLoop **)loops_stack) {
-			MEM_freeN(loops);
-		}
-	}
-
 	/* move all the edges from v's disk to vtarget's disk */
 	while ((e = v->e)) {
+
+		/* loop  */
+		BMLoop *l_first;
+		if ((l_first = e->l)) {
+			BMLoop *l_iter = l_first;
+			do {
+				if (l_iter->v == v) {
+					l_iter->v = v_target;
+				}
+				/* else if (l_iter->prev->v == v) {...}
+				 * (this case will be handled by a different edge) */
+			} while ((l_iter = l_iter->radial_next) != l_first);
+		}
+
+		/* disk */
 		bmesh_disk_edge_remove(e, v);
 		bmesh_edge_swapverts(e, v, v_target);
 		bmesh_disk_edge_append(e, v_target);

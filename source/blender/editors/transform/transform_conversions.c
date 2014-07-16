@@ -1608,7 +1608,7 @@ static void createTransArmatureVerts(TransInfo *t)
 		}
 	}
 
-	if (mirror && total_mirrored) {
+	if (mirror) {
 		/* trick to terminate iteration */
 		bid[total_mirrored].bone = NULL;
 	}

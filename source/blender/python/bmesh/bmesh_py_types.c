@@ -1217,6 +1217,44 @@ static PyObject *bpy_bmesh_calc_volume(BPy_BMElem *self, PyObject *args, PyObjec
 	}
 }
 
+PyDoc_STRVAR(bpy_bmesh_calc_tessface_doc,
+".. method:: calc_tessface()\n"
+"\n"
+"   Calculate triangle tessellation from quads/ngons.\n"
+"\n"
+"   :return: The triangulated faces.\n"
+"   :rtype: list of :class:`BMLoop` tuples\n"
+);
+static PyObject *bpy_bmesh_calc_tessface(BPy_BMElem *self)
+{
+	BMesh *bm;
+
+	int looptris_tot;
+	int tottri;
+	BMLoop *(*looptris)[3];
+
+	PyObject *ret;
+	int i;
+
+	BPY_BM_CHECK_OBJ(self);
+
+	bm = self->bm;
+
+	looptris_tot = poly_to_tri_count(bm->totface, bm->totloop);
+	looptris = PyMem_MALLOC(sizeof(*looptris) * looptris_tot);
+
+	BM_bmesh_calc_tessellation(bm, looptris, &tottri);
+
+	ret = PyList_New(tottri);
+	for (i = 0; i < tottri; i++) {
+		PyList_SET_ITEM(ret, i, BPy_BMLoop_Array_As_Tuple(bm, looptris[i], 3));
+	}
+
+	PyMem_FREE(looptris);
+
+	return ret;
+}
+
 
 /* Elem
  * ---- */
@@ -2488,6 +2526,7 @@ static struct PyMethodDef bpy_bmesh_methods[] = {
 
 	/* calculations */
 	{"calc_volume", (PyCFunction)bpy_bmesh_calc_volume, METH_VARARGS | METH_KEYWORDS, bpy_bmesh_calc_volume_doc},
+	{"calc_tessface", (PyCFunction)bpy_bmesh_calc_tessface, METH_NOARGS, bpy_bmesh_calc_tessface_doc},
 	{NULL, NULL, 0, NULL}
 };
 
@@ -3669,13 +3708,50 @@ err_cleanup:
 	}
 }
 
-
 PyObject *BPy_BMElem_Array_As_Tuple(BMesh *bm, BMHeader **elem, Py_ssize_t elem_len)
 {
 	Py_ssize_t i;
 	PyObject *ret = PyTuple_New(elem_len);
 	for (i = 0; i < elem_len; i++) {
 		PyTuple_SET_ITEM(ret, i, BPy_BMElem_CreatePyObject(bm, elem[i]));
+	}
+	return ret;
+}
+PyObject *BPy_BMVert_Array_As_Tuple(BMesh *bm, BMVert **elem, Py_ssize_t elem_len)
+{
+	Py_ssize_t i;
+	PyObject *ret = PyTuple_New(elem_len);
+	for (i = 0; i < elem_len; i++) {
+		PyTuple_SET_ITEM(ret, i, BPy_BMVert_CreatePyObject(bm, elem[i]));
+	}
+	return ret;
+}
+PyObject *BPy_BMEdge_Array_As_Tuple(BMesh *bm, BMEdge **elem, Py_ssize_t elem_len)
+{
+	Py_ssize_t i;
+	PyObject *ret = PyTuple_New(elem_len);
+	for (i = 0; i < elem_len; i++) {
+		PyTuple_SET_ITEM(ret, i, BPy_BMEdge_CreatePyObject(bm, elem[i]));
+	}
+
+	return ret;
+}
+PyObject *BPy_BMFace_Array_As_Tuple(BMesh *bm, BMFace **elem, Py_ssize_t elem_len)
+{
+	Py_ssize_t i;
+	PyObject *ret = PyTuple_New(elem_len);
+	for (i = 0; i < elem_len; i++) {
+		PyTuple_SET_ITEM(ret, i, BPy_BMFace_CreatePyObject(bm, elem[i]));
+	}
+
+	return ret;
+}
+PyObject *BPy_BMLoop_Array_As_Tuple(BMesh *bm, BMLoop **elem, Py_ssize_t elem_len)
+{
+	Py_ssize_t i;
+	PyObject *ret = PyTuple_New(elem_len);
+	for (i = 0; i < elem_len; i++) {
+		PyTuple_SET_ITEM(ret, i, BPy_BMLoop_CreatePyObject(bm, elem[i]));
 	}
 
 	return ret;

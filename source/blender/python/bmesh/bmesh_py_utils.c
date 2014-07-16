@@ -247,7 +247,7 @@ static PyObject *bpy_bm_utils_vert_separate(PyObject *UNUSED(self), PyObject *ar
 
 	BM_vert_separate(bm, py_vert->v, &elem, &elem_len, edge_array, edge_array_len);
 	/* return collected verts */
-	ret = BPy_BMElem_Array_As_Tuple(bm, (BMHeader **)elem, elem_len);
+	ret = BPy_BMVert_Array_As_Tuple(bm, elem, elem_len);
 	MEM_freeN(elem);
 
 	PyMem_FREE(edge_array);
@@ -477,6 +477,76 @@ static PyObject *bpy_bm_utils_face_split(PyObject *UNUSED(self), PyObject *args,
 }
 
 
+PyDoc_STRVAR(bpy_bm_utils_face_split_edgenet_doc,
+".. method:: face_split_edgenet(face, edgenet)\n"
+"\n"
+"   Splits a face into any number of regions defined by an edgenet.\n"
+"\n"
+"   :arg face: The face to split.\n"
+"   :type face: :class:`bmesh.types.BMFace`\n"
+"   :arg face: The face to split.\n"
+"   :type face: :class:`bmesh.types.BMFace`\n"
+"   :arg edgenet: Sequence of edges.\n"
+"   :type edgenet: :class:`bmesh.types.BMEdge`\n"
+"   :return: The newly created faces.\n"
+"   :rtype: tuple of (:class:`bmesh.types.BMFace`)\n"
+);
+static PyObject *bpy_bm_utils_face_split_edgenet(PyObject *UNUSED(self), PyObject *args, PyObject *kw)
+{
+	static const char *kwlist[] = {"face", "edgenet", NULL};
+
+	BPy_BMFace *py_face;
+	PyObject *edge_seq;
+
+	BMEdge **edge_array;
+	Py_ssize_t edge_array_len;
+
+	BMesh *bm;
+
+	BMFace **face_arr;
+	int face_arr_len;
+	bool ok;
+
+
+	if (!PyArg_ParseTupleAndKeywords(args, kw, "O!O:face_split_edgenet", (char **)kwlist,
+	                                 &BPy_BMFace_Type, &py_face,
+	                                 &edge_seq))
+	{
+		return NULL;
+	}
+
+	BPY_BM_CHECK_OBJ(py_face);
+
+	bm = py_face->bm;
+
+	edge_array = BPy_BMElem_PySeq_As_Array(&bm, edge_seq, 1, PY_SSIZE_T_MAX,
+	                                       &edge_array_len, BM_EDGE,
+	                                       true, true, "face_split_edgenet(...)");
+
+	if (edge_array == NULL) {
+		return NULL;
+	}
+
+	/* --- main function body --- */
+
+	ok = BM_face_split_edgenet(bm, py_face->f, edge_array, edge_array_len,
+	                           &face_arr, &face_arr_len);
+
+	PyMem_FREE(edge_array);
+
+	if (ok) {
+		PyObject *ret = BPy_BMFace_Array_As_Tuple(bm, face_arr, face_arr_len);
+		MEM_freeN(face_arr);
+		return ret;
+	}
+	else {
+		PyErr_SetString(PyExc_ValueError,
+		                "face_split_edgenet(...): couldn't split the face, internal error");
+		return NULL;
+	}
+}
+
+
 PyDoc_STRVAR(bpy_bm_utils_face_join_doc,
 ".. method:: face_join(faces, remove=True)\n"
 "\n"
@@ -652,6 +722,7 @@ static struct PyMethodDef BPy_BM_utils_methods[] = {
 	{"edge_split",          (PyCFunction)bpy_bm_utils_edge_split,          METH_VARARGS, bpy_bm_utils_edge_split_doc},
 	{"edge_rotate",         (PyCFunction)bpy_bm_utils_edge_rotate,         METH_VARARGS, bpy_bm_utils_edge_rotate_doc},
 	{"face_split",          (PyCFunction)bpy_bm_utils_face_split,          METH_VARARGS | METH_KEYWORDS, bpy_bm_utils_face_split_doc},
+	{"face_split_edgenet",  (PyCFunction)bpy_bm_utils_face_split_edgenet,  METH_VARARGS | METH_KEYWORDS, bpy_bm_utils_face_split_edgenet_doc},
 	{"face_join",           (PyCFunction)bpy_bm_utils_face_join,           METH_VARARGS, bpy_bm_utils_face_join_doc},
 	{"face_vert_separate",  (PyCFunction)bpy_bm_utils_face_vert_separate,  METH_VARARGS, bpy_bm_utils_face_vert_separate_doc},
 	{"face_flip",           (PyCFunction)bpy_bm_utils_face_flip,           METH_O,       bpy_bm_utils_face_flip_doc},
