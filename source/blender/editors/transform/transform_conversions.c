@@ -33,6 +33,7 @@
 #include <math.h>
 
 #include "DNA_anim_types.h"
+#include "DNA_brush_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
@@ -80,6 +81,7 @@
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
+#include "BKE_paint.h"
 #include "BKE_pointcache.h"
 #include "BKE_report.h"
 #include "BKE_rigidbody.h"
@@ -124,8 +126,8 @@
 static void transform_around_single_fallback(TransInfo *t)
 {
 	if ((t->total == 1) &&
-	    (ELEM3(t->around, V3D_CENTER, V3D_CENTROID, V3D_ACTIVE)) &&
-	    (ELEM3(t->mode, TFM_RESIZE, TFM_ROTATION, TFM_TRACKBALL)))
+	    (ELEM(t->around, V3D_CENTER, V3D_CENTROID, V3D_ACTIVE)) &&
+	    (ELEM(t->mode, TFM_RESIZE, TFM_ROTATION, TFM_TRACKBALL)))
 	{
 		t->around = V3D_LOCAL;
 	}
@@ -282,7 +284,7 @@ static void createTransTexspace(TransInfo *t)
 	}
 
 	id = ob->data;
-	if (id == NULL || !ELEM3(GS(id->name), ID_ME, ID_CU, ID_MB)) {
+	if (id == NULL || !ELEM(GS(id->name), ID_ME, ID_CU, ID_MB)) {
 		BKE_report(t->reports, RPT_ERROR, "Unsupported object type for text-space transform");
 		t->total = 0;
 		return;
@@ -619,12 +621,12 @@ static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, Tr
 		if (constraints_list_needinv(t, &pchan->constraints)) {
 			copy_m3_m4(tmat, pchan->constinv);
 			invert_m3_m3(cmat, tmat);
-			mul_serie_m3(td->mtx, pmat, omat, cmat, NULL, NULL, NULL, NULL, NULL);
-			mul_serie_m3(td->ext->r_mtx, rpmat, omat, cmat, NULL, NULL, NULL, NULL, NULL);
+			mul_m3_series(td->mtx, cmat, omat, pmat);
+			mul_m3_series(td->ext->r_mtx, cmat, omat, rpmat);
 		}
 		else {
-			mul_serie_m3(td->mtx, pmat, omat, NULL, NULL, NULL, NULL, NULL, NULL);
-			mul_serie_m3(td->ext->r_mtx, rpmat, omat, NULL, NULL, NULL, NULL, NULL, NULL);
+			mul_m3_series(td->mtx, omat, pmat);
+			mul_m3_series(td->ext->r_mtx, omat, rpmat);
 		}
 		invert_m3_m3(td->ext->r_smtx, td->ext->r_mtx);
 	}
@@ -2697,8 +2699,7 @@ static void createTransEditVerts(TransInfo *t)
 						quat_to_mat3(qmat, quats[BM_elem_index_get(eve)]);
 
 						if (defmats)
-							mul_serie_m3(mat, mtx, qmat, defmats[a],
-							             NULL, NULL, NULL, NULL, NULL);
+							mul_m3_series(mat, defmats[a], qmat, mtx);
 						else
 							mul_m3_m3m3(mat, mtx, qmat);
 					}
@@ -4036,7 +4037,7 @@ static void bezt_to_transdata(TransData *td, TransData2D *td2d, TransDataGraph *
 
 static bool graph_edit_is_translation_mode(TransInfo *t)
 {
-	return ELEM4(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE, TFM_TIME_DUPLICATE);
+	return ELEM(t->mode, TFM_TRANSLATION, TFM_TIME_TRANSLATE, TFM_TIME_SLIDE, TFM_TIME_DUPLICATE);
 }
 
 static bool graph_edit_use_local_center(TransInfo *t)
@@ -5096,12 +5097,12 @@ static bool constraints_list_needinv(TransInfo *t, ListBase *list)
 			if ((con->flag & CONSTRAINT_DISABLE) == 0 && (con->enforce != 0.0f)) {
 				/* (affirmative) returns for specific constraints here... */
 				/* constraints that require this regardless  */
-				if (ELEM5(con->type,
-				          CONSTRAINT_TYPE_CHILDOF,
-				          CONSTRAINT_TYPE_FOLLOWPATH,
-				          CONSTRAINT_TYPE_CLAMPTO,
-				          CONSTRAINT_TYPE_OBJECTSOLVER,
-				          CONSTRAINT_TYPE_FOLLOWTRACK))
+				if (ELEM(con->type,
+				         CONSTRAINT_TYPE_CHILDOF,
+				         CONSTRAINT_TYPE_FOLLOWPATH,
+				         CONSTRAINT_TYPE_CLAMPTO,
+				         CONSTRAINT_TYPE_OBJECTSOLVER,
+				         CONSTRAINT_TYPE_FOLLOWTRACK))
 				{
 					return true;
 				}
@@ -6202,6 +6203,9 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
 		else
 			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
+	}
+	else if (t->options & CTX_PAINT_CURVE) {
+		/* pass */
 	}
 	else if ((t->scene->basact) &&
 	         (ob = t->scene->basact->object) &&
@@ -7382,6 +7386,173 @@ void flushTransMasking(TransInfo *t)
 	}
 }
 
+typedef struct TransDataPaintCurve {
+	PaintCurvePoint *pcp; /* initial curve point */
+	char id;
+} TransDataPaintCurve;
+
+
+#define PC_IS_ANY_SEL(pc) (((pc)->bez.f1 | (pc)->bez.f2 | (pc)->bez.f3) & SELECT)
+
+static void PaintCurveConvertHandle(PaintCurvePoint *pcp, int id, TransData2D *td2d, TransDataPaintCurve *tdpc, TransData *td)
+{
+	BezTriple *bezt = &pcp->bez;
+	copy_v2_v2(td2d->loc, bezt->vec[id]);
+	td2d->loc[2] = 0.0f;
+	td2d->loc2d = bezt->vec[id];
+
+	td->flag = 0;
+	td->loc = td2d->loc;
+	copy_v3_v3(td->center, bezt->vec[1]);
+	copy_v3_v3(td->iloc, td->loc);
+
+	memset(td->axismtx, 0, sizeof(td->axismtx));
+	td->axismtx[2][2] = 1.0f;
+
+	td->ext = NULL;
+	td->val = NULL;
+	td->flag |= TD_SELECTED;
+	td->dist = 0.0;
+
+	unit_m3(td->mtx);
+	unit_m3(td->smtx);
+
+	tdpc->id = id;
+	tdpc->pcp = pcp;
+}
+
+static void PaintCurvePointToTransData(PaintCurvePoint *pcp, TransData *td, TransData2D *td2d, TransDataPaintCurve *tdpc)
+{
+	BezTriple *bezt = &pcp->bez;
+
+	if (pcp->bez.f2 == SELECT) {
+		int i;
+		for (i = 0; i < 3; i++) {
+			copy_v2_v2(td2d->loc, bezt->vec[i]);
+			td2d->loc[2] = 0.0f;
+			td2d->loc2d = bezt->vec[i];
+
+			td->flag = 0;
+			td->loc = td2d->loc;
+			copy_v3_v3(td->center, bezt->vec[1]);
+			copy_v3_v3(td->iloc, td->loc);
+
+			memset(td->axismtx, 0, sizeof(td->axismtx));
+			td->axismtx[2][2] = 1.0f;
+
+			td->ext = NULL;
+			td->val = NULL;
+			td->flag |= TD_SELECTED;
+			td->dist = 0.0;
+
+			unit_m3(td->mtx);
+			unit_m3(td->smtx);
+
+			tdpc->id = i;
+			tdpc->pcp = pcp;
+
+			td++;
+			td2d++;
+			tdpc++;
+		}
+	}
+	else {
+		if (bezt->f3 & SELECT) {
+			PaintCurveConvertHandle(pcp, 2, td2d, tdpc, td);
+			td2d++;
+			tdpc++;
+			td++;
+		}
+
+		if (bezt->f1 & SELECT) {
+			PaintCurveConvertHandle(pcp, 0, td2d, tdpc, td);
+		}
+	}
+}
+
+static void createTransPaintCurveVerts(bContext *C, TransInfo *t)
+{
+	Paint *paint = BKE_paint_get_active_from_context(C);
+	PaintCurve *pc;
+	PaintCurvePoint *pcp;
+	Brush *br;
+	TransData *td = NULL;
+	TransData2D *td2d = NULL;
+	TransDataPaintCurve *tdpc = NULL;
+	int i;
+	int total = 0;
+
+	t->total = 0;
+
+	if (!paint || !paint->brush || !paint->brush->paint_curve)
+		return;
+
+	br = paint->brush;
+	pc = br->paint_curve;
+
+	for (pcp = pc->points, i = 0; i < pc->tot_points; i++, pcp++) {
+		if (PC_IS_ANY_SEL(pcp)) {
+			if (pcp->bez.f2 & SELECT) {
+				total += 3;
+				continue;
+			}
+			else {
+				if (pcp->bez.f1 & SELECT)
+					total++;
+				if (pcp->bez.f3 & SELECT)
+					total++;
+			}
+		}
+	}
+
+	if (!total)
+		return;
+
+	t->total = total;
+	td2d = t->data2d = MEM_callocN(t->total * sizeof(TransData2D), "TransData2D");
+	td = t->data = MEM_callocN(t->total * sizeof(TransData), "TransData");
+	tdpc = t->customData = MEM_callocN(t->total * sizeof(TransDataPaintCurve), "TransDataPaintCurve");
+	t->flag |= T_FREE_CUSTOMDATA;
+
+	for (pcp = pc->points, i = 0; i < pc->tot_points; i++, pcp++) {
+		if (PC_IS_ANY_SEL(pcp)) {
+			PaintCurvePointToTransData (pcp, td, td2d, tdpc);
+
+			if (pcp->bez.f2 & SELECT) {
+				td += 3;
+				td2d += 3;
+				tdpc += 3;
+			}
+			else {
+				if (pcp->bez.f1 & SELECT) {
+					td++;
+					td2d++;
+					tdpc++;
+				}
+				if (pcp->bez.f3 & SELECT) {
+					td++;
+					td2d++;
+					tdpc++;
+				}
+			}
+		}
+	}
+}
+
+
+void flushTransPaintCurve(TransInfo *t)
+{
+	int i;
+	TransData2D *td2d = t->data2d;
+	TransDataPaintCurve *tdpc = (TransDataPaintCurve *)t->customData;
+
+	for (i = 0; i < t->total; i++, tdpc++, td2d++) {
+		PaintCurvePoint *pcp = tdpc->pcp;
+		copy_v2_v2(pcp->bez.vec[tdpc->id], td2d->loc);
+	}
+}
+
+
 void createTransData(bContext *C, TransInfo *t)
 {
 	Scene *scene = t->scene;
@@ -7413,6 +7584,10 @@ void createTransData(bContext *C, TransInfo *t)
 				set_prop_dist(t, true);
 				sort_trans_data_dist(t);
 			}
+		}
+		else if (t->options & CTX_PAINT_CURVE) {
+			if (!ELEM(t->mode, TFM_SHEAR, TFM_SHRINKFATTEN))
+				createTransPaintCurveVerts(C, t);
 		}
 		else if (t->obedit) {
 			createTransUVs(C, t);
@@ -7520,7 +7695,7 @@ void createTransData(bContext *C, TransInfo *t)
 		// XXX active-layer checking isn't done as that should probably be checked through context instead
 		createTransPose(t, ob);
 	}
-	else if (ob && (ob->mode & OB_MODE_WEIGHT_PAINT)) {
+	else if (ob && (ob->mode & OB_MODE_WEIGHT_PAINT) && !(t->options & CTX_PAINT_CURVE)) {
 		/* important that ob_armature can be set even when its not selected [#23412]
 		 * lines below just check is also visible */
 		Object *ob_armature = modifiers_isDeformedByArmature(ob);
@@ -7545,12 +7720,11 @@ void createTransData(bContext *C, TransInfo *t)
 			sort_trans_data_dist(t);
 		}
 	}
-	else if (ob && (ob->mode & (OB_MODE_ALL_PAINT))) {
-		/* sculpt mode and project paint have own undo stack
-		 * transform ops redo clears sculpt/project undo stack.
-		 *
-		 * Could use 'OB_MODE_ALL_PAINT' since there are key conflicts,
-		 * transform + paint isn't well supported. */
+	else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
+		if ((t->options & CTX_PAINT_CURVE) && !ELEM(t->mode, TFM_SHEAR, TFM_SHRINKFATTEN)) {
+			t->flag |= T_POINTS | T_2D_EDIT;
+			createTransPaintCurveVerts(C, t);
+		}
 	}
 	else {
 		createTransObject(C, t);

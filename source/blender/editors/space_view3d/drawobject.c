@@ -86,6 +86,7 @@
 
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
+#include "GPU_select.h"
 
 #include "ED_mesh.h"
 #include "ED_particle.h"
@@ -301,7 +302,7 @@ bool draw_glsl_material(Scene *scene, Object *ob, View3D *v3d, const char dt)
 	if (BKE_scene_use_new_shading_nodes(scene))
 		return false;
 	
-	return (scene->gm.matmode == GAME_MAT_GLSL) && (dt > OB_SOLID);
+	return ((scene->gm.matmode == GAME_MAT_GLSL) || (v3d->drawtype == OB_MATERIAL)) && (dt > OB_SOLID);
 }
 
 static bool check_alpha_pass(Base *base)
@@ -1586,7 +1587,7 @@ static void draw_viewport_object_reconstruction(Scene *scene, Base *base, View3D
 			continue;
 
 		if (dflag & DRAW_PICKING)
-			glLoadName(base->selcol + (tracknr << 16));
+			GPU_select_load_id(base->selcol + (tracknr << 16));
 
 		glPushMatrix();
 		glTranslatef(track->bundle_pos[0], track->bundle_pos[1], track->bundle_pos[2]);
@@ -1737,7 +1738,7 @@ static void draw_viewport_reconstruction(Scene *scene, Base *base, View3D *v3d, 
 	}
 
 	if (dflag & DRAW_PICKING)
-		glLoadName(base->selcol);
+		GPU_select_load_id(base->selcol);
 }
 
 /* flag similar to draw_object() */
@@ -4868,7 +4869,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 		normalize_v3(imat[1]);
 	}
 
-	if (ELEM3(draw_as, PART_DRAW_DOT, PART_DRAW_CROSS, PART_DRAW_LINE) &&
+	if (ELEM(draw_as, PART_DRAW_DOT, PART_DRAW_CROSS, PART_DRAW_LINE) &&
 	    (part->draw_col > PART_DRAW_COL_MAT))
 	{
 		create_cdata = 1;
@@ -6479,7 +6480,7 @@ static bool drawmball(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 			
 			if (G.f & G_PICKSEL) {
 				ml->selcol1 = code;
-				glLoadName(code++);
+				GPU_select_load_id(code++);
 			}
 		}
 		drawcircball(GL_LINE_LOOP, &(ml->x), ml->rad, imat);
@@ -6493,7 +6494,7 @@ static bool drawmball(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 			
 			if (G.f & G_PICKSEL) {
 				ml->selcol2 = code;
-				glLoadName(code++);
+				GPU_select_load_id(code++);
 			}
 			drawcircball(GL_LINE_LOOP, &(ml->x), ml->rad * atanf(ml->s) / (float)M_PI_2, imat);
 		}
@@ -6782,7 +6783,7 @@ static void draw_bounding_volume(Object *ob, char type)
 	if (ob->type == OB_MESH) {
 		bb = BKE_mesh_boundbox_get(ob);
 	}
-	else if (ELEM3(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
+	else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
 		bb = BKE_curve_boundbox_get(ob);
 	}
 	else if (ob->type == OB_MBALL) {
@@ -6839,7 +6840,7 @@ static void drawtexspace(Object *ob)
 	if (ob->type == OB_MESH) {
 		BKE_mesh_texspace_get(ob->data, loc, NULL, size);
 	}
-	else if (ELEM3(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
+	else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
 		BKE_curve_texspace_get(ob->data, loc, NULL, size);
 	}
 	else if (ob->type == OB_MBALL) {
@@ -6877,7 +6878,7 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 	glDepthMask(0);
 	
-	if (ELEM3(ob->type, OB_FONT, OB_CURVE, OB_SURF)) {
+	if (ELEM(ob->type, OB_FONT, OB_CURVE, OB_SURF)) {
 		DerivedMesh *dm = ob->derivedFinal;
 		bool has_faces = false;
 
@@ -6921,7 +6922,7 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 
 static void draw_wire_extra(Scene *scene, RegionView3D *rv3d, Object *ob, const unsigned char ob_wire_col[4])
 {
-	if (ELEM4(ob->type, OB_FONT, OB_CURVE, OB_SURF, OB_MBALL)) {
+	if (ELEM(ob->type, OB_FONT, OB_CURVE, OB_SURF, OB_MBALL)) {
 
 		if (scene->obedit == ob) {
 			UI_ThemeColor(TH_WIRE_EDIT);
@@ -6933,7 +6934,7 @@ static void draw_wire_extra(Scene *scene, RegionView3D *rv3d, Object *ob, const 
 		ED_view3d_polygon_offset(rv3d, 1.0);
 		glDepthMask(0);  /* disable write in zbuffer, selected edge wires show better */
 
-		if (ELEM3(ob->type, OB_FONT, OB_CURVE, OB_SURF)) {
+		if (ELEM(ob->type, OB_FONT, OB_CURVE, OB_SURF)) {
 			if (ED_view3d_boundbox_clip(rv3d, ob->bb)) {
 
 				if (ob->derivedFinal) {
@@ -7171,23 +7172,23 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 	const bool is_obact = (ob == OBACT);
 	const bool render_override = (v3d->flag2 & V3D_RENDER_OVERRIDE) != 0;
 	const bool is_picking = (G.f & G_PICKSEL) != 0;
-	bool skip_object = false;
+	const bool has_particles = (ob->particlesystem.first != NULL);
 	bool particle_skip_object = false;  /* Draw particles but not their emitter object. */
 
 	if (ob != scene->obedit) {
 		if (ob->restrictflag & OB_RESTRICT_VIEW)
-			skip_object = true;
+			return;
 		
 		if (render_override) {
 			if (ob->restrictflag & OB_RESTRICT_RENDER)
-				skip_object = true;
+				return;
 			
-			if (ob->transflag & OB_DUPLI)
-				skip_object = true; /* note: can be reset by particle "draw emitter" below */
+			if (!has_particles && (ob->transflag & OB_DUPLI))
+				return;
 		}
 	}
 
-	if (ob->particlesystem.first) {
+	if (has_particles) {
 		/* XXX particles are not safe for simultaneous threaded render */
 		if (G.is_rendering) {
 			return;
@@ -7200,16 +7201,12 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 			for (psys = ob->particlesystem.first; psys; psys = psys->next) {
 				/* Once we have found a psys which renders its emitter object, we are done. */
 				if (psys->part->draw & PART_DRAW_EMITTER) {
-					skip_object = false;
 					particle_skip_object = false;
 					break;
 				}
 			}
 		}
 	}
-
-	if (skip_object)
-		return;
 
 	/* xray delay? */
 	if ((dflag & DRAW_PICKING) == 0 && (base->flag & OB_FROMDUPLI) == 0 && (v3d->flag2 & V3D_RENDER_SHADOW) == 0) {

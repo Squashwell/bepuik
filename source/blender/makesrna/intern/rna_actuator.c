@@ -150,7 +150,7 @@ static void rna_ConstraintActuator_type_set(struct PointerRNA *ptr, int value)
 		switch (ca->type) {
 			case ACT_CONST_TYPE_ORI:
 				/* negative axis not supported in the orientation mode */
-				if (ELEM3(ca->mode, ACT_CONST_DIRNX, ACT_CONST_DIRNY, ACT_CONST_DIRNZ))
+				if (ELEM(ca->mode, ACT_CONST_DIRNX, ACT_CONST_DIRNY, ACT_CONST_DIRNZ))
 					ca->mode = ACT_CONST_NONE;
 				break;
 
@@ -1090,6 +1090,7 @@ static void rna_def_property_actuator(BlenderRNA *brna)
 		{ACT_PROP_ADD, "ADD", 0, "Add", ""},
 		{ACT_PROP_COPY, "COPY", 0, "Copy", ""},
 		{ACT_PROP_TOGGLE, "TOGGLE", 0, "Toggle", "For bool/int/float/timer properties only"},
+		{ACT_PROP_LEVEL, "LEVEL", 0, "Level", "For bool/int/float/timer properties only"},
 		{0, NULL, 0, NULL, NULL}
 	};
 

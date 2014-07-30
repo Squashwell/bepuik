@@ -48,6 +48,7 @@
 
 #include "BKE_colortools.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
 #include "BKE_global.h"
@@ -1382,7 +1383,7 @@ static int save_image_options_init(SaveImageOptions *simopts, SpaceImage *sima, 
 		/* sanitize all settings */
 
 		/* unlikely but just in case */
-		if (ELEM3(simopts->im_format.planes, R_IMF_PLANES_BW, R_IMF_PLANES_RGB, R_IMF_PLANES_RGBA) == 0) {
+		if (ELEM(simopts->im_format.planes, R_IMF_PLANES_BW, R_IMF_PLANES_RGB, R_IMF_PLANES_RGBA) == 0) {
 			simopts->im_format.planes = R_IMF_PLANES_RGBA;
 		}
 
@@ -1866,6 +1867,7 @@ static int image_reload_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	// XXX other users?
 	BKE_image_signal(ima, (sima) ? &sima->iuser : NULL, IMA_SIGNAL_RELOAD);
+	DAG_id_tag_update(&ima->id, 0);
 
 	WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
 	
@@ -1902,6 +1904,7 @@ static int image_new_exec(bContext *C, wmOperator *op)
 	char *name = _name;
 	float color[4];
 	int width, height, floatbuf, gen_type, alpha;
+	bool stencil;
 
 	/* retrieve state */
 	sima = CTX_wm_space_image(C);
@@ -1921,7 +1924,8 @@ static int image_new_exec(bContext *C, wmOperator *op)
 	gen_type = RNA_enum_get(op->ptr, "generated_type");
 	RNA_float_get_array(op->ptr, "color", color);
 	alpha = RNA_boolean_get(op->ptr, "alpha");
-	
+	stencil = RNA_boolean_get(op->ptr, "texstencil");
+
 	if (!alpha)
 		color[3] = 1.0f;
 
@@ -1952,6 +1956,13 @@ static int image_new_exec(bContext *C, wmOperator *op)
 				id_us_min(&tex->ima->id);
 			tex->ima = ima;
 			ED_area_tag_redraw(CTX_wm_area(C));
+		}
+		else if (stencil) {
+			ImagePaintSettings *imapaint = &(CTX_data_tool_settings(C)->imapaint);
+
+			if (imapaint->stencil)
+				id_us_min(&imapaint->stencil->id);
+			imapaint->stencil = ima;
 		}
 	}
 
@@ -2001,6 +2012,9 @@ void IMAGE_OT_new(wmOperatorType *ot)
 	RNA_def_enum(ot->srna, "generated_type", image_generated_type_items, IMA_GENTYPE_BLANK,
 	             "Generated Type", "Fill the image with a grid for UV map testing");
 	RNA_def_boolean(ot->srna, "float", 0, "32 bit Float", "Create image with 32 bit floating point bit depth");
+	prop = RNA_def_boolean(ot->srna, "texstencil", 0, "Stencil", "Set Image as stencil");
+	RNA_def_property_flag(prop, PROP_HIDDEN);
+
 }
 
 #undef IMA_DEF_NAME
@@ -2035,7 +2049,7 @@ static int image_invert_exec(bContext *C, wmOperator *op)
 
 	if (support_undo) {
 		ED_undo_paint_push_begin(UNDO_PAINT_IMAGE, op->type->name,
-		                         ED_image_undo_restore, ED_image_undo_free);
+		                         ED_image_undo_restore, ED_image_undo_free, NULL);
 		/* not strictly needed, because we only imapaint_dirty_region to invalidate all tiles
 		 * but better do this right in case someone copies this for a tool that uses partial redraw better */
 		ED_imapaint_clear_partial_redraw();

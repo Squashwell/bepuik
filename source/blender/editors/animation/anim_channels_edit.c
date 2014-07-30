@@ -605,7 +605,7 @@ static int animedit_poll_channels_active(bContext *C)
 	if (ELEM(NULL, sa, CTX_wm_region(C)))
 		return 0;
 	/* animation editor test */
-	if (ELEM3(sa->spacetype, SPACE_ACTION, SPACE_IPO, SPACE_NLA) == 0)
+	if (ELEM(sa->spacetype, SPACE_ACTION, SPACE_IPO, SPACE_NLA) == 0)
 		return 0;
 
 	return 1;
@@ -622,7 +622,7 @@ static int animedit_poll_channels_nla_tweakmode_off(bContext *C)
 	if (ELEM(NULL, sa, CTX_wm_region(C)))
 		return 0;
 	/* animation editor test */
-	if (ELEM3(sa->spacetype, SPACE_ACTION, SPACE_IPO, SPACE_NLA) == 0)
+	if (ELEM(sa->spacetype, SPACE_ACTION, SPACE_IPO, SPACE_NLA) == 0)
 		return 0;
 	
 	/* NLA TweakMode test */
@@ -2257,7 +2257,7 @@ static int animchannels_find_poll(bContext *C)
 		return 0;
 	
 	/* animation editor with dopesheet */
-	return ELEM3(sa->spacetype, SPACE_ACTION, SPACE_IPO, SPACE_NLA);
+	return ELEM(sa->spacetype, SPACE_ACTION, SPACE_IPO, SPACE_NLA);
 }
 
 /* find_invoke() - Get initial channels */
@@ -2802,7 +2802,7 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 				
 				/* deselect all other channels */
 				ANIM_deselect_anim_channels(ac, ac->data, ac->datatype, false, ACHANNEL_SETFLAG_CLEAR);
-				if (pchan) ED_pose_deselectall(ob, 0);
+				if (pchan) ED_pose_de_selectall(ob, SEL_DESELECT, false);
 				
 				/* only select channels in group and group itself */
 				for (fcu = agrp->channels.first; fcu && fcu->grp == agrp; fcu = fcu->next)
@@ -2812,7 +2812,7 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 			else {
 				/* select group by itself */
 				ANIM_deselect_anim_channels(ac, ac->data, ac->datatype, false, ACHANNEL_SETFLAG_CLEAR);
-				if (pchan) ED_pose_deselectall(ob, 0);
+				if (pchan) ED_pose_de_selectall(ob, SEL_DESELECT, false);
 				
 				agrp->flag |= AGRP_SELECTED;
 			}

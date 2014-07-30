@@ -881,7 +881,7 @@ static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
 				}
 			}
 		}
-		else if (ELEM3(ob->type, OB_MESH, OB_LATTICE, OB_CURVE)) {
+		else if (ELEM(ob->type, OB_MESH, OB_LATTICE, OB_CURVE)) {
 			Key *key = NULL;
 			KeyBlock *kb = NULL;
 
@@ -1284,6 +1284,12 @@ static void backdrawview3d(Scene *scene, ARegion *ar, View3D *v3d)
 
 	if (base && (base->object->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT) ||
 	             BKE_paint_select_face_test(base->object)))
+	{
+		/* do nothing */
+	}
+	/* texture paint mode sampling */
+	else if (base && (base->object->mode & OB_MODE_TEXTURE_PAINT) &&
+	         (v3d->drawtype > OB_WIRE))
 	{
 		/* do nothing */
 	}
@@ -1981,6 +1987,7 @@ static void draw_dupli_objects_color(
 	DupliApplyData *apply_data;
 
 	if (base->object->restrictflag & OB_RESTRICT_VIEW) return;
+	if ((base->object->restrictflag & OB_RESTRICT_RENDER) && (v3d->flag2 & V3D_RENDER_OVERRIDE)) return;
 
 	if (dflag & DRAW_CONSTCOLOR) {
 		BLI_assert(color == TH_UNDEFINED);
@@ -2508,7 +2515,7 @@ CustomDataMask ED_view3d_datamask(Scene *scene, View3D *v3d)
 				mask |= CD_MASK_ORCO;
 		}
 		else {
-			if (scene->gm.matmode == GAME_MAT_GLSL)
+			if (scene->gm.matmode == GAME_MAT_GLSL || v3d->drawtype == OB_MATERIAL)
 				mask |= CD_MASK_ORCO;
 		}
 	}

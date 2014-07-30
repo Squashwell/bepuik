@@ -117,8 +117,8 @@ int BIF_snappingSupported(Object *obedit)
 {
 	int status = 0;
 	
-	if (obedit == NULL || ELEM5(obedit->type, OB_MESH, OB_ARMATURE, OB_CURVE, OB_LATTICE, OB_MBALL)) /* only support object mesh, armature, curves */
-	{
+	/* only support object mesh, armature, curves */
+	if (obedit == NULL || ELEM(obedit->type, OB_MESH, OB_ARMATURE, OB_CURVE, OB_LATTICE, OB_MBALL)) {
 		status = 1;
 	}
 	
@@ -505,7 +505,7 @@ static void initSnappingMode(TransInfo *t)
 
 		/* Edit mode */
 		if (t->tsnap.applySnap != NULL && // A snapping function actually exist
-		    (obedit != NULL && ELEM5(obedit->type, OB_MESH, OB_ARMATURE, OB_CURVE, OB_LATTICE, OB_MBALL)) ) // Temporary limited to edit mode meshes, armature, curves, mballs
+		    (obedit != NULL && ELEM(obedit->type, OB_MESH, OB_ARMATURE, OB_CURVE, OB_LATTICE, OB_MBALL)) ) // Temporary limited to edit mode meshes, armature, curves, mballs
 		{
 			/* Exclude editmesh if using proportional edit */
 			if ((obedit->type == OB_MESH) && (t->flag & T_PROP_EDIT)) {
@@ -588,7 +588,7 @@ void initSnapping(TransInfo *t, wmOperator *op)
 	}
 	/* use scene defaults only when transform is modal */
 	else if (t->flag & T_MODAL) {
-		if (ELEM3(t->spacetype, SPACE_VIEW3D, SPACE_IMAGE, SPACE_NODE)) {
+		if (ELEM(t->spacetype, SPACE_VIEW3D, SPACE_IMAGE, SPACE_NODE)) {
 			if (ts->snap_flag & SCE_SNAP) {
 				t->modifiers |= MOD_SNAP;
 			}
@@ -658,7 +658,8 @@ static void setSnappingCallback(TransInfo *t)
 
 void addSnapPoint(TransInfo *t)
 {
-	if (t->tsnap.status & POINT_INIT) {
+	/* Currently only 3D viewport works for snapping points. */
+	if (t->tsnap.status & POINT_INIT && t->spacetype == SPACE_VIEW3D) {
 		TransSnapPoint *p = MEM_callocN(sizeof(TransSnapPoint), "SnapPoint");
 
 		t->tsnap.selectedPoint = p;
@@ -1492,6 +1493,8 @@ static bool snapDerivedMesh(short snap_mode, ARegion *ar, Object *ob, DerivedMes
                             const float mval[2], float r_loc[3], float r_no[3], float *r_dist_px, float *r_depth, bool do_bb)
 {
 	bool retval = false;
+	const bool do_ray_start_correction = (snap_mode == SCE_SNAP_MODE_FACE && ar &&
+	                                      !((RegionView3D *)ar->regiondata)->is_persp);
 	int totvert = dm->getNumVerts(dm);
 
 	if (totvert > 0) {
@@ -1518,6 +1521,28 @@ static bool snapDerivedMesh(short snap_mode, ARegion *ar, Object *ob, DerivedMes
 				return retval;
 			}
 		}
+		else if (do_ray_start_correction) {
+			/* We *need* a reasonably valid len_diff in this case.
+			 * Use BHVTree to find the closest face from ray_start_local.
+			 */
+			BVHTreeFromMesh treeData;
+			BVHTreeNearest nearest;
+			len_diff = 0.0f;  /* In case BVHTree would fail for some reason... */
+
+			treeData.em_evil = em;
+			bvhtree_from_mesh_faces(&treeData, dm, 0.0f, 2, 6);
+			if (treeData.tree != NULL) {
+				nearest.index = -1;
+				nearest.dist_sq = FLT_MAX;
+				/* Compute and store result. */
+				BLI_bvhtree_find_nearest(treeData.tree, ray_start_local, &nearest,
+				                         treeData.nearest_callback, &treeData);
+				if (nearest.index != -1) {
+					len_diff = sqrtf(nearest.dist_sq);
+				}
+			}
+			free_bvhtree_from_mesh(&treeData);
+		}
 
 		switch (snap_mode) {
 			case SCE_SNAP_MODE_FACE:
@@ -1529,7 +1554,7 @@ static bool snapDerivedMesh(short snap_mode, ARegion *ar, Object *ob, DerivedMes
 				 * been *inside* boundbox, leading to snap failures (see T38409).
 				 * Note also ar might be null (see T38435), in this case we assume ray_start is ok!
 				 */
-				if (ar && !((RegionView3D *)ar->regiondata)->is_persp) {
+				if (do_ray_start_correction) {
 					float ray_org_local[3];
 
 					copy_v3_v3(ray_org_local, ray_origin);
@@ -2382,6 +2407,9 @@ static void applyGridIncrement(TransInfo *t, float *val, int max_index, float fa
 	if ((t->spacetype == SPACE_IMAGE) && (t->mode == TFM_TRANSLATION)) {
 		if (t->options & CTX_MASK) {
 			ED_space_image_get_aspect(t->sa->spacedata.first, asp, asp + 1);
+		}
+		else if (t->options & CTX_PAINT_CURVE) {
+			asp[0] = asp[1] = 1.0;
 		}
 		else {
 			ED_space_image_get_uv_aspect(t->sa->spacedata.first, asp, asp + 1);

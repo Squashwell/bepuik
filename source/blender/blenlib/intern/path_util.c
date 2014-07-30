@@ -1415,7 +1415,7 @@ const char *BLI_get_folder_create(int folder_id, const char *subfolder)
 	const char *path;
 
 	/* only for user folders */
-	if (!ELEM4(folder_id, BLENDER_USER_DATAFILES, BLENDER_USER_CONFIG, BLENDER_USER_SCRIPTS, BLENDER_USER_AUTOSAVE))
+	if (!ELEM(folder_id, BLENDER_USER_DATAFILES, BLENDER_USER_CONFIG, BLENDER_USER_SCRIPTS, BLENDER_USER_AUTOSAVE))
 		return NULL;
 	
 	path = BLI_get_folder(folder_id, subfolder);
@@ -1513,21 +1513,6 @@ void BLI_setenv_if_new(const char *env, const char *val)
 {
 	if (getenv(env) == NULL)
 		BLI_setenv(env, val);
-}
-
-
-/**
- * Changes to the path separators to the native ones for this OS.
- */
-void BLI_clean(char *path)
-{
-#ifdef WIN32
-	if (path && BLI_strnlen(path, 3) > 2) {
-		BLI_char_switch(path + 2, '/', '\\');
-	}
-#else
-	BLI_char_switch(path + BLI_path_unc_prefix_len(path), '\\', '/');
-#endif
 }
 
 /**
@@ -1681,7 +1666,7 @@ void BLI_make_file_string(const char *relabase, char *string, const char *dir, c
 	strcat(string, file);
 	
 	/* Push all slashes to the system preferred direction */
-	BLI_clean(string);
+	BLI_path_native_slash(string);
 }
 
 static bool testextensie_ex(const char *str, const size_t str_len,
@@ -1783,7 +1768,7 @@ bool BLI_replace_extension(char *path, size_t maxlen, const char *ext)
 	ssize_t a;
 
 	for (a = path_len - 1; a >= 0; a--) {
-		if (ELEM3(path[a], '.', '/', '\\')) {
+		if (ELEM(path[a], '.', '/', '\\')) {
 			break;
 		}
 	}
@@ -2143,6 +2128,20 @@ void BLI_del_slash(char *string)
 			break;
 		}
 	}
+}
+
+/**
+ * Changes to the path separators to the native ones for this OS.
+ */
+void BLI_path_native_slash(char *path)
+{
+#ifdef WIN32
+	if (path && BLI_strnlen(path, 3) > 2) {
+		BLI_char_switch(path + 2, '/', '\\');
+	}
+#else
+	BLI_char_switch(path + BLI_path_unc_prefix_len(path), '\\', '/');
+#endif
 }
 
 /**

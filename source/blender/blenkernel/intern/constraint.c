@@ -3909,7 +3909,7 @@ static void followtrack_evaluate(bConstraint *con, bConstraintOb *cob, ListBase 
 				BKE_tracking_camera_get_reconstructed_interpolate(tracking, tracking_object, framenr, imat);
 				invert_m4(imat);
 
-				mul_serie_m4(cob->matrix, obmat, mat, imat, NULL, NULL, NULL, NULL, NULL);
+				mul_m4_series(cob->matrix, obmat, mat, imat);
 				translate_m4(cob->matrix, track->bundle_pos[0], track->bundle_pos[1], track->bundle_pos[2]);
 			}
 			else {
@@ -3943,18 +3943,30 @@ static void followtrack_evaluate(bConstraint *con, bConstraintOb *cob, ListBase 
 
 		if (len > FLT_EPSILON) {
 			CameraParams params;
+			int width, height;
 			float pos[2], rmat[4][4];
+
+			BKE_movieclip_get_size(clip, NULL, &width, &height);
 
 			marker = BKE_tracking_marker_get(track, framenr);
 
 			add_v2_v2v2(pos, marker->pos, track->offset);
 
+			if (data->flag & FOLLOWTRACK_USE_UNDISTORTION) {
+				/* Undistortion need to happen in pixel space. */
+				pos[0] *= width;
+				pos[1] *= height;
+
+				BKE_tracking_undistort_v2(tracking, pos, pos);
+
+				/* Normalize pixel coordinates back. */
+				pos[0] /= width;
+				pos[1] /= height;
+			}
+
 			/* aspect correction */
 			if (data->frame_method != FOLLOWTRACK_FRAME_STRETCH) {
-				int width, height;
 				float w_src, h_src, w_dst, h_dst, asp_src, asp_dst;
-
-				BKE_movieclip_get_size(clip, NULL, &width, &height);
 
 				/* apply clip display aspect */
 				w_src = width * clip->aspx;
@@ -4187,7 +4199,7 @@ static void objectsolver_evaluate(bConstraint *con, bConstraintOb *cob, ListBase
 
 			invert_m4_m4(imat, mat);
 
-			mul_serie_m4(cob->matrix, cammat, imat, camimat, parmat, obmat, NULL, NULL, NULL);
+			mul_m4_series(cob->matrix, cammat, imat, camimat, parmat, obmat);
 		}
 	}
 }

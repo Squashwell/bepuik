@@ -34,6 +34,7 @@
 /* allow readfile to use deprecated functionality */
 #define DNA_DEPRECATED_ALLOW
 
+#include "DNA_brush_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_sdna_types.h"
 #include "DNA_space_types.h"
@@ -309,6 +310,13 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				mat->line_col[3] = mat->alpha;
 			}
 		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "RenderData", "int", "preview_start_resolution")) {
+			Scene *scene;
+			for (scene = main->scene.first; scene; scene = scene->id.next) {
+				scene->r.preview_start_resolution = 64;
+			}
+		}
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 271, 2)) {
@@ -331,6 +339,14 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 					}
 				}
 			}
+		}
+	}
+
+	if (!MAIN_VERSION_ATLEAST(main, 271, 3)) {
+		Brush *br;
+
+		for (br = main->brush.first; br; br = br->id.next) {
+			br->fill_threshold = 0.2f;
 		}
 	}
 

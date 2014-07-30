@@ -501,7 +501,7 @@ void WM_operator_py_idname(char *to, const char *from)
 		int ofs = (sep - from);
 		
 		/* note, we use ascii tolower instead of system tolower, because the
-		 * latter depends on the locale, and can lead to idname mistmatch */
+		 * latter depends on the locale, and can lead to idname mismatch */
 		memcpy(to, from, sizeof(char) * ofs);
 		BLI_ascii_strtolower(to, ofs);
 
@@ -3291,7 +3291,7 @@ void wm_tweakevent_test(bContext *C, wmEvent *event, int action)
 	if (win->tweak == NULL) {
 		if (CTX_wm_region(C)) {
 			if (event->val == KM_PRESS) {
-				if (ELEM3(event->type, LEFTMOUSE, MIDDLEMOUSE, RIGHTMOUSE)) {
+				if (ELEM(event->type, LEFTMOUSE, MIDDLEMOUSE, RIGHTMOUSE)) {
 					win->tweak = WM_gesture_new(C, event, WM_GESTURE_TWEAK);
 				}
 			}
@@ -4032,7 +4032,7 @@ static int radial_control_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 
 	/* get subtype of property */
 	rc->subtype = RNA_property_subtype(rc->prop);
-	if (!ELEM5(rc->subtype, PROP_NONE, PROP_DISTANCE, PROP_FACTOR, PROP_ANGLE, PROP_PIXEL)) {
+	if (!ELEM(rc->subtype, PROP_NONE, PROP_DISTANCE, PROP_FACTOR, PROP_ANGLE, PROP_PIXEL)) {
 		BKE_report(op->reports, RPT_ERROR, "Property must be a none, distance, a factor, or an angle");
 		MEM_freeN(rc);
 		return OPERATOR_CANCELLED;

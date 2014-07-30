@@ -288,10 +288,10 @@ static rbCollisionShape *rigidbody_get_shape_trimesh_from_mesh(Object *ob)
 
 		DM_ensure_tessface(dm);
 
-		mvert   = (dm) ? dm->getVertArray(dm) : NULL;
-		totvert = (dm) ? dm->getNumVerts(dm) : 0;
-		mface   = (dm) ? dm->getTessFaceArray(dm) : NULL;
-		totface = (dm) ? dm->getNumTessFaces(dm) : 0;
+		mvert   = dm->getVertArray(dm);
+		totvert = dm->getNumVerts(dm);
+		mface   = dm->getTessFaceArray(dm);
+		totface = dm->getNumTessFaces(dm);
 
 		/* sanity checking - potential case when no data will be present */
 		if ((totvert == 0) || (totface == 0)) {
@@ -345,7 +345,7 @@ static rbCollisionShape *rigidbody_get_shape_trimesh_from_mesh(Object *ob)
 		}
 
 		/* cleanup temp data */
-		if (dm && ob->rigidbody_object->mesh_source == RBO_MESH_BASE) {
+		if (ob->rigidbody_object->mesh_source == RBO_MESH_BASE) {
 			dm->release(dm);
 		}
 	}
@@ -395,7 +395,7 @@ static void rigidbody_validate_sim_shape(Object *ob, bool rebuild)
 	}
 	mul_v3_fl(size, 0.5f);
 
-	if (ELEM3(rbo->shape, RB_SHAPE_CAPSULE, RB_SHAPE_CYLINDER, RB_SHAPE_CONE)) {
+	if (ELEM(rbo->shape, RB_SHAPE_CAPSULE, RB_SHAPE_CYLINDER, RB_SHAPE_CONE)) {
 		/* take radius as largest x/y dimension, and height as z-dimension */
 		radius = MAX2(size[0], size[1]);
 		height = size[2];
@@ -471,13 +471,13 @@ void BKE_rigidbody_calc_volume(Object *ob, float *r_vol)
 	/* if automatically determining dimensions, use the Object's boundbox
 	 *	- assume that all quadrics are standing upright on local z-axis
 	 *	- assume even distribution of mass around the Object's pivot
-	 *	  (i.e. Object pivot is centralised in boundbox)
+	 *	  (i.e. Object pivot is centralized in boundbox)
 	 *	- boundbox gives full width
 	 */
 	// XXX: all dimensions are auto-determined now... later can add stored settings for this
 	BKE_object_dimensions_get(ob, size);
 
-	if (ELEM3(rbo->shape, RB_SHAPE_CAPSULE, RB_SHAPE_CYLINDER, RB_SHAPE_CONE)) {
+	if (ELEM(rbo->shape, RB_SHAPE_CAPSULE, RB_SHAPE_CYLINDER, RB_SHAPE_CONE)) {
 		/* take radius as largest x/y dimension, and height as z-dimension */
 		radius = MAX2(size[0], size[1]) * 0.5f;
 		height = size[2];
@@ -532,7 +532,7 @@ void BKE_rigidbody_calc_volume(Object *ob, float *r_vol)
 				}
 				
 				/* cleanup temp data */
-				if (dm && ob->rigidbody_object->mesh_source == RBO_MESH_BASE) {
+				if (ob->rigidbody_object->mesh_source == RBO_MESH_BASE) {
 					dm->release(dm);
 				}
 			}
@@ -567,7 +567,7 @@ void BKE_rigidbody_calc_center_of_mass(Object *ob, float r_com[3])
 	/* if automatically determining dimensions, use the Object's boundbox
 	 *	- assume that all quadrics are standing upright on local z-axis
 	 *	- assume even distribution of mass around the Object's pivot
-	 *	  (i.e. Object pivot is centralised in boundbox)
+	 *	  (i.e. Object pivot is centralized in boundbox)
 	 *	- boundbox gives full width
 	 */
 	// XXX: all dimensions are auto-determined now... later can add stored settings for this
@@ -615,7 +615,7 @@ void BKE_rigidbody_calc_center_of_mass(Object *ob, float r_com[3])
 				}
 				
 				/* cleanup temp data */
-				if (dm && ob->rigidbody_object->mesh_source == RBO_MESH_BASE) {
+				if (ob->rigidbody_object->mesh_source == RBO_MESH_BASE) {
 					dm->release(dm);
 				}
 			}
@@ -720,7 +720,7 @@ static void rigidbody_validate_sim_constraint(RigidBodyWorld *rbw, Object *ob, b
 		return;
 	}
 
-	if (ELEM4(NULL, rbc->ob1, rbc->ob1->rigidbody_object, rbc->ob2, rbc->ob2->rigidbody_object)) {
+	if (ELEM(NULL, rbc->ob1, rbc->ob1->rigidbody_object, rbc->ob2, rbc->ob2->rigidbody_object)) {
 		if (rbc->physics_constraint) {
 			RB_dworld_remove_constraint(rbw->physics_world, rbc->physics_constraint);
 			RB_constraint_delete(rbc->physics_constraint);

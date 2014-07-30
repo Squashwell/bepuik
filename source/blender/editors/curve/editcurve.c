@@ -1191,7 +1191,7 @@ static int *initialize_index_map(Object *obedit, int *r_old_totvert)
 
 	for (nu = editnurb->nurbs.first, vertex_index = 0;
 	     nu != NULL;
-	     nu = nu->next, vertex_index++)
+	     nu = nu->next)
 	{
 		if (nu->bezt) {
 			BezTriple *bezt = nu->bezt;
@@ -1975,17 +1975,15 @@ static void ed_curve_delete_selected(Object *obedit)
 		next = nu->next;
 		type = 0;
 		if (nu->type == CU_BEZIER) {
-			int delta = 0;
 			bezt = nu->bezt;
 			for (a = 0; a < nu->pntsu; a++) {
 				if (BEZSELECTED_HIDDENHANDLES(cu, bezt)) {
 					memmove(bezt, bezt + 1, (nu->pntsu - a - 1) * sizeof(BezTriple));
-					keyIndex_delBezt(editnurb, bezt + delta);
+					keyIndex_delBezt(editnurb, bezt);
 					keyIndex_updateBezt(editnurb, bezt + 1, bezt, nu->pntsu - a - 1);
 					nu->pntsu--;
 					a--;
 					type = 1;
-					delta++;
 				}
 				else {
 					bezt++;
@@ -2001,18 +1999,16 @@ static void ed_curve_delete_selected(Object *obedit)
 			}
 		}
 		else if (nu->pntsv == 1) {
-			int delta = 0;
 			bp = nu->bp;
 
 			for (a = 0; a < nu->pntsu; a++) {
 				if (bp->f1 & SELECT) {
 					memmove(bp, bp + 1, (nu->pntsu - a - 1) * sizeof(BPoint));
-					keyIndex_delBP(editnurb, bp + delta);
+					keyIndex_delBP(editnurb, bp);
 					keyIndex_updateBP(editnurb, bp + 1, bp, nu->pntsu - a - 1);
 					nu->pntsu--;
 					a--;
 					type = 1;
-					delta++;
 				}
 				else {
 					bp++;
@@ -7023,7 +7019,7 @@ static int match_texture_space_poll(bContext *C)
 {
 	Object *object = CTX_data_active_object(C);
 
-	return object && ELEM3(object->type, OB_CURVE, OB_SURF, OB_FONT);
+	return object && ELEM(object->type, OB_CURVE, OB_SURF, OB_FONT);
 }
 
 static int match_texture_space_exec(bContext *C, wmOperator *UNUSED(op))

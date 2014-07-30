@@ -204,7 +204,7 @@ void ED_markers_get_minmax(ListBase *markers, short sel, float *first, float *la
 	
 	/* sanity check */
 	//printf("markers = %p -  %p, %p\n", markers, markers->first, markers->last);
-	if (ELEM3(NULL, markers, markers->first, markers->last)) {
+	if (ELEM(NULL, markers, markers->first, markers->last)) {
 		*first = 0.0f;
 		*last = 0.0f;
 		return;
@@ -1012,14 +1012,14 @@ static void select_timeline_marker_frame(ListBase *markers, int frame, bool exte
 		}
 	}
 
-	LISTBASE_CIRCULAR_FORWARD_BEGIN (markers, marker, marker_first) {
+	BLI_LISTBASE_CIRCULAR_FORWARD_BEGIN (markers, marker, marker_first) {
 		/* this way a not-extend select will allways give 1 selected marker */
 		if (marker->frame == frame) {
 			marker->flag ^= SELECT;
 			break;
 		}
 	}
-	LISTBASE_CIRCULAR_FORWARD_END (markers, marker, marker_first);
+	BLI_LISTBASE_CIRCULAR_FORWARD_END (markers, marker, marker_first);
 }
 
 static int ed_marker_select(bContext *C, const wmEvent *event, bool extend, bool camera)
