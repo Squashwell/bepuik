@@ -987,7 +987,7 @@ void bepu_solve(Object * ob)
 	iksolver->ControlIterationCount = bepuik_solve_length / timestep_duration;
 	iksolver->SetTimeStepDuration(timestep_duration);
 	iksolver->FixerIterationCount = ob->bepuik_fixer_iterations;
-	iksolver->AutoscaleControlMaximumForce = MAXFLOAT;
+	iksolver->AutoscaleControlMaximumForce = FLT_MAX;
 
 	int velocity_subiteration_count = ob->bepuik_solve_quality * 3;
 	CLAMP(velocity_subiteration_count,1,10);

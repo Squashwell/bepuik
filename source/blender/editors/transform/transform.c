@@ -7901,7 +7901,7 @@ static void applyBEPUikControlRigidityModify(TransInfo *t, const int UNUSED(mval
 	if (hasNumInput(&t->num)) {
 		char c[NUM_STR_REP_LEN];
 
-		outputNumInput(&(t->num), c, 1.0f);
+		outputNumInput(&(t->num), c, &t->scene->unit);
 
 		if(rigidity >= 0.0f)
 		{

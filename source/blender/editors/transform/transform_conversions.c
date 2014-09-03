@@ -651,7 +651,7 @@ static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, Tr
 	mul_m3_m3m3(td->axismtx, omat, pmat);
 	normalize_m3(td->axismtx);
 
-	if((t->bepuikflag & T_BEPUIK_DYNAMIC) && ELEM3(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
+	if((t->bepuikflag & T_BEPUIK_DYNAMIC) && ELEM(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
 	{
 		if(t->around == V3D_ACTIVE)
 		{
@@ -830,7 +830,7 @@ static void bepu_transpose_data_setup(TransInfo *t)
 	t->customFree = bepu_transinfo_free;
 	bepu_store_pchans(t);
 	G.bepuik_modal_solving = true;
-	if(ELEM3(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
+	if(ELEM(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
 	{ 
 		if(t->bepuikflag & T_BEPUIK_DYNAMIC)
 		{
@@ -894,7 +894,7 @@ static void bepu_transpose_data_setup(TransInfo *t)
 
 	if(ob->bepuikflag & OB_BEPUIK_MATCH_FINISHED_TRANSFORM)
 	{
-		if(ELEM4(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL,TFM_RESIZE)) {
+		if(ELEM(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL,TFM_RESIZE)) {
 			t->bepuikflag |= T_BEPUIK_MATCH_FINISHED_TRANSFORM;
 		}
 	}
@@ -968,7 +968,7 @@ int count_set_pose_transflags(int *out_mode, short around, int tbepuikflags, Obj
 		}
 	}
 	
-	if((tbepuikflags & T_BEPUIK_DYNAMIC) && ELEM3(mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
+	if((tbepuikflags & T_BEPUIK_DYNAMIC) && ELEM(mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
 	{
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next)
 		{
