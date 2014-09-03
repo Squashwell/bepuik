@@ -1360,7 +1360,7 @@ float mat3_to_scale(float mat[3][3])
 {
 	/* unit length vector */
 	float unit_vec[3];
-	copy_v3_fl(unit_vec, 0.577350269189626f);
+	copy_v3_fl(unit_vec, (float)(1.0 / M_SQRT3));
 	mul_m3_v3(mat, unit_vec);
 	return len_v3(unit_vec);
 }
@@ -1369,7 +1369,7 @@ float mat4_to_scale(float mat[4][4])
 {
 	/* unit length vector */
 	float unit_vec[3];
-	copy_v3_fl(unit_vec, 0.577350269189626f);
+	copy_v3_fl(unit_vec, (float)(1.0 / M_SQRT3));
 	mul_mat3_m4_v3(mat, unit_vec);
 	return len_v3(unit_vec);
 }
@@ -2214,4 +2214,52 @@ void invert_m4_m4_safe(float Ainv[4][4], float A[4][4])
 			unit_m4(Ainv);
 		}
 	}
+}
+
+/**
+ * SpaceTransform struct encapsulates all needed data to convert between two coordinate spaces
+ * (where conversion can be represented by a matrix multiplication).
+ *
+ * A SpaceTransform is initialized using:
+ *   BLI_SPACE_TRANSFORM_SETUP(&data,  ob1, ob2)
+ *
+ * After that the following calls can be used:
+ *   BLI_space_transform_apply(&data, co);  // converts a coordinate in ob1 space to the corresponding ob2 space
+ *   BLI_space_transform_invert(&data, co);  // converts a coordinate in ob2 space to the corresponding ob1 space
+ *
+ * Same concept as BLI_space_transform_apply and BLI_space_transform_invert, but no is normalized after conversion
+ * (and not translated at all!):
+ *   BLI_space_transform_apply_normal(&data, no);
+ *   BLI_space_transform_invert_normal(&data, no);
+ *
+ */
+
+void BLI_space_transform_from_matrices(SpaceTransform *data, float local[4][4], float target[4][4])
+{
+	float itarget[4][4];
+	invert_m4_m4(itarget, target);
+	mul_m4_m4m4(data->local2target, itarget, local);
+	invert_m4_m4(data->target2local, data->local2target);
+}
+
+void BLI_space_transform_apply(const SpaceTransform *data, float co[3])
+{
+	mul_v3_m4v3(co, ((SpaceTransform *)data)->local2target, co);
+}
+
+void BLI_space_transform_invert(const SpaceTransform *data, float co[3])
+{
+	mul_v3_m4v3(co, ((SpaceTransform *)data)->target2local, co);
+}
+
+void BLI_space_transform_apply_normal(const SpaceTransform *data, float no[3])
+{
+	mul_mat3_m4_v3(((SpaceTransform *)data)->local2target, no);
+	normalize_v3(no);
+}
+
+void BLI_space_transform_invert_normal(const SpaceTransform *data, float no[3])
+{
+	mul_mat3_m4_v3(((SpaceTransform *)data)->target2local, no);
+	normalize_v3(no);
 }

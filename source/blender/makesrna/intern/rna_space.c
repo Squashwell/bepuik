@@ -1300,25 +1300,25 @@ static int rna_SpaceNodeEditor_path_length(PointerRNA *ptr)
 	return ED_node_tree_path_length(snode);
 }
 
-void rna_SpaceNodeEditor_path_clear(SpaceNode *snode, bContext *C)
+static void rna_SpaceNodeEditor_path_clear(SpaceNode *snode, bContext *C)
 {
 	ED_node_tree_start(snode, NULL, NULL, NULL);
 	ED_node_tree_update(C);
 }
 
-void rna_SpaceNodeEditor_path_start(SpaceNode *snode, bContext *C, PointerRNA *node_tree)
+static void rna_SpaceNodeEditor_path_start(SpaceNode *snode, bContext *C, PointerRNA *node_tree)
 {
 	ED_node_tree_start(snode, (bNodeTree *)node_tree->data, NULL, NULL);
 	ED_node_tree_update(C);
 }
 
-void rna_SpaceNodeEditor_path_append(SpaceNode *snode, bContext *C, PointerRNA *node_tree, PointerRNA *node)
+static void rna_SpaceNodeEditor_path_append(SpaceNode *snode, bContext *C, PointerRNA *node_tree, PointerRNA *node)
 {
 	ED_node_tree_push(snode, node_tree->data, node->data);
 	ED_node_tree_update(C);
 }
 
-void rna_SpaceNodeEditor_path_pop(SpaceNode *snode, bContext *C)
+static void rna_SpaceNodeEditor_path_pop(SpaceNode *snode, bContext *C)
 {
 	ED_node_tree_pop(snode);
 	ED_node_tree_update(C);
@@ -1784,11 +1784,11 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	static EnumPropertyItem manipulators_items[] = {
-		{V3D_MANIP_TRANSLATE, "TRANSLATE", ICON_MAN_TRANS, "Manipulator Translate",
+		{V3D_MANIP_TRANSLATE, "TRANSLATE", ICON_MAN_TRANS, "Translate",
 		                      "Use the manipulator for movement transformations"},
-		{V3D_MANIP_ROTATE, "ROTATE", ICON_MAN_ROT, "Manipulator Rotate",
+		{V3D_MANIP_ROTATE, "ROTATE", ICON_MAN_ROT, "Rotate",
 		                   "Use the manipulator for rotation transformations"},
-		{V3D_MANIP_SCALE, "SCALE", ICON_MAN_SCALE, "Manipulator Scale",
+		{V3D_MANIP_SCALE, "SCALE", ICON_MAN_SCALE, "Scale",
 		                  "Use the manipulator for scale transformations"},
 		{0, NULL, 0, NULL, NULL}
 	};
@@ -3411,13 +3411,18 @@ static void rna_def_space_node(BlenderRNA *brna)
 		{SNODE_TEX_OBJECT, "OBJECT", ICON_OBJECT_DATA, "Object", "Edit texture nodes from Object"},
 		{SNODE_TEX_WORLD, "WORLD", ICON_WORLD_DATA, "World", "Edit texture nodes from World"},
 		{SNODE_TEX_BRUSH, "BRUSH", ICON_BRUSH_DATA, "Brush", "Edit texture nodes from Brush"},
+#ifdef WITH_FREESTYLE
 		{SNODE_TEX_LINESTYLE, "LINESTYLE", ICON_LINE_DATA, "Line Style", "Edit texture nodes from Line Style"},
+#endif
 		{0, NULL, 0, NULL, NULL}
 	};
 
 	static EnumPropertyItem shader_type_items[] = {
 		{SNODE_SHADER_OBJECT, "OBJECT", ICON_OBJECT_DATA, "Object", "Edit shader nodes from Object"},
 		{SNODE_SHADER_WORLD, "WORLD", ICON_WORLD_DATA, "World", "Edit shader nodes from World"},
+#ifdef WITH_FREESTYLE
+		{SNODE_SHADER_LINESTYLE, "LINESTYLE", ICON_LINE_DATA, "Line Style", "Edit shader nodes from Line Style"},
+#endif
 		{0, NULL, 0, NULL, NULL}
 	};
 

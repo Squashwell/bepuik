@@ -112,7 +112,7 @@ typedef struct PaintStroke {
 	float cached_size_pressure;
 	/* last pressure will store last pressure value for use in interpolation for space strokes */
 	float last_pressure;
-
+	int stroke_mode;
 
 	float zoom_2d;
 	int pen_flip;
@@ -212,6 +212,9 @@ static bool paint_brush_update(bContext *C,
 		copy_v2_v2(ups->tex_mouse, mouse);
 		copy_v2_v2(ups->mask_tex_mouse, mouse);
 		stroke->cached_size_pressure = pressure;
+
+		ups->do_linear_conversion = false;
+		ups->colorspace = NULL;
 
 		/* check here if color sampling the main brush should do color conversion. This is done here
 		 * to avoid locking up to get the image buffer during sampling */
@@ -344,6 +347,20 @@ static bool paint_brush_update(bContext *C,
 	return location_success;
 }
 
+static bool paint_stroke_use_jitter(PaintMode mode, Brush *brush, bool invert)
+{
+	bool use_jitter = (brush->flag & BRUSH_ABSOLUTE_JITTER) ?
+		(brush->jitter_absolute != 0) : (brush->jitter != 0);
+
+	/* jitter-ed brush gives weird and unpredictable result for this
+	 * kinds of stroke, so manually disable jitter usage (sergey) */
+	use_jitter &= (brush->flag & (BRUSH_DRAG_DOT | BRUSH_ANCHORED)) == 0;
+	use_jitter &= (!ELEM(mode, PAINT_TEXTURE_2D, PAINT_TEXTURE_PROJECTIVE) ||
+	               !(invert && brush->imagepaint_tool == PAINT_TOOL_CLONE));
+
+
+	return use_jitter;
+}
 
 /* Put the location of the next stroke dot into the stroke RNA and apply it to the mesh */
 static void paint_brush_stroke_add_step(bContext *C, wmOperator *op, const float mouse_in[2], float pressure)
@@ -379,6 +396,7 @@ static void paint_brush_stroke_add_step(bContext *C, wmOperator *op, const float
 	copy_v2_v2(stroke->last_mouse_position, mouse_in);
 	stroke->last_pressure = pressure;
 
+	if (paint_stroke_use_jitter(mode, brush, stroke->stroke_mode == BRUSH_STROKE_INVERT))
 	{
 		float delta[2];
 		float factor = stroke->zoom_2d;
@@ -396,6 +414,9 @@ static void paint_brush_stroke_add_step(bContext *C, wmOperator *op, const float
 			mul_v2_fl(delta, factor);
 			add_v2_v2v2(mouse_out, mouse_in, delta);
 		}
+	}
+	else {
+		copy_v2_v2(mouse_out, mouse_in);
 	}
 
 	if (!paint_brush_update(C, brush, mode, stroke, mouse_in, mouse_out, pressure, location)) {
@@ -612,6 +633,7 @@ PaintStroke *paint_stroke_new(bContext *C,
 	stroke->done = done;
 	stroke->event_type = event_type; /* for modal, return event */
 	stroke->ups = ups;
+	stroke->stroke_mode = RNA_enum_get(op->ptr, "mode");
 
 	get_imapaint_zoom(C, &zoomx, &zoomy);
 	stroke->zoom_2d = max_ff(zoomx, zoomy);
@@ -1118,6 +1140,11 @@ ViewContext *paint_stroke_view_context(PaintStroke *stroke)
 void *paint_stroke_mode_data(struct PaintStroke *stroke)
 {
 	return stroke->mode_data;
+}
+
+bool paint_stroke_flipped(struct PaintStroke *stroke)
+{
+	return stroke->pen_flip;
 }
 
 float paint_stroke_distance_get(struct PaintStroke *stroke)

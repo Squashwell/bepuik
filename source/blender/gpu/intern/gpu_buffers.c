@@ -63,12 +63,12 @@
 #include "bmesh.h"
 
 typedef enum {
-	GPU_BUFFER_VERTEX_STATE = 1,
-	GPU_BUFFER_NORMAL_STATE = 2,
-	GPU_BUFFER_TEXCOORD_UNIT_0_STATE = 4,
-	GPU_BUFFER_TEXCOORD_UNIT_1_STATE = 8,
-	GPU_BUFFER_COLOR_STATE = 16,
-	GPU_BUFFER_ELEMENT_STATE = 32,
+	GPU_BUFFER_VERTEX_STATE = (1 << 0),
+	GPU_BUFFER_NORMAL_STATE = (1 << 1),
+	GPU_BUFFER_TEXCOORD_UNIT_0_STATE = (1 << 2),
+	GPU_BUFFER_TEXCOORD_UNIT_2_STATE = (1 << 3),
+	GPU_BUFFER_COLOR_STATE = (1 << 4),
+	GPU_BUFFER_ELEMENT_STATE = (1 << 5),
 } GPUBufferState;
 
 #define MAX_GPU_ATTRIB_DATA 32
@@ -616,7 +616,7 @@ static GPUBuffer *gpu_buffer_setup(DerivedMesh *dm, GPUDrawObject *object,
 	}
 
 	mat_orig_to_new = MEM_mallocN(sizeof(*mat_orig_to_new) * dm->totmat,
-                                  "GPU_buffer_setup.mat_orig_to_new");
+	                              "GPU_buffer_setup.mat_orig_to_new");
 	cur_index_per_mat = MEM_mallocN(sizeof(int) * object->totmaterial,
 	                                "GPU_buffer_setup.cur_index_per_mat");
 	for (i = 0; i < object->totmaterial; i++) {
@@ -1159,20 +1159,20 @@ void GPU_texpaint_uv_setup(DerivedMesh *dm)
 	if (useVBOs) {
 		glBindBufferARB(GL_ARRAY_BUFFER_ARB, dm->drawObject->uv->id);
 		glTexCoordPointer(2, GL_FLOAT, 4 * sizeof(float), 0);
-		glClientActiveTexture(GL_TEXTURE1);
+		glClientActiveTexture(GL_TEXTURE2);
 		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 		glTexCoordPointer(2, GL_FLOAT, 4 * sizeof(float), BUFFER_OFFSET(2 * sizeof(float)));
 		glClientActiveTexture(GL_TEXTURE0);
 	}
 	else {
 		glTexCoordPointer(2, GL_FLOAT, 4 * sizeof(float), dm->drawObject->uv->pointer);
-		glClientActiveTexture(GL_TEXTURE1);
+		glClientActiveTexture(GL_TEXTURE2);
 		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 		glTexCoordPointer(2, GL_FLOAT, 4 * sizeof(float), (char *)dm->drawObject->uv->pointer + 2 * sizeof(float));
 		glClientActiveTexture(GL_TEXTURE0);
 	}
 
-	GLStates |= GPU_BUFFER_TEXCOORD_UNIT_0_STATE | GPU_BUFFER_TEXCOORD_UNIT_1_STATE;
+	GLStates |= GPU_BUFFER_TEXCOORD_UNIT_0_STATE | GPU_BUFFER_TEXCOORD_UNIT_2_STATE;
 }
 
 
@@ -1335,8 +1335,8 @@ void GPU_buffer_unbind(void)
 		glDisableClientState(GL_NORMAL_ARRAY);
 	if (GLStates & GPU_BUFFER_TEXCOORD_UNIT_0_STATE)
 		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	if (GLStates & GPU_BUFFER_TEXCOORD_UNIT_1_STATE) {
-		glClientActiveTexture(GL_TEXTURE1);
+	if (GLStates & GPU_BUFFER_TEXCOORD_UNIT_2_STATE) {
+		glClientActiveTexture(GL_TEXTURE2);
 		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 		glClientActiveTexture(GL_TEXTURE0);
 	}
@@ -1348,7 +1348,7 @@ void GPU_buffer_unbind(void)
 		}
 	}
 	GLStates &= ~(GPU_BUFFER_VERTEX_STATE | GPU_BUFFER_NORMAL_STATE |
-	              GPU_BUFFER_TEXCOORD_UNIT_0_STATE | GPU_BUFFER_TEXCOORD_UNIT_1_STATE |
+	              GPU_BUFFER_TEXCOORD_UNIT_0_STATE | GPU_BUFFER_TEXCOORD_UNIT_2_STATE |
 	              GPU_BUFFER_COLOR_STATE | GPU_BUFFER_ELEMENT_STATE);
 
 	for (i = 0; i < MAX_GPU_ATTRIB_DATA; i++) {
@@ -2674,11 +2674,17 @@ bool GPU_pbvh_buffers_diffuse_changed(GPU_PBVH_Buffers *buffers, GSet *bm_faces,
 	}
 	else if (buffers->use_bmesh) {
 		/* due to dynamc nature of dyntopo, only get first material */
-		GSetIterator gs_iter;
-		BMFace *f;
-		BLI_gsetIterator_init(&gs_iter, bm_faces);
-		f = BLI_gsetIterator_getKey(&gs_iter);
-		GPU_material_diffuse_get(f->mat_nr + 1, diffuse_color);
+		if (BLI_gset_size(bm_faces) > 0) {
+			GSetIterator gs_iter;
+			BMFace *f;
+
+			BLI_gsetIterator_init(&gs_iter, bm_faces);
+			f = BLI_gsetIterator_getKey(&gs_iter);
+			GPU_material_diffuse_get(f->mat_nr + 1, diffuse_color);
+		}
+		else {
+			return false;
+		}
 	}
 	else {
 		const DMFlagMat *flags = &buffers->grid_flag_mats[buffers->grid_indices[0]];
@@ -2686,9 +2692,7 @@ bool GPU_pbvh_buffers_diffuse_changed(GPU_PBVH_Buffers *buffers, GSet *bm_faces,
 		GPU_material_diffuse_get(flags->mat_nr + 1, diffuse_color);
 	}
 
-	return diffuse_color[0] != buffers->diffuse_color[0] ||
-	       diffuse_color[1] != buffers->diffuse_color[1] ||
-	       diffuse_color[2] != buffers->diffuse_color[2];
+	return !equals_v3v3(diffuse_color, buffers->diffuse_color);
 }
 
 /* release a GPU_PBVH_Buffers id;

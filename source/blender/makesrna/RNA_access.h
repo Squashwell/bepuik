@@ -274,6 +274,7 @@ extern StructRNA RNA_GameProperty;
 extern StructRNA RNA_GameSoftBodySettings;
 extern StructRNA RNA_GameStringProperty;
 extern StructRNA RNA_GameTimerProperty;
+extern StructRNA RNA_GaussianBlurSequence;
 extern StructRNA RNA_GlowSequence;
 extern StructRNA RNA_GreasePencil;
 extern StructRNA RNA_Group;
@@ -289,6 +290,7 @@ extern StructRNA RNA_ImagePaint;
 extern StructRNA RNA_ImageSequence;
 extern StructRNA RNA_ImageTexture;
 extern StructRNA RNA_ImageUser;
+extern StructRNA RNA_ImapaintToolCapabilities;
 extern StructRNA RNA_InflowFluidSettings;
 extern StructRNA RNA_IntProperty;
 extern StructRNA RNA_Itasc;
@@ -645,6 +647,7 @@ extern StructRNA RNA_TransformConstraint;
 extern StructRNA RNA_TransformSequence;
 extern StructRNA RNA_UILayout;
 extern StructRNA RNA_UIList;
+extern StructRNA RNA_UIPieMenu;
 extern StructRNA RNA_UIPopupMenu;
 extern StructRNA RNA_UVWarpModifier;
 extern StructRNA RNA_UVProjectModifier;
@@ -806,6 +809,8 @@ void RNA_property_enum_items(struct bContext *C, PointerRNA *ptr, PropertyRNA *p
                              EnumPropertyItem **item, int *r_totitem, bool *r_free);
 void RNA_property_enum_items_gettexted(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
                                        EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
+void RNA_property_enum_items_gettexted_all(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
+                                       EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
 bool RNA_property_enum_value(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const char *identifier, int *r_value);
 bool RNA_property_enum_identifier(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **identifier);
 bool RNA_property_enum_name(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **name);
@@ -939,8 +944,21 @@ bool RNA_path_resolve_property(PointerRNA *ptr, const char *path,
 bool RNA_path_resolve_property_full(PointerRNA *ptr, const char *path,
                                     PointerRNA *r_ptr, PropertyRNA **r_prop, int *r_index);
 
+typedef struct PropertyElemRNA PropertyElemRNA;
+struct PropertyElemRNA {
+	PropertyElemRNA *next, *prev;
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	int index;
+};
+bool RNA_path_resolve_elements(PointerRNA *ptr, const char *path, struct ListBase *r_elements);
+
 char *RNA_path_from_ID_to_struct(PointerRNA *ptr);
 char *RNA_path_from_ID_to_property(PointerRNA *ptr, PropertyRNA *prop);
+
+char *RNA_path_resolve_from_type_to_property(
+        struct PointerRNA *ptr, struct PropertyRNA *prop,
+        const struct StructRNA *type);
 
 char *RNA_path_full_ID_py(struct ID *id);
 char *RNA_path_full_struct_py(struct PointerRNA *ptr);

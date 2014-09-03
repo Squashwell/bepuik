@@ -728,11 +728,26 @@ static void render_result_rescale(Render *re)
 void RE_ChangeResolution(Render *re, int winx, int winy, rcti *disprect)
 {
 	re_init_resolution(re, NULL, winx, winy, disprect);
+	RE_parts_clamp(re);
 
 	if (re->result) {
 		BLI_rw_mutex_lock(&re->resultmutex, THREAD_LOCK_WRITE);
 		render_result_rescale(re);
 		BLI_rw_mutex_unlock(&re->resultmutex);
+	}
+}
+
+/* TODO(sergey): This is a bit hackish, used to temporary disable freestyle when
+ * doing viewport render. Needs some better integration of BI viewport rendering
+ * into the pipeline.
+ */
+void RE_ChangeModeFlag(Render *re, int flag, bool clear)
+{
+	if (clear) {
+		re->r.mode &= ~flag;
+	}
+	else {
+		re->r.mode |= flag;
 	}
 }
 
@@ -2764,6 +2779,8 @@ void RE_SetReports(Render *re, ReportList *reports)
 void RE_BlenderFrame(Render *re, Main *bmain, Scene *scene, SceneRenderLayer *srl, Object *camera_override,
                      unsigned int lay_override, int frame, const bool write_still)
 {
+	BLI_callback_exec(re->main, (ID *)scene, BLI_CB_EVT_RENDER_INIT);
+
 	/* ugly global still... is to prevent preview events and signal subsurfs etc to make full resol */
 	G.is_rendering = true;
 	
@@ -2809,6 +2826,16 @@ void RE_RenderFreestyleStrokes(Render *re, Main *bmain, Scene *scene, int render
 			do_render_fields_blur_3d(re);
 	}
 	re->result_ok = 1;
+}
+
+void RE_RenderFreestyleExternal(Render *re)
+{
+	if (!re->test_break(re->tbh)) {
+		RE_Database_FromScene(re, re->main, re->scene, re->lay, 1);
+		RE_Database_Preprocess(re);
+		add_freestyle(re, 1);
+		RE_Database_Free(re);
+	}
 }
 #endif
 
@@ -2928,6 +2955,8 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 	int cfrao = scene->r.cfra;
 	int nfra, totrendered = 0, totskipped = 0;
 	
+	BLI_callback_exec(re->main, (ID *)scene, BLI_CB_EVT_RENDER_INIT);
+
 	/* do not fully call for each frame, it initializes & pops output window */
 	if (!render_initialize_from_main(re, &rd, bmain, scene, NULL, camera_override, lay_override, 0, 1))
 		return;

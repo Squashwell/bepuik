@@ -70,7 +70,7 @@ quickdebug = None
 
 ##### BEGIN SETUP #####
 
-B.possible_types = ['core', 'player', 'player2', 'intern', 'extern']
+B.possible_types = ['core', 'player', 'player2', 'intern', 'extern', 'system']
 
 B.binarykind = ['blender' , 'blenderplayer']
 ##################################
@@ -125,7 +125,7 @@ else:
     B.quickie=[]
 
 toolset = B.arguments.get('BF_TOOLSET', None)
-vcver = B.arguments.get('MSVS_VERSION', '9.0')
+vcver = B.arguments.get('MSVS_VERSION', '12.0')
 
 if toolset:
     print "Using " + toolset
@@ -209,6 +209,11 @@ opts.Update(env)
 if sys.platform=='win32':
     if B.bitness==64:
         env.Append(CPPFLAGS=['-DWIN64']) # -DWIN32 needed too, as it's used all over to target Windows generally
+
+if env['BF_DEBUG']:
+    env.Append(CPPDEFINES=['_DEBUG', 'DEBUG'])
+else:
+    env.Append(CPPDEFINES=['NDEBUG'])
 
 if not env['BF_FANCY']:
     B.bc.disable()
@@ -323,7 +328,10 @@ if env['OURPLATFORM']=='darwin':
     print B.bc.OKGREEN + "Available SDK's: \n" + B.bc.ENDC + MACOSX_SDK_CHECK.replace('\t', '')
 
     if env['MACOSX_SDK'] == '': # no set sdk, choosing best one found
-        if 'OS X 10.9' in MACOSX_SDK_CHECK:
+        if 'OS X 10.10' in MACOSX_SDK_CHECK:
+            env['MACOSX_DEPLOYMENT_TARGET'] = '10.6'
+            env['MACOSX_SDK']='/Developer/SDKs/MacOSX10.10.sdk'
+        elif 'OS X 10.9' in MACOSX_SDK_CHECK:
             env['MACOSX_DEPLOYMENT_TARGET'] = '10.6'
             env['MACOSX_SDK']='/Developer/SDKs/MacOSX10.9.sdk'
         elif 'OS X 10.8' in MACOSX_SDK_CHECK:
@@ -430,6 +438,7 @@ if env['OURPLATFORM']=='darwin':
             print B.bc.OKGREEN + "Disabled OpenMP, not supported by compiler"
 
     if env['WITH_BF_CYCLES_OSL'] == 1:
+        env['WITH_BF_LLVM'] = 1
         OSX_OSL_LIBPATH = Dir(env.subst(env['BF_OSL_LIBPATH'])).abspath
         # we need 2 variants of passing the oslexec with the force_load option, string and list type atm
         if env['C_COMPILER_ID'] == 'gcc' and env['CCVERSION'] >= '4.8' or env['C_COMPILER_ID'] == 'clang' and env['CCVERSION'] >= '3.4':
@@ -437,6 +446,8 @@ if env['OURPLATFORM']=='darwin':
         else:
             env.Append(LINKFLAGS=['-L'+OSX_OSL_LIBPATH,'-loslcomp','-force_load '+ OSX_OSL_LIBPATH +'/liboslexec.a','-loslquery'])
         env.Append(BF_PROGRAM_LINKFLAGS=['-Xlinker','-force_load','-Xlinker',OSX_OSL_LIBPATH +'/liboslexec.a'])
+    else:
+        env['WITH_BF_LLVM'] = 0
 
     if env['WITH_BF_LLVM'] == 0:
         # Due duplicated generic UTF functions, we pull them either from LLVMSupport or COLLADA
@@ -812,7 +823,7 @@ SConscript(B.root_build_dir+'/extern/SConscript')
 # libraries to give as objects to linking phase
 mainlist = []
 for tp in B.possible_types:
-    if (not tp == 'player') and (not tp == 'player2'):
+    if (not tp == 'player') and (not tp == 'player2') and (not tp == 'system'):
         mainlist += B.create_blender_liblist(env, tp)
 
 if B.arguments.get('BF_PRIORITYLIST', '0')=='1':
@@ -823,8 +834,23 @@ creob = B.creator(env)
 thestatlibs, thelibincs = B.setup_staticlibs(env)
 thesyslibs = B.setup_syslibs(env)
 
+# Hack to pass OSD libraries to linker before extern_{clew,cuew}
+for x in B.create_blender_liblist(env, 'system'):
+    thesyslibs.append(os.path.basename(x))
+    thelibincs.append(os.path.dirname(x))
+
 if 'blender' in B.targets or not env['WITH_BF_NOBLENDER']:
-    env.BlenderProg(B.root_build_dir, "blender", creob + mainlist + thestatlibs + dobj, thesyslibs, [B.root_build_dir+'/lib'] + thelibincs, 'blender')
+    blender_progname = "blender"
+    if env['OURPLATFORM'] in ('win32-vc', 'win32-mingw', 'win64-vc', 'linuxcross'):
+        blender_progname = "blender-app"
+
+        lenv = env.Clone()
+        lenv.Append(LINKFLAGS = env['PLATFORM_LINKFLAGS'])
+        targetpath = B.root_build_dir + '/blender'
+        launcher_obj = [env.Object(B.root_build_dir + 'source/creator/creator/creator_launch_win', ['#source/creator/creator_launch_win.c'])]
+        env.BlenderProg(B.root_build_dir, 'blender', [launcher_obj] + B.resources, ['bf_utfconv'] + thesyslibs, [B.root_build_dir+'/lib'] + thelibincs, 'blender')
+
+    env.BlenderProg(B.root_build_dir, blender_progname, creob + mainlist + thestatlibs + dobj, thesyslibs, [B.root_build_dir+'/lib'] + thelibincs, 'blender')
 if env['WITH_BF_PLAYER']:
     playerlist = B.create_blender_liblist(env, 'player')
     playerlist += B.create_blender_liblist(env, 'player2')
@@ -873,6 +899,10 @@ if env['OURPLATFORM']!='darwin':
     for targetdir,srcfile in zip(datafilestargetlist, datafileslist):
         td, tf = os.path.split(targetdir)
         dotblenderinstall.append(env.Install(dir=td, source=srcfile))
+
+    if env['OURPLATFORM'] in ('win32-vc', 'win32-mingw', 'win64-vc', 'linuxcross'):
+        scriptinstall.append(env.InstallAs(env['BF_INSTALLDIR'] + '/blender-app.exe.manifest',
+                                           'source/icons/blender.exe.manifest'))
 
     if env['WITH_BF_PYTHON']:
         #-- local/VERSION/scripts
@@ -959,8 +989,9 @@ if env['OURPLATFORM']!='darwin':
             dir=os.path.join(env['BF_INSTALLDIR'], VERSION, 'scripts', 'addons','cycles', 'lib')
             for arch in env['BF_CYCLES_CUDA_BINARIES_ARCH']:
                 kernel_build_dir = os.path.join(B.root_build_dir, 'intern/cycles/kernel')
-                cubin_file = os.path.join(kernel_build_dir, "kernel_%s.cubin" % arch)
-                cubininstall.append(env.Install(dir=dir,source=cubin_file))
+                for suffix in ('', '_experimental'):
+                    cubin_file = os.path.join(kernel_build_dir, "kernel%s_%s.cubin" % (suffix, arch))
+                    cubininstall.append(env.Install(dir=dir,source=cubin_file))
 
         # osl shaders
         if env['WITH_BF_CYCLES_OSL']:
@@ -1106,8 +1137,10 @@ if env['OURPLATFORM'] in ('win32-vc', 'win32-mingw', 'win64-vc', 'linuxcross'):
     if env['WITH_BF_PYTHON']:
         if env['BF_DEBUG']:
             dllsources.append('${BF_PYTHON_LIBPATH}/${BF_PYTHON_DLL}_d.dll')
+            dllsources.append('${BF_PYTHON_LIBPATH}/sqlite3_d.dll')
         else:
             dllsources.append('${BF_PYTHON_LIBPATH}/${BF_PYTHON_DLL}.dll')
+            dllsources.append('${BF_PYTHON_LIBPATH}/sqlite3.dll')
 
     if env['WITH_BF_ICONV']:
         if env['OURPLATFORM'] == 'win64-vc':

@@ -82,6 +82,7 @@
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
 #include "BKE_sound.h"
+#include "BKE_unit.h"
 #include "BKE_world.h"
 #include "BKE_armature.h"
 
@@ -260,6 +261,7 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 
 		BKE_paint_copy(&ts->imapaint.paint, &ts->imapaint.paint);
 		ts->imapaint.paintcursor = NULL;
+		id_us_plus((ID *)ts->imapaint.stencil);
 		ts->particle.paintcursor = NULL;
 	}
 	
@@ -562,6 +564,8 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 	sce->toolsettings->proportional_size = 1.0f;
 
 	sce->toolsettings->imapaint.paint.flags |= PAINT_SHOW_BRUSH;
+	sce->toolsettings->imapaint.normal_angle = 80;
+	sce->toolsettings->imapaint.seam_bleed = 2;
 
 	sce->physics_settings.gravity[0] = 0.0f;
 	sce->physics_settings.gravity[1] = 0.0f;
@@ -1138,11 +1142,6 @@ void BKE_scene_frame_set(struct Scene *scene, double cfra)
 	double intpart;
 	scene->r.subframe = modf(cfra, &intpart);
 	scene->r.cfra = (int)intpart;
-
-	if (cfra < 0.0) {
-		scene->r.cfra -= 1;
-		scene->r.subframe = 1.0f + scene->r.subframe;
-	}
 }
 
 /* drivers support/hacks 
@@ -1983,6 +1982,12 @@ bool BKE_scene_use_new_shading_nodes(Scene *scene)
 	return (type && type->flag & RE_USE_SHADING_NODES);
 }
 
+bool BKE_scene_uses_blender_internal(struct Scene *scene)
+{
+	return strcmp("BLENDER_RENDER", scene->r.engine) == 0;
+}
+
+
 void BKE_scene_base_flag_to_objects(struct Scene *scene)
 {
 	Base *base = scene->base.first;
@@ -2053,4 +2058,30 @@ int BKE_render_num_threads(const RenderData *rd)
 int BKE_scene_num_threads(const Scene *scene)
 {
 	return BKE_render_num_threads(&scene->r);
+}
+
+/* Apply the needed correction factor to value, based on unit_type (only length-related are affected currently)
+ * and unit->scale_length.
+ */
+double BKE_scene_unit_scale(const UnitSettings *unit, const int unit_type, double value)
+{
+	if (unit->system == USER_UNIT_NONE) {
+		/* Never apply scale_length when not using a unit setting! */
+		return value;
+	}
+
+	switch (unit_type) {
+		case B_UNIT_LENGTH:
+			return value * (double)unit->scale_length;
+		case B_UNIT_CAMERA:
+			return value * (double)unit->scale_length;
+		case B_UNIT_AREA:
+			return value * pow(unit->scale_length, 2);
+		case B_UNIT_VOLUME:
+			return value * pow(unit->scale_length, 3);
+		case B_UNIT_MASS:
+			return value * pow(unit->scale_length, 3);
+		default:
+			return value;
+	}
 }

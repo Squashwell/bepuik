@@ -37,6 +37,7 @@
 #include "DNA_object_types.h"
 #include "DNA_object_force.h"
 #include "DNA_brush_types.h"
+#include "DNA_texture_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_string.h"
@@ -575,24 +576,33 @@ static void template_ID(bContext *C, uiLayout *layout, TemplateID *template, Str
 	
 	/* delete button */
 	/* don't use RNA_property_is_unlink here */
-	if (id && (flag & UI_ID_DELETE) && (RNA_property_flag(template->prop) & PROP_NEVER_UNLINK) == 0) {
+	if (id && (flag & UI_ID_DELETE)) {
+		/* allow unlink if 'unlinkop' is passed, even when 'PROP_NEVER_UNLINK' is set */
+		but = NULL;
+
 		if (unlinkop) {
 			but = uiDefIconButO(block, BUT, unlinkop, WM_OP_INVOKE_REGION_WIN, ICON_X, 0, 0, UI_UNIT_X, UI_UNIT_Y, NULL);
 			/* so we can access the template from operators, font unlinking needs this */
 			uiButSetNFunc(but, NULL, MEM_dupallocN(template), NULL);
 		}
 		else {
-			but = uiDefIconBut(block, BUT, 0, ICON_X, 0, 0, UI_UNIT_X, UI_UNIT_Y, NULL, 0, 0, 0, 0,
-			                   TIP_("Unlink datablock "
-			                        "(Shift + Click to set users to zero, data will then not be saved)"));
-			uiButSetNFunc(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_DELETE));
+			if ((RNA_property_flag(template->prop) & PROP_NEVER_UNLINK) == 0) {
+				but = uiDefIconBut(block, BUT, 0, ICON_X, 0, 0, UI_UNIT_X, UI_UNIT_Y, NULL, 0, 0, 0, 0,
+				                   TIP_("Unlink datablock "
+				                        "(Shift + Click to set users to zero, data will then not be saved)"));
+				uiButSetNFunc(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_DELETE));
 
-			if (RNA_property_flag(template->prop) & PROP_NEVER_NULL)
-				uiButSetFlag(but, UI_BUT_DISABLED);
+				if (RNA_property_flag(template->prop) & PROP_NEVER_NULL) {
+					uiButSetFlag(but, UI_BUT_DISABLED);
+				}
+			}
 		}
 
-		if ((idfrom && idfrom->lib) || !editable)
-			uiButSetFlag(but, UI_BUT_DISABLED);
+		if (but) {
+			if ((idfrom && idfrom->lib) || !editable) {
+				uiButSetFlag(but, UI_BUT_DISABLED);
+			}
+		}
 	}
 
 	if (idcode == ID_TE)
@@ -755,28 +765,6 @@ void uiTemplatePathBuilder(uiLayout *layout, PointerRNA *ptr, const char *propna
 
 #define ERROR_LIBDATA_MESSAGE IFACE_("Can't edit external libdata")
 
-static void modifiers_setOnCage(bContext *C, void *ob_v, void *md_v)
-{
-	Scene *scene = CTX_data_scene(C);
-	Object *ob = ob_v;
-	ModifierData *md = md_v;
-	int i, cageIndex = modifiers_getCageIndex(scene, ob, NULL, 0);
-
-	/* undo button operation */
-	md->mode ^= eModifierMode_OnCage;
-
-	for (i = 0, md = ob->modifiers.first; md; ++i, md = md->next) {
-		if (md == md_v) {
-			if (i >= cageIndex)
-				md->mode ^= eModifierMode_OnCage;
-			break;
-		}
-	}
-
-	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
-}
-
 static void modifiers_convertToReal(bContext *C, void *ob_v, void *md_v)
 {
 	Object *ob = ob_v;
@@ -833,7 +821,7 @@ static uiLayout *draw_modifier(uiLayout *layout, Scene *scene, Object *ob,
 	PointerRNA ptr;
 	uiBut *but;
 	uiBlock *block;
-	uiLayout *box, *column, *row;
+	uiLayout *box, *column, *row, *sub;
 	uiLayout *result = NULL;
 	int isVirtual = (md->mode & eModifierMode_Virtual);
 	char str[128];
@@ -874,7 +862,11 @@ static uiLayout *draw_modifier(uiLayout *layout, Scene *scene, Object *ob,
 		uiBlockSetEmboss(block, UI_EMBOSS);
 		
 		/* modifier name */
+		if (mti->isDisabled && mti->isDisabled(md, 0)) {
+			uiLayoutSetRedAlert(row, true);
+		}
 		uiItemR(row, &ptr, "name", 0, "", ICON_NONE);
+		uiLayoutSetRedAlert(row, false);
 		
 		/* mode enabling buttons */
 		uiBlockBeginAlign(block);
@@ -885,29 +877,22 @@ static uiLayout *draw_modifier(uiLayout *layout, Scene *scene, Object *ob,
 			uiItemR(row, &ptr, "show_render", 0, "", ICON_NONE);
 			uiItemR(row, &ptr, "show_viewport", 0, "", ICON_NONE);
 			
-			if (mti->flags & eModifierTypeFlag_SupportsEditmode)
-				uiItemR(row, &ptr, "show_in_editmode", 0, "", ICON_NONE);
+			if (mti->flags & eModifierTypeFlag_SupportsEditmode) {
+				sub = uiLayoutRow(row, true);
+				if (!(md->mode & eModifierMode_Realtime)) {
+					uiLayoutSetActive(sub, false);
+				}
+				uiItemR(sub, &ptr, "show_in_editmode", 0, "", ICON_NONE);
+			}
 		}
 
 		if (ob->type == OB_MESH) {
-			if (modifier_couldBeCage(scene, md) && (index <= lastCageIndex)) {
-				/* -- convert to rna ? */
-				but = uiDefIconButBitI(block, TOG, eModifierMode_OnCage, 0, ICON_MESH_DATA, 0, 0,
-				                       UI_UNIT_X - 2, UI_UNIT_Y, &md->mode, 0.0, 0.0, 0.0, 0.0,
-				                       TIP_("Adjust edit cage to modifier result"));
-				if (index < cageIndex)
-					uiButSetFlag(but, UI_BUT_DISABLED);
-				uiButSetFunc(but, modifiers_setOnCage, ob, md);
-			}
-			else if (modifier_supportsCage(scene, md) && (index <= lastCageIndex)) {
-				uiBlockEndAlign(block);
-
-				/* place holder button */
-				uiBlockSetEmboss(block, UI_EMBOSSN);
-				but = uiDefIconBut(block, BUT, 0, ICON_NONE, 0, 0, UI_UNIT_X - 2, UI_UNIT_Y,
-				                   NULL, 0.0, 0.0, 0.0, 0.0, NULL);
-				uiButSetFlag(but, UI_BUT_DISABLED);
-				uiBlockSetEmboss(block, UI_EMBOSS);
+			if (modifier_supportsCage(scene, md) && (index <= lastCageIndex)) {
+				sub = uiLayoutRow(row, true);
+				if (index < cageIndex || !modifier_couldBeCage(scene, md)) {
+					uiLayoutSetActive(sub, false);
+				}
+				uiItemR(sub, &ptr, "show_on_cage", 0, "", ICON_NONE);
 			}
 		} /* tessellation point for curve-typed objects */
 		else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
@@ -917,7 +902,7 @@ static uiLayout *draw_modifier(uiLayout *layout, Scene *scene, Object *ob,
 				 * message for this modifiers */
 				but = uiDefIconButBitI(block, TOG, eModifierMode_ApplyOnSpline, 0, ICON_SURFACE_DATA, 0, 0,
 				                       UI_UNIT_X - 2, UI_UNIT_Y, &md->mode, 0.0, 0.0, 0.0, 0.0,
-				                       TIP_("This modifier could be applied on splines' points only"));
+				                       TIP_("This modifier can only be applied on splines' points"));
 				uiButSetFlag(but, UI_BUT_DISABLED);
 			}
 			else if (mti->type != eModifierTypeType_Constructive) {
@@ -1529,7 +1514,15 @@ static void colorband_buttons_layout(uiLayout *layout, uiBlock *block, ColorBand
 
 	row = uiLayoutRow(split, false);
 
-	uiItemR(row, &ptr, "interpolation", 0, "", ICON_NONE);
+	uiBlockBeginAlign(block);
+	uiItemR(row, &ptr, "color_mode", 0, "", ICON_NONE);
+	if (ELEM(coba->color_mode, COLBAND_BLEND_HSV, COLBAND_BLEND_HSL)) {
+		uiItemR(row, &ptr, "hue_interpolation", 0, "", ICON_NONE);
+	}
+	else {  /* COLBAND_BLEND_RGB */
+		uiItemR(row, &ptr, "interpolation", 0, "", ICON_NONE);
+	}
+	uiBlockEndAlign(block);
 
 	row = uiLayoutRow(layout, false);
 
@@ -1567,7 +1560,7 @@ static void colorband_buttons_layout(uiLayout *layout, uiBlock *block, ColorBand
 			uiDefButS(block, NUM, 0, "", 0, 0, 5.0f * UI_UNIT_X, UI_UNIT_Y, &coba->cur, 0.0, (float)(MAX2(0, coba->tot - 1)),
 			          0, 0, TIP_("Choose active color stop"));
 			row = uiLayoutRow(subsplit, false);
-			uiItemR(row, &ptr, "position", 0, IFACE_("Pos"), ICON_NONE);
+			uiItemR(row, &ptr, "position", UI_ITEM_R_SLIDER, IFACE_("Pos"), ICON_NONE);
 			bt = block->buttons.last;
 			uiButSetFunc(bt, colorband_update_cb, bt, coba);
 
@@ -2652,8 +2645,8 @@ static void uilist_filter_items_default(struct uiList *ui_list, struct bContext 
 
 	const char *filter_raw = ui_list->filter_byname;
 	char *filter = (char *)filter_raw, filter_buff[32], *filter_dyn = NULL;
-	bool filter_exclude = (ui_list->filter_flag & UILST_FLT_EXCLUDE) != 0;
-	bool order_by_name = (ui_list->filter_sort_flag & UILST_FLT_SORT_ALPHA) != 0;
+	const bool filter_exclude = (ui_list->filter_flag & UILST_FLT_EXCLUDE) != 0;
+	const bool order_by_name = (ui_list->filter_sort_flag & UILST_FLT_SORT_ALPHA) != 0;
 	int len = RNA_property_collection_length(dataptr, prop);
 
 	dyn_data->items_shown = dyn_data->items_len = len;
@@ -2962,8 +2955,8 @@ void uiTemplateList(uiLayout *layout, bContext *C, const char *listtype_name, co
 
 	/* Filter list items! (not for compact layout, though) */
 	if (dataptr->data && prop) {
-		int filter_exclude = ui_list->filter_flag & UILST_FLT_EXCLUDE;
-		bool order_reverse = (ui_list->filter_sort_flag & UILST_FLT_SORT_REVERSE) != 0;
+		const int filter_exclude = ui_list->filter_flag & UILST_FLT_EXCLUDE;
+		const bool order_reverse = (ui_list->filter_sort_flag & UILST_FLT_SORT_REVERSE) != 0;
 		int items_shown, idx = 0;
 #if 0
 		int prev_ii = -1, prev_i;
@@ -3503,7 +3496,7 @@ static void template_keymap_item_properties(uiLayout *layout, const char *title,
 	RNA_STRUCT_BEGIN (ptr, prop)
 	{
 		int flag = RNA_property_flag(prop);
-		bool is_set = RNA_property_is_set(ptr, prop);
+		const bool is_set = RNA_property_is_set(ptr, prop);
 		uiBut *but;
 
 		if (flag & PROP_HIDDEN)
@@ -3602,7 +3595,7 @@ void uiTemplateColormanagedViewSettings(uiLayout *layout, bContext *UNUSED(C), P
 	col = uiLayoutColumn(layout, false);
 
 	row = uiLayoutRow(col, false);
-	uiItemR(row, &view_transform_ptr, "view_transform", UI_ITEM_R_EXPAND, IFACE_("View"), ICON_NONE);
+	uiItemR(row, &view_transform_ptr, "view_transform", 0, IFACE_("View"), ICON_NONE);
 
 	col = uiLayoutColumn(layout, false);
 	uiItemR(col, &view_transform_ptr, "exposure", 0, NULL, ICON_NONE);

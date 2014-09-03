@@ -294,7 +294,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if(sc) {
 				sc->N = N;
 
-#ifdef __ANISOTROPIC__
 				sc->T = stack_load_float3(stack, data_node.y);
 
 				/* rotate tangent */
@@ -324,9 +323,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sd->flag |= bsdf_microfacet_ggx_aniso_setup(sc);
 				else
 					sd->flag |= bsdf_ashikhmin_shirley_aniso_setup(sc);
-#else
-				sd->flag |= bsdf_diffuse_setup(sc);
-#endif
 			}
 			break;
 		}
@@ -371,7 +367,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 				if(sc) {
 					/* todo: giving a fixed weight here will cause issues when
-					 * mixing multiple BSDFS. energey will not be conserved and
+					 * mixing multiple BSDFS. energy will not be conserved and
 					 * the throughput can blow up after multiple bounces. we
 					 * better figure out a way to skip backfaces from rays
 					 * spawned by transmission from the front */

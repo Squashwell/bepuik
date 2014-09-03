@@ -23,7 +23,7 @@
 
 #include "buffers.h"
 
-#include "util_cuda.h"
+#include "cuew.h"
 #include "util_debug.h"
 #include "util_map.h"
 #include "util_opengl.h"
@@ -61,65 +61,10 @@ public:
 		return (CUdeviceptr)mem;
 	}
 
-	static const char *cuda_error_string(CUresult result)
+	static bool have_precompiled_kernels()
 	{
-		switch(result) {
-			case CUDA_SUCCESS: return "No errors";
-			case CUDA_ERROR_INVALID_VALUE: return "Invalid value";
-			case CUDA_ERROR_OUT_OF_MEMORY: return "Out of memory";
-			case CUDA_ERROR_NOT_INITIALIZED: return "Driver not initialized";
-			case CUDA_ERROR_DEINITIALIZED: return "Driver deinitialized";
-
-			case CUDA_ERROR_NO_DEVICE: return "No CUDA-capable device available";
-			case CUDA_ERROR_INVALID_DEVICE: return "Invalid device";
-
-			case CUDA_ERROR_INVALID_IMAGE: return "Invalid kernel image";
-			case CUDA_ERROR_INVALID_CONTEXT: return "Invalid context";
-			case CUDA_ERROR_MAP_FAILED: return "Map failed";
-			case CUDA_ERROR_UNMAP_FAILED: return "Unmap failed";
-			case CUDA_ERROR_ARRAY_IS_MAPPED: return "Array is mapped";
-			case CUDA_ERROR_ALREADY_MAPPED: return "Already mapped";
-			case CUDA_ERROR_NO_BINARY_FOR_GPU: return "No binary for GPU";
-			case CUDA_ERROR_ALREADY_ACQUIRED: return "Already acquired";
-			case CUDA_ERROR_NOT_MAPPED: return "Not mapped";
-			case CUDA_ERROR_NOT_MAPPED_AS_ARRAY: return "Mapped resource not available for access as an array";
-			case CUDA_ERROR_NOT_MAPPED_AS_POINTER: return "Mapped resource not available for access as a pointer";
-			case CUDA_ERROR_ECC_UNCORRECTABLE: return "Uncorrectable ECC error detected";
-			case CUDA_ERROR_UNSUPPORTED_LIMIT: return "CUlimit not supported by device";
-			case CUDA_ERROR_CONTEXT_ALREADY_IN_USE: return "Context already in use";
-			case CUDA_ERROR_PEER_ACCESS_UNSUPPORTED: return "Peer access unsupported";
-			case CUDA_ERROR_INVALID_PTX: return "Invalid PTX code";
-
-			case CUDA_ERROR_INVALID_SOURCE: return "Invalid source";
-			case CUDA_ERROR_FILE_NOT_FOUND: return "File not found";
-			case CUDA_ERROR_SHARED_OBJECT_SYMBOL_NOT_FOUND: return "Link to a shared object failed to resolve";
-			case CUDA_ERROR_SHARED_OBJECT_INIT_FAILED: return "Shared object initialization failed";
-			case CUDA_ERROR_OPERATING_SYSTEM: return "OS call failed";
-
-			case CUDA_ERROR_INVALID_HANDLE: return "Invalid handle";
-
-			case CUDA_ERROR_NOT_FOUND: return "Not found";
-
-			case CUDA_ERROR_NOT_READY: return "CUDA not ready";
-
-			case CUDA_ERROR_ILLEGAL_ADDRESS: return "Illegal address";
-			case CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES: return "Launch exceeded resources";
-			case CUDA_ERROR_LAUNCH_TIMEOUT: return "Launch exceeded time out";
-			case CUDA_ERROR_LAUNCH_INCOMPATIBLE_TEXTURING: return "Launch with incompatible texturing";
-			case CUDA_ERROR_HARDWARE_STACK_ERROR: return "Stack error";
-			case CUDA_ERROR_ILLEGAL_INSTRUCTION: return "Illegal instruction";
-			case CUDA_ERROR_MISALIGNED_ADDRESS: return "Misaligned address";
-			case CUDA_ERROR_INVALID_ADDRESS_SPACE: return "Invalid address space";
-			case CUDA_ERROR_INVALID_PC: return "Invalid program counter";
-			case CUDA_ERROR_LAUNCH_FAILED: return "Launch failed";
-
-			case CUDA_ERROR_NOT_PERMITTED: return "Operation not permitted";
-			case CUDA_ERROR_NOT_SUPPORTED: return "Operation not supported";
-
-			case CUDA_ERROR_UNKNOWN: return "Unknown error";
-
-			default: return "Unknown CUDA error value";
-		}
+		string cubins_path = path_get("lib");
+		return path_exists(cubins_path);
 	}
 
 /*#ifdef NDEBUG
@@ -141,7 +86,7 @@ public:
 		CUresult result = stmt; \
 		\
 		if(result != CUDA_SUCCESS) { \
-			string message = string_printf("CUDA error: %s in %s", cuda_error_string(result), #stmt); \
+			string message = string_printf("CUDA error: %s in %s", cuewErrorString(result), #stmt); \
 			if(error_msg == "") \
 				error_msg = message; \
 			fprintf(stderr, "%s\n", message.c_str()); \
@@ -155,7 +100,7 @@ public:
 		if(result == CUDA_SUCCESS)
 			return false;
 
-		string message = string_printf("CUDA error at %s: %s", stmt.c_str(), cuda_error_string(result));
+		string message = string_printf("CUDA error at %s: %s", stmt.c_str(), cuewErrorString(result));
 		if(error_msg == "")
 			error_msg = message;
 		fprintf(stderr, "%s\n", message.c_str());
@@ -252,14 +197,18 @@ public:
 		return true;
 	}
 
-	string compile_kernel()
+	string compile_kernel(bool experimental)
 	{
 		/* compute cubin name */
 		int major, minor;
 		cuDeviceComputeCapability(&major, &minor, cuDevId);
 
 		/* attempt to use kernel provided with blender */
-		string cubin = path_get(string_printf("lib/kernel_sm_%d%d.cubin", major, minor));
+		string cubin;
+		if(experimental)
+			cubin = path_get(string_printf("lib/kernel_experimental_sm_%d%d.cubin", major, minor));
+		else
+			cubin = path_get(string_printf("lib/kernel_sm_%d%d.cubin", major, minor));
 		if(path_exists(cubin))
 			return cubin;
 
@@ -267,7 +216,10 @@ public:
 		string kernel_path = path_get("kernel");
 		string md5 = path_files_md5_hash(kernel_path);
 
-		cubin = string_printf("cycles_kernel_sm%d%d_%s.cubin", major, minor, md5.c_str());
+		if(experimental)
+			cubin = string_printf("cycles_kernel_experimental_sm%d%d_%s.cubin", major, minor, md5.c_str());
+		else
+			cubin = string_printf("cycles_kernel_sm%d%d_%s.cubin", major, minor, md5.c_str());
 		cubin = path_user_get(path_join("cache", cubin));
 
 		/* if exists already, use it */
@@ -275,7 +227,7 @@ public:
 			return cubin;
 
 #ifdef _WIN32
-		if(cuHavePrecompiledKernels()) {
+		if(have_precompiled_kernels()) {
 			if(major < 2)
 				cuda_error_message(string_printf("CUDA device requires compute capability 2.0 or up, found %d.%d. Your GPU is not supported.", major, minor));
 			else
@@ -285,25 +237,25 @@ public:
 #endif
 
 		/* if not, find CUDA compiler */
-		string nvcc = cuCompilerPath();
+		const char *nvcc = cuewCompilerPath();
 
-		if(nvcc == "") {
+		if(nvcc == NULL) {
 			cuda_error_message("CUDA nvcc compiler not found. Install CUDA toolkit in default location.");
 			return "";
 		}
 
-		int cuda_version = cuCompilerVersion();
+		int cuda_version = cuewCompilerVersion();
 
 		if(cuda_version == 0) {
 			cuda_error_message("CUDA nvcc compiler version could not be parsed.");
 			return "";
 		}
-		if(cuda_version < 50) {
-			printf("Unsupported CUDA version %d.%d detected, you need CUDA 6.0.\n", cuda_version/10, cuda_version%10);
+		if(cuda_version < 60) {
+			printf("Unsupported CUDA version %d.%d detected, you need CUDA 6.5.\n", cuda_version/10, cuda_version%10);
 			return "";
 		}
-		else if(cuda_version != 60)
-			printf("CUDA version %d.%d detected, build may succeed but only CUDA 6.0 is officially supported.\n", cuda_version/10, cuda_version%10);
+		else if(cuda_version != 65)
+			printf("CUDA version %d.%d detected, build may succeed but only CUDA 6.5 is officially supported.\n", cuda_version/10, cuda_version%10);
 
 		/* compile */
 		string kernel = path_join(kernel_path, "kernel.cu");
@@ -317,7 +269,10 @@ public:
 
 		string command = string_printf("\"%s\" -arch=sm_%d%d -m%d --cubin \"%s\" "
 			"-o \"%s\" --ptxas-options=\"-v\" -I\"%s\" -DNVCC -D__KERNEL_CUDA_VERSION__=%d",
-			nvcc.c_str(), major, minor, machine, kernel.c_str(), cubin.c_str(), include.c_str(), cuda_version);
+			nvcc, major, minor, machine, kernel.c_str(), cubin.c_str(), include.c_str(), cuda_version);
+		
+		if(experimental)
+			command += " -D__KERNEL_CUDA_EXPERIMENTAL__";
 
 		printf("%s\n", command.c_str());
 
@@ -348,7 +303,7 @@ public:
 			return false;
 
 		/* get kernel */
-		string cubin = compile_kernel();
+		string cubin = compile_kernel(experimental);
 
 		if(cubin == "")
 			return false;
@@ -731,9 +686,10 @@ public:
 		const int shader_chunk_size = 65536;
 		const int start = task.shader_x;
 		const int end = task.shader_x + task.shader_w;
+		int offset = task.offset;
 
-		bool cancelled = false;
-		for(int sample = 0; sample < task.num_samples && !cancelled; sample++) {
+		bool canceled = false;
+		for(int sample = 0; sample < task.num_samples && !canceled; sample++) {
 			for(int shader_x = start; shader_x < end; shader_x += shader_chunk_size) {
 				int shader_w = min(shader_chunk_size, end - shader_x);
 
@@ -743,6 +699,7 @@ public:
 								 &task.shader_eval_type,
 								 &shader_x,
 								 &shader_w,
+								 &offset,
 								 &sample};
 
 				/* launch kernel */
@@ -760,7 +717,7 @@ public:
 				cuda_assert(cuCtxSynchronize());
 
 				if(task.get_cancel()) {
-					cancelled = false;
+					canceled = false;
 					break;
 				}
 			}
@@ -907,7 +864,7 @@ public:
 
 			cuda_push_context();
 
-			/* for multi devices, this assumes the ineffecient method that we allocate
+			/* for multi devices, this assumes the inefficient method that we allocate
 			 * all pixels on the device even though we only render to a subset */
 			size_t offset = 4*y*w;
 
@@ -1050,6 +1007,28 @@ public:
 	}
 };
 
+bool device_cuda_init(void)
+{
+	static bool initialized = false;
+	static bool result = false;
+
+	if (initialized)
+		return result;
+
+	initialized = true;
+
+	if (cuewInit() == CUEW_SUCCESS) {
+		if(CUDADevice::have_precompiled_kernels())
+			result = true;
+#ifndef _WIN32
+		else if(cuewCompilerPath() != NULL)
+			result = true;
+#endif
+	}
+
+	return result;
+}
+
 Device *device_cuda_create(DeviceInfo& info, Stats &stats, bool background)
 {
 	return new CUDADevice(info, stats, background);
@@ -1063,13 +1042,13 @@ void device_cuda_info(vector<DeviceInfo>& devices)
 	result = cuInit(0);
 	if(result != CUDA_SUCCESS) {
 		if(result != CUDA_ERROR_NO_DEVICE)
-			fprintf(stderr, "CUDA cuInit: %s\n", CUDADevice::cuda_error_string(result));
+			fprintf(stderr, "CUDA cuInit: %s\n", cuewErrorString(result));
 		return;
 	}
 
 	result = cuDeviceGetCount(&count);
 	if(result != CUDA_SUCCESS) {
-		fprintf(stderr, "CUDA cuDeviceGetCount: %s\n", CUDADevice::cuda_error_string(result));
+		fprintf(stderr, "CUDA cuDeviceGetCount: %s\n", cuewErrorString(result));
 		return;
 	}
 	

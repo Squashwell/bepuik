@@ -84,6 +84,7 @@ struct wmKeyMap *paint_stroke_modal_keymap(struct wmKeyConfig *keyconf);
 int paint_stroke_modal(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 int paint_stroke_exec(struct bContext *C, struct wmOperator *op);
 void paint_stroke_cancel(struct bContext *C, struct wmOperator *op);
+bool paint_stroke_flipped(struct PaintStroke *stroke);
 struct ViewContext *paint_stroke_view_context(struct PaintStroke *stroke);
 void *paint_stroke_mode_data(struct PaintStroke *stroke);
 float paint_stroke_distance_get(struct PaintStroke *stroke);
@@ -161,11 +162,11 @@ int get_imapaint_zoom(struct bContext *C, float *zoomx, float *zoomy);
 void *paint_2d_new_stroke(struct bContext *, struct wmOperator *, int mode);
 void paint_2d_redraw(const bContext *C, void *ps, bool final);
 void paint_2d_stroke_done(void *ps);
-void paint_2d_stroke(void *ps, const float prev_mval[2], const float mval[2], int eraser, float pressure, float distance, float size);
+void paint_2d_stroke(void *ps, const float prev_mval[2], const float mval[2], const bool eraser, float pressure, float distance, float size);
 void paint_2d_bucket_fill(const struct bContext *C, const float color[3], struct Brush *br, const float mouse_init[2], void *ps);
 void paint_2d_gradient_fill (const struct bContext *C, struct Brush *br, const float mouse_init[2], const float mouse_final[2], void *ps);
 void *paint_proj_new_stroke(struct bContext *C, struct Object *ob, const float mouse[2], int mode);
-void paint_proj_stroke(const struct bContext *C, void *ps, const float prevmval_i[2], const float mval_i[2], float pressure, float distance, float size);
+void paint_proj_stroke(const struct bContext *C, void *ps, const float prevmval_i[2], const float mval_i[2], const bool eraser, float pressure, float distance, float size);
 void paint_proj_redraw(const struct bContext *C, void *pps, bool final);
 void paint_proj_stroke_done(void *ps);
 void paint_proj_mesh_data_ensure(bContext *C, struct Object *ob, struct wmOperator *op);
@@ -183,6 +184,7 @@ void PAINT_OT_texture_paint_toggle(struct wmOperatorType *ot);
 void PAINT_OT_project_image(struct wmOperatorType *ot);
 void PAINT_OT_image_from_view(struct wmOperatorType *ot);
 void PAINT_OT_add_texture_paint_slot(struct wmOperatorType *ot);
+void PAINT_OT_delete_texture_paint_slot(struct wmOperatorType *ot);
 void PAINT_OT_image_paint(struct wmOperatorType *ot);
 
 /* uv sculpting */
@@ -216,6 +218,9 @@ float paint_get_tex_pixel(struct MTex *mtex, float u, float v, struct ImagePool 
 void paint_get_tex_pixel_col(struct MTex *mtex, float u, float v, float rgba[4], struct ImagePool *pool, int thread, bool convert, struct ColorSpace *colorspace);
 
 void paint_sample_color(bContext *C, struct ARegion *ar, int x, int y, bool texpaint_proj, bool palette);
+
+void paint_stroke_operator_properties(struct wmOperatorType *ot);
+
 void BRUSH_OT_curve_preset(struct wmOperatorType *ot);
 
 void PAINT_OT_face_select_linked(struct wmOperatorType *ot);
@@ -291,7 +296,7 @@ typedef struct {
 
 enum BlurKernelType;
 /* can be extended to other blur kernels later */
-BlurKernel *paint_new_blur_kernel(struct Brush *br);
+BlurKernel *paint_new_blur_kernel(struct Brush *br, bool proj);
 void paint_delete_blur_kernel(BlurKernel *);
 
 /* paint curve defines */

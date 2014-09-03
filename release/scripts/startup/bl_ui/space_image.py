@@ -176,6 +176,8 @@ class IMAGE_MT_image(Menu):
 
         layout.operator("image.read_renderlayers")
 
+        layout.operator("image.save_dirty", text="Save All Images")
+
         if ima:
             if not show_render:
                 layout.operator("image.replace")
@@ -1068,7 +1070,7 @@ class IMAGE_PT_view_waveform(Panel):
         layout.template_waveform(sima, "scopes")
         row = layout.split(percentage=0.75)
         row.prop(sima.scopes, "waveform_alpha")
-        row.prop(sima.scopes, "waveform_mode", icon_only=True)
+        row.prop(sima.scopes, "waveform_mode", text="")
 
 
 class IMAGE_PT_view_vectorscope(Panel):

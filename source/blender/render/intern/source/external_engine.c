@@ -454,8 +454,8 @@ bool RE_bake_engine(
 	engine->resolution_y = re->winy;
 
 	RE_parts_init(re, false);
-	engine->tile_x = re->partx;
-	engine->tile_y = re->party;
+	engine->tile_x = re->r.tilex;
+	engine->tile_y = re->r.tiley;
 
 	/* update is only called so we create the engine.session */
 	if (type->update)
@@ -676,6 +676,11 @@ int RE_engine_render(Render *re, int do_all)
 	if (BKE_reports_contain(re->reports, RPT_ERROR))
 		G.is_break = true;
 	
+#ifdef WITH_FREESTYLE
+	if (re->r.mode & R_EDGE_FRS)
+		RE_RenderFreestyleExternal(re);
+#endif
+
 	return 1;
 }
 

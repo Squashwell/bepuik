@@ -274,7 +274,7 @@ elseif(APPLE)
 	if(WITH_PYTHON_MODULE)
 		set(TARGETDIR_VER ${TARGETDIR}/${BLENDER_VERSION})
 	else()
-		set(TARGETDIR_VER ${TARGETDIR}/blender.app/Contents/MacOS/${BLENDER_VERSION})
+		set(TARGETDIR_VER ${TARGETDIR}/blender.app/Contents/Resources/${BLENDER_VERSION})
 	endif()
 
 endif()
@@ -597,13 +597,13 @@ elseif(WIN32)
 		string(REPLACE "." "" _PYTHON_VERSION_NO_DOTS ${PYTHON_VERSION})
 
 		install(
-			FILES ${LIBDIR}/python/lib/python${_PYTHON_VERSION_NO_DOTS}.dll
+			FILES ${LIBDIR}/python/lib/python${_PYTHON_VERSION_NO_DOTS}.dll ${LIBDIR}/python/lib/sqlite3.dll
 			DESTINATION ${TARGETDIR}
 			CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
 		)
 
 		install(
-			FILES ${LIBDIR}/python/lib/python${_PYTHON_VERSION_NO_DOTS}_d.dll
+			FILES ${LIBDIR}/python/lib/python${_PYTHON_VERSION_NO_DOTS}_d.dll ${LIBDIR}/python/lib/sqlite3_d.dll
 			DESTINATION ${TARGETDIR}
 			CONFIGURATIONS Debug
 		)
@@ -826,6 +826,13 @@ elseif(APPLE)
 		)
 	endif()
 
+	if(WITH_LLVM AND NOT LLVM_STATIC)
+		install(
+			FILES ${LIBDIR}/llvm/lib/libLLVM-3.4.dylib
+			DESTINATION ${TARGETDIR}/blender.app/Contents/MacOS
+		)
+	endif()
+
 	# python
 	if(WITH_PYTHON AND NOT WITH_PYTHON_MODULE AND NOT WITH_PYTHON_FRAMEWORK)
 		# the python zip is first extract as part of the build process,
@@ -929,3 +936,18 @@ setup_blender_sorted_libs()
 target_link_libraries(blender ${BLENDER_SORTED_LIBS})
 
 setup_liblinks(blender)
+
+# -----------------------------------------------------------------------------
+# Setup launcher
+
+if(WIN32 AND NOT WITH_PYTHON_MODULE)
+	set(LAUNCHER_SRC
+		creator_launch_win.c
+		../icons/winblender.rc
+	)
+	add_executable(blender-launcher ${LAUNCHER_SRC})
+	target_link_libraries(blender-launcher bf_intern_utfconv ${PLATFORM_LINKLIBS})
+
+	set_target_properties(blender PROPERTIES OUTPUT_NAME blender-app)
+	set_target_properties(blender-launcher PROPERTIES OUTPUT_NAME blender)
+endif()

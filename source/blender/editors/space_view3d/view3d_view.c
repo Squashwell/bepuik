@@ -274,7 +274,7 @@ void ED_view3d_smooth_view_ex(
 			rv3d->rflag |= RV3D_NAVIGATING;
 			
 			/* not essential but in some cases the caller will tag the area for redraw,
-			 * and in that case we can get a ficker of the 'org' user view but we want to see 'src' */
+			 * and in that case we can get a flicker of the 'org' user view but we want to see 'src' */
 			view3d_smooth_view_state_restore(&sms.src, v3d, rv3d);
 
 			/* keep track of running timer! */
@@ -722,6 +722,13 @@ void ED_view3d_depth_tag_update(RegionView3D *rv3d)
 {
 	if (rv3d->depths)
 		rv3d->depths->damaged = true;
+}
+
+void ED_view3d_dist_range_get(struct View3D *v3d,
+                              float r_dist_range[2])
+{
+	r_dist_range[0] = v3d->grid * 0.001f;
+	r_dist_range[1] = v3d->far * 10.0f;
 }
 
 /* copies logic of get_view3d_viewplane(), keep in sync */

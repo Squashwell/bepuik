@@ -76,17 +76,6 @@ CCL_NAMESPACE_BEGIN
 
 #ifdef _WIN32
 
-#ifndef __KERNEL_GPU__
-
-#if defined(_MSC_VER) && (_MSC_VER < 1800)
-#  define copysignf(x, y) ((float)_copysign(x, y))
-#  define hypotf(x, y) _hypotf(x, y)
-#  define isnan(x) _isnan(x)
-#  define isfinite(x) _finite(x)
-#endif
-
-#endif
-
 #ifndef __KERNEL_OPENCL__
 
 ccl_device_inline float fmaxf(float a, float b)
@@ -853,7 +842,6 @@ ccl_device_inline float4 max(float4 a, float4 b)
 ccl_device_inline float4 select(const int4& mask, const float4& a, const float4& b)
 {
 #ifdef __KERNEL_SSE__
-	/* blendv is sse4, and apparently broken on vs2008 */
 	return _mm_or_ps(_mm_and_ps(_mm_cvtepi32_ps(mask), a), _mm_andnot_ps(_mm_cvtepi32_ps(mask), b)); /* todo: avoid cvt */
 #else
 	return make_float4((mask.x)? a.x: b.x, (mask.y)? a.y: b.y, (mask.z)? a.z: b.z, (mask.w)? a.w: b.w);

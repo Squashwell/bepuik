@@ -356,7 +356,7 @@ static void mesh_calc_tri_tessface(
 	MFace *mface;
 	MVert *mvert;
 	TSpace *tspace;
-	float *precomputed_normals;
+	float *precomputed_normals = NULL;
 	bool calculate_normal;
 
 	mface = CustomData_get_layer(&me->fdata, CD_MFACE);
@@ -379,7 +379,7 @@ static void mesh_calc_tri_tessface(
 	p_id = -1;
 	for (i = 0; i < me->totface; i++) {
 		MFace *mf = &mface[i];
-		TSpace *ts = &tspace[i * 4];
+		TSpace *ts = tangent ? &tspace[i * 4] : NULL;
 
 		p_id++;
 
@@ -461,7 +461,7 @@ bool RE_bake_pixels_populate_from_objects(
 	tris_high = MEM_callocN(sizeof(TriTessFace *) * tot_highpoly, "MVerts Highpoly Mesh Array");
 
 	/* assume all highpoly tessfaces are triangles */
-	dm_highpoly = MEM_callocN(sizeof(DerivedMesh *) * tot_highpoly, "Highpoly Derived Meshes");
+	dm_highpoly = MEM_mallocN(sizeof(DerivedMesh *) * tot_highpoly, "Highpoly Derived Meshes");
 	treeData = MEM_callocN(sizeof(BVHTreeFromMesh) * tot_highpoly, "Highpoly BVH Trees");
 
 	if (!is_cage) {

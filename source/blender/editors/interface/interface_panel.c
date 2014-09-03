@@ -206,11 +206,11 @@ Panel *uiPanelFindByType(ARegion *ar, PanelType *pt)
 	Panel *pa;
 
 	const char *idname = pt->idname;
-	const char *tabname = pt->idname;
+	const char *tabname = pt->category;
 
 	for (pa = ar->panels.first; pa; pa = pa->next) {
 		if (STREQLEN(pa->panelname, idname, sizeof(pa->panelname))) {
-			if (STREQLEN(pa->tabname, tabname, sizeof(pa->panelname))) {
+			if (STREQLEN(pa->tabname, tabname, sizeof(pa->tabname))) {
 				return pa;
 			}
 		}
@@ -227,7 +227,7 @@ Panel *uiBeginPanel(ScrArea *sa, ARegion *ar, uiBlock *block, PanelType *pt, Pan
 	Panel *patab, *palast, *panext;
 	const char *drawname = CTX_IFACE_(pt->translation_context, pt->label);
 	const char *idname = pt->idname;
-	const char *tabname = pt->idname;
+	const char *tabname = pt->category;
 	const char *hookname = NULL;
 	const bool newpanel = (pa == NULL);
 	int align = panel_aligned(sa, ar);
@@ -1534,6 +1534,12 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 
 		const bool is_active = STREQ(category_id, category_id_active);
 
+#ifdef DEBUG
+		if (STREQ(category_id, PNL_CATEGORY_FALLBACK)) {
+			printf("WARNING: Panel has no 'bl_category', script needs updating!\n");
+		}
+#endif
+
 		glEnable(GL_BLEND);
 
 #ifdef USE_FLAT_INACTIVE
@@ -1912,7 +1918,7 @@ static void panel_activate_state(const bContext *C, Panel *pa, uiHandlePanelStat
 			data = MEM_callocN(sizeof(uiHandlePanelData), "uiHandlePanelData");
 			pa->activedata = data;
 
-			WM_event_add_ui_handler(C, &win->modalhandlers, ui_handler_panel, ui_handler_remove_panel, pa);
+			WM_event_add_ui_handler(C, &win->modalhandlers, ui_handler_panel, ui_handler_remove_panel, pa, false);
 		}
 
 		if (ELEM(state, PANEL_STATE_ANIMATION, PANEL_STATE_DRAG))

@@ -335,6 +335,8 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					cp = ts->normal; break;
 				case TH_VNORMAL:
 					cp = ts->vertex_normal; break;
+				case TH_LNORMAL:
+					cp = ts->loop_normal; break;
 				case TH_BONE_SOLID:
 					cp = ts->bone_solid; break;
 				case TH_BONE_POSE:
@@ -779,6 +781,8 @@ static void ui_theme_space_init_handles_color(ThemeSpace *theme_space)
 	rgba_char_args_set(theme_space->handle_sel_auto, 0xf0, 0xff, 0x40, 255);
 	rgba_char_args_set(theme_space->handle_sel_vect, 0x40, 0xc0, 0x30, 255);
 	rgba_char_args_set(theme_space->handle_sel_align, 0xf0, 0x90, 0xa0, 255);
+	rgba_char_args_set(theme_space->handle_vertex, 0x00, 0x00, 0x00, 0xff);
+	rgba_char_args_set(theme_space->handle_vertex_select, 0xff, 0xff, 0, 0xff);
 	rgba_char_args_set(theme_space->act_spline, 0xdb, 0x25, 0x12, 255);
 }
 
@@ -864,6 +868,7 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tv3d.face_select, 255, 133, 0, 60);
 	rgba_char_args_set(btheme->tv3d.normal, 0x22, 0xDD, 0xDD, 255);
 	rgba_char_args_set(btheme->tv3d.vertex_normal, 0x23, 0x61, 0xDD, 255);
+	rgba_char_args_set(btheme->tv3d.loop_normal, 0xDD, 0x23, 0xDD, 255);
 	rgba_char_args_set(btheme->tv3d.face_dot, 255, 133, 0, 255);
 	rgba_char_args_set(btheme->tv3d.editmesh_active, 255, 255, 255, 128);
 	rgba_char_args_set_fl(btheme->tv3d.edge_crease, 0.8, 0, 0.6, 1.0);
@@ -1136,8 +1141,6 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tclip.path_after, 0x00, 0x00, 0xff, 255);
 	rgba_char_args_set(btheme->tclip.grid, 0x5e, 0x5e, 0x5e, 255);
 	rgba_char_args_set(btheme->tclip.cframe, 0x60, 0xc0, 0x40, 255);
-	rgba_char_args_set(btheme->tclip.handle_vertex, 0x00, 0x00, 0x00, 0xff);
-	rgba_char_args_set(btheme->tclip.handle_vertex_select, 0xff, 0xff, 0, 0xff);
 	rgba_char_args_set(btheme->tclip.list, 0x66, 0x66, 0x66, 0xff);
 	rgba_char_args_set(btheme->tclip.strip, 0x0c, 0x0a, 0x0a, 0x80);
 	rgba_char_args_set(btheme->tclip.strip_select, 0xff, 0x8c, 0x00, 0xff);
@@ -2444,13 +2447,43 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	{
+	if (U.versionfile < 271 || (U.versionfile == 271 && U.subversionfile < 5)) {
 		bTheme *btheme;
+
+		struct uiWidgetColors wcol_pie_menu = {
+			{10, 10, 10, 200},
+			{25, 25, 25, 230},
+			{140, 140, 140, 255},
+			{45, 45, 45, 230},
+
+			{160, 160, 160, 255},
+			{255, 255, 255, 255},
+
+			1,
+			10, -10
+		};
+
+		U.pie_menu_radius = 100;
+		U.pie_menu_threshold = 12;
+		U.pie_animation_timeout = 6;
+
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			btheme->tui.wcol_pie_menu = wcol_pie_menu;
+
 			ui_theme_space_init_handles_color(&btheme->tclip);
 			ui_theme_space_init_handles_color(&btheme->tima);
 			btheme->tima.handle_vertex_size = 5;
 			btheme->tclip.handle_vertex_size = 5;
+		}
+	}
+
+	if (U.versionfile < 271 || (U.versionfile == 271 && U.subversionfile < 6)) {
+		bTheme *btheme;
+		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			/* check for (alpha == 0) is safe, then color was never set */
+			if (btheme->tv3d.loop_normal[3] == 0) {
+				rgba_char_args_set(btheme->tv3d.loop_normal, 0xDD, 0x23, 0xDD, 255);
+			}
 		}
 	}
 

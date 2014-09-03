@@ -891,7 +891,7 @@ static void paint_2d_lift_soften(ImagePaintState *s, ImBuf *ibuf, ImBuf *ibufb, 
 					sub_v3_v3v3(outrgb, rgba, outrgb);
 
 					/* now rgba_ub contains the edge result, but this should be converted to luminance to avoid
-					 * colored speckles appearing in final image, and also to check for threshhold */
+					 * colored speckles appearing in final image, and also to check for threshold */
 					outrgb[0] = outrgb[1] = outrgb[2] = rgb_to_grayscale(outrgb);
 					if (fabsf(outrgb[0]) > threshold) {
 						float mask = BKE_brush_alpha_get(s->scene, s->brush);
@@ -1166,7 +1166,7 @@ static void paint_2d_canvas_free(ImagePaintState *s)
 	image_undo_remove_masks();
 }
 
-void paint_2d_stroke(void *ps, const float prev_mval[2], const float mval[2], int eraser, float pressure, float distance, float size)
+void paint_2d_stroke(void *ps, const float prev_mval[2], const float mval[2], const bool eraser, float pressure, float distance, float size)
 {
 	float newuv[2], olduv[2];
 	ImagePaintState *s = ps;
@@ -1249,7 +1249,7 @@ void *paint_2d_new_stroke(bContext *C, wmOperator *op, int mode)
 	}
 
 	if (brush->imagepaint_tool == PAINT_TOOL_SOFTEN) {
-		s->blurkernel = paint_new_blur_kernel(brush);
+		s->blurkernel = paint_new_blur_kernel(brush, false);
 	}
 
 	paint_brush_init_tex(s->brush);
