@@ -553,7 +553,7 @@ static void cdDM_drawFacesSolid(DerivedMesh *dm,
 	MVert *mvert = cddm->mvert;
 	MFace *mface = cddm->mface;
 	const float *nors = dm->getTessFaceDataArray(dm, CD_NORMAL);
-	short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
+	const short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
 	int a, glmode = -1, shademodel = -1, matnr = -1, drawCurrentMat = 1;
 
 	if (cddm->pbvh && cddm->pbvh_draw) {
@@ -674,9 +674,9 @@ static void cdDM_drawFacesTex_common(DerivedMesh *dm,
 {
 	CDDerivedMesh *cddm = (CDDerivedMesh *) dm;
 	MVert *mv = cddm->mvert;
-	MFace *mf = DM_get_tessface_data_layer(dm, CD_MFACE);
+	const MFace *mf = DM_get_tessface_data_layer(dm, CD_MFACE);
 	const float *nors = dm->getTessFaceDataArray(dm, CD_NORMAL);
-	short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
+	const short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
 	MTFace *tf = DM_get_tessface_data_layer(dm, CD_MTFACE);
 	MCol *mcol;
 	int i, orig;
@@ -941,7 +941,7 @@ static void cdDM_drawMappedFaces(DerivedMesh *dm,
 	MFace *mf = cddm->mface;
 	MCol *mcol;
 	const float *nors = DM_get_tessface_data_layer(dm, CD_NORMAL);
-	short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
+	const short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
 	int colType, useColors = flag & DM_DRAW_USE_COLORS;
 	int i, orig;
 
@@ -1158,8 +1158,8 @@ static void cdDM_drawMappedFacesTex(DerivedMesh *dm,
 	cdDM_drawFacesTex_common(dm, NULL, setDrawOptions, compareDrawOptions, userData, flag);
 }
 
-static void cddm_draw_attrib_vertex(DMVertexAttribs *attribs, MVert *mvert, int a, int index, int vert,
-                                    short (*lnor)[3], int smoothnormal)
+static void cddm_draw_attrib_vertex(DMVertexAttribs *attribs, const MVert *mvert, int a, int index, int vert,
+                                    const short (*lnor)[3], const bool smoothnormal)
 {
 	const float zero[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 	int b;
@@ -1235,11 +1235,11 @@ static void cdDM_drawMappedFacesGLSL(DerivedMesh *dm,
 	CDDerivedMesh *cddm = (CDDerivedMesh *) dm;
 	GPUVertexAttribs gattribs;
 	DMVertexAttribs attribs;
-	MVert *mvert = cddm->mvert;
-	MFace *mface = cddm->mface;
+	const MVert *mvert = cddm->mvert;
+	const MFace *mface = cddm->mface;
 	/* MTFace *tf = dm->getTessFaceDataArray(dm, CD_MTFACE); */ /* UNUSED */
-	float (*nors)[3] = dm->getTessFaceDataArray(dm, CD_NORMAL);
-	short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
+	const float (*nors)[3] = dm->getTessFaceDataArray(dm, CD_NORMAL);
+	const short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
 	int a, b, matnr, new_matnr;
 	bool do_draw;
 	int orig;
@@ -1278,8 +1278,8 @@ static void cdDM_drawMappedFacesGLSL(DerivedMesh *dm,
 		glBegin(GL_QUADS);
 
 		for (a = 0; a < dm->numTessFaceData; a++, mface++) {
-			const int smoothnormal = lnors || (mface->flag & ME_SMOOTH);
-			short (*ln1)[3] = NULL, (*ln2)[3] = NULL, (*ln3)[3] = NULL, (*ln4)[3] = NULL;
+			const bool smoothnormal = lnors || (mface->flag & ME_SMOOTH);
+			const short (*ln1)[3] = NULL, (*ln2)[3] = NULL, (*ln3)[3] = NULL, (*ln4)[3] = NULL;
 			new_matnr = mface->mat_nr + 1;
 
 			if (new_matnr != matnr) {
@@ -1324,13 +1324,11 @@ static void cdDM_drawMappedFacesGLSL(DerivedMesh *dm,
 					glNormal3fv(nor);
 				}
 			}
-
-			if (lnors) {
-				ln1 = &lnors[0][0];
-				ln2 = &lnors[0][1];
-				ln3 = &lnors[0][2];
-				ln4 = &lnors[0][3];
-				lnors++;
+			else if (lnors) {
+				ln1 = &lnors[a][0];
+				ln2 = &lnors[a][1];
+				ln3 = &lnors[a][2];
+				ln4 = &lnors[a][3];
 			}
 
 			cddm_draw_attrib_vertex(&attribs, mvert, a, mface->v1, 0, ln1, smoothnormal);
@@ -1351,7 +1349,7 @@ static void cdDM_drawMappedFacesGLSL(DerivedMesh *dm,
 		int start = 0, numfaces = 0 /* , prevdraw = 0 */ /* UNUSED */, curface = 0;
 		int i;
 
-		MFace *mf = mface;
+		const MFace *mf = mface;
 		GPUAttrib datatypes[GPU_MAX_ATTRIB]; /* TODO, messing up when switching materials many times - [#21056]*/
 		memset(&attribs, 0, sizeof(attribs));
 
@@ -1575,8 +1573,8 @@ static void cdDM_drawMappedFacesMat(DerivedMesh *dm,
 	DMVertexAttribs attribs;
 	MVert *mvert = cddm->mvert;
 	MFace *mf = cddm->mface;
-	float (*nors)[3] = dm->getTessFaceDataArray(dm, CD_NORMAL);
-	short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
+	const float (*nors)[3] = dm->getTessFaceDataArray(dm, CD_NORMAL);
+	const short (*lnors)[4][3] = dm->getTessFaceDataArray(dm, CD_TESSLOOPNORMAL);
 	int a, matnr, new_matnr;
 	int orig;
 
@@ -1611,8 +1609,8 @@ static void cdDM_drawMappedFacesMat(DerivedMesh *dm,
 	glBegin(GL_QUADS);
 
 	for (a = 0; a < dm->numTessFaceData; a++, mf++) {
-		const int smoothnormal = lnors || (mf->flag & ME_SMOOTH);
-		short (*ln1)[3] = NULL, (*ln2)[3] = NULL, (*ln3)[3] = NULL, (*ln4)[3] = NULL;
+		const bool smoothnormal = lnors || (mf->flag & ME_SMOOTH);
+		const short (*ln1)[3] = NULL, (*ln2)[3] = NULL, (*ln3)[3] = NULL, (*ln4)[3] = NULL;
 
 		/* material */
 		new_matnr = mf->mat_nr + 1;
@@ -1651,13 +1649,11 @@ static void cdDM_drawMappedFacesMat(DerivedMesh *dm,
 				glNormal3fv(nor);
 			}
 		}
-
-		if (lnors) {
-			ln1 = &lnors[0][0];
-			ln2 = &lnors[0][1];
-			ln3 = &lnors[0][2];
-			ln4 = &lnors[0][3];
-			lnors++;
+		else if (lnors) {
+			ln1 = &lnors[a][0];
+			ln2 = &lnors[a][1];
+			ln3 = &lnors[a][2];
+			ln4 = &lnors[a][3];
 		}
 
 		/* vertices */
@@ -2721,7 +2717,7 @@ static unsigned int poly_gset_hash_fn(const void *key)
 	return pk->hash_sum;
 }
 
-static int poly_gset_compare_fn(const void *k1, const void *k2)
+static bool poly_gset_compare_fn(const void *k1, const void *k2)
 {
 	const PolyKey *pk1 = k1;
 	const PolyKey *pk2 = k2;
@@ -3018,10 +3014,17 @@ DerivedMesh *CDDM_merge_verts(DerivedMesh *dm, const int *vtargetmap, const int 
 		if (UNLIKELY(c == 0)) {
 			continue;
 		}
+		else if (UNLIKELY(c < 3)) {
+			STACK_DISCARD(oldl, c);
+			STACK_DISCARD(mloop, c);
+			continue;
+		}
+
 
 		mp_new = STACK_PUSH_RET_PTR(mpoly);
 		*mp_new = *mp;
 		mp_new->totloop = c;
+		BLI_assert(mp_new->totloop >= 3);
 		mp_new->loopstart = STACK_SIZE(mloop) - c;
 		
 		STACK_PUSH(oldp, i);
@@ -3092,7 +3095,7 @@ DerivedMesh *CDDM_merge_verts(DerivedMesh *dm, const int *vtargetmap, const int 
 	MEM_freeN(oldv);
 	MEM_freeN(olde);
 	MEM_freeN(oldl);
-	MEM_freeN(oldp);;
+	MEM_freeN(oldp);
 
 	BLI_edgehash_free(ehash, NULL);
 

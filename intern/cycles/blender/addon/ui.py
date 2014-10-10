@@ -210,7 +210,8 @@ class CyclesRender_PT_light_paths(CyclesButtonsPanel, Panel):
 
         col.separator()
 
-        col.prop(cscene, "no_caustics")
+        col.prop(cscene, "caustics_reflective")
+        col.prop(cscene, "caustics_refractive")
         col.prop(cscene, "blur_glossy")
 
         col = split.column()
@@ -566,7 +567,7 @@ class CyclesObject_PT_motion_blur(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         rd = context.scene.render
-        scene = context.scene
+        # scene = context.scene
 
         layout.active = rd.use_motion_blur
 
@@ -579,7 +580,7 @@ class CyclesObject_PT_motion_blur(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         rd = context.scene.render
-        scene = context.scene
+        # scene = context.scene
 
         ob = context.object
         cob = ob.cycles
@@ -618,6 +619,7 @@ class CyclesObject_PT_ray_visibility(CyclesButtonsPanel, Panel):
         flow.prop(visibility, "diffuse")
         flow.prop(visibility, "glossy")
         flow.prop(visibility, "transmission")
+        flow.prop(visibility, "scatter")
 
         if ob.type != 'LAMP':
             flow.prop(visibility, "shadow")
@@ -897,6 +899,7 @@ class CyclesWorld_PT_ray_visibility(CyclesButtonsPanel, Panel):
         flow.prop(visibility, "diffuse")
         flow.prop(visibility, "glossy")
         flow.prop(visibility, "transmission")
+        flow.prop(visibility, "scatter")
 
 
 class CyclesWorld_PT_settings(CyclesButtonsPanel, Panel):
@@ -979,7 +982,7 @@ class CyclesMaterial_PT_volume(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         mat = context.material
-        cmat = mat.cycles
+        # cmat = mat.cycles
 
         panel_node_draw(layout, mat, 'OUTPUT_MATERIAL', 'Volume')
 
@@ -1206,7 +1209,6 @@ class CyclesRender_PT_CurveRendering(CyclesButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        scene = context.scene
         psys = context.particle_system
         return CyclesButtonsPanel.poll(context) and psys and psys.settings.type == 'HAIR'
 
@@ -1281,7 +1283,7 @@ class CyclesRender_PT_bake(CyclesButtonsPanel, Panel):
             box.prop(cbk, "normal_space", text="Space")
 
             row = box.row(align=True)
-            row.label(text = "Swizzle:")
+            row.label(text="Swizzle:")
             row.prop(cbk, "normal_r", text="")
             row.prop(cbk, "normal_g", text="")
             row.prop(cbk, "normal_b", text="")

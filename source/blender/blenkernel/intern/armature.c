@@ -509,7 +509,7 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 			invert_m3_m3(imat3, mat3);
 			mul_m3_m3m3(mat3, result, imat3); /* the matrix transforming vec_roll to desired roll */
 
-			roll1 = (float)atan2(mat3[2][0], mat3[2][2]);
+			roll1 = atan2f(mat3[2][0], mat3[2][2]);
 		}
 	}
 	else {
@@ -547,7 +547,7 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		invert_m3_m3(imat3, mat3);
 		mul_m3_m3m3(mat3, imat3, result); /* the matrix transforming vec_roll to desired roll */
 
-		roll2 = (float)atan2(mat3[2][0], mat3[2][2]);
+		roll2 = atan2f(mat3[2][0], mat3[2][2]);
 
 		/* and only now negate handle */
 		mul_v3_fl(h2, -hlength2);

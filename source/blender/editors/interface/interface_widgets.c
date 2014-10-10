@@ -2172,8 +2172,8 @@ static void ui_draw_but_HSVCIRCLE(uiBut *but, uiWidgetColors *wcol, const rcti *
 	glVertex2f(centx, centy);
 	
 	for (a = 0; a <= tot; a++, ang += radstep) {
-		float si = sin(ang);
-		float co = cos(ang);
+		float si = sinf(ang);
+		float co = cosf(ang);
 		
 		ui_hsvcircle_vals_from_pos(hsv, hsv + 1, rect, centx + co * radius, centy + si * radius);
 
@@ -2898,11 +2898,18 @@ static void widget_swatch(uiBut *but, uiWidgetColors *wcol, rcti *rect, int stat
 
 	widgetbase_draw(&wtb, wcol);
 	
-	if (but->a1 == UI_PALETTE_COLOR && but->a2 == UI_PALETTE_COLOR_ACTIVE) {
+	if (but->a1 == UI_PALETTE_COLOR && ((Palette *)but->rnapoin.id.data)->active_color == (int)but->a2) {
 		float width = rect->xmax - rect->xmin;
 		float height = rect->ymax - rect->ymin;
-
-		glColor4ubv((unsigned char *)wcol->outline);
+		/* find color luminance and change it slightly */
+		float bw = rgb_to_bw(col);
+		
+		if (bw > 0.5)
+			bw -= 0.5;
+		else
+			bw += 0.5;
+		
+		glColor4f(bw, bw, bw, 1.0);
 		glBegin(GL_TRIANGLES);
 		glVertex2f(rect->xmin + 0.1f * width, rect->ymin + 0.9f * height);
 		glVertex2f(rect->xmin + 0.1f * width, rect->ymin + 0.5f * height);
@@ -3834,7 +3841,7 @@ void ui_draw_pie_center(uiBlock *block)
 
 	int subd = 40;
 
-	float angle = atan2(pie_dir[1], pie_dir[0]);
+	float angle = atan2f(pie_dir[1], pie_dir[0]);
 	float range = (block->pie_data.flags & UI_PIE_DEGREES_RANGE_LARGE) ? ((float)M_PI / 2.0f) : ((float)M_PI / 4.0f);
 
 	glPushMatrix();

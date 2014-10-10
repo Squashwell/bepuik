@@ -37,7 +37,7 @@ if _cycles.with_network:
 
 enum_feature_set = (
     ('SUPPORTED', "Supported", "Only use finished and supported features"),
-    ('EXPERIMENTAL', "Experimental", "Use experimental and incomplete features that might be broken or change in the future"),
+    ('EXPERIMENTAL', "Experimental", "Use experimental and incomplete features that might be broken or change in the future", 'ERROR', 1),
     )
 
 enum_displacement_methods = (
@@ -259,11 +259,18 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 default=True,
                 )
 
-        cls.no_caustics = BoolProperty(
-                name="No Caustics",
-                description="Leave out caustics, resulting in a darker image with less noise",
-                default=False,
+        cls.caustics_reflective = BoolProperty(
+                name="Reflective Caustics",
+                description="Use reflective caustics, resulting in a brighter image (more noise but added realism)",
+                default=True,
                 )
+
+        cls.caustics_refractive = BoolProperty(
+                name="Refractive Caustics",
+                description="Use refractive caustics, resulting in a brighter image (more noise but added realism)",
+                default=True,
+                )
+
         cls.blur_glossy = FloatProperty(
                 name="Filter Glossy",
                 description="Adaptively blur glossy shaders after blurry bounces, "
@@ -729,6 +736,11 @@ class CyclesVisibilitySettings(bpy.types.PropertyGroup):
         cls.shadow = BoolProperty(
                 name="Shadow",
                 description="Object visibility for shadow rays",
+                default=True,
+                )
+        cls.scatter = BoolProperty(
+                name="Volume Scatter",
+                description="Object visibility for volume scatter rays",
                 default=True,
                 )
 

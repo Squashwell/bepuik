@@ -182,6 +182,9 @@ typedef struct KnifeTool_OpData {
 	BLI_mempool *refs;
 
 	float projmat[4][4];
+	float projmat_inv[4][4];
+	/* vector along view z axis (object space, normalized) */
+	float proj_zaxis[3];
 
 	KnifeColors colors;
 
@@ -249,6 +252,27 @@ static void knife_update_header(bContext *C, KnifeTool_OpData *kcd)
 static void knife_project_v2(const KnifeTool_OpData *kcd, const float co[3], float sco[2])
 {
 	ED_view3d_project_float_v2_m4(kcd->ar, co, sco, (float (*)[4])kcd->projmat);
+}
+
+/* use when lambda is in screen-space */
+static void knife_interp_v3_v3v3(
+        const KnifeTool_OpData *kcd,
+        float r_co[3], const float v1[3], const float v2[3], float lambda_ss)
+{
+	if (kcd->is_ortho) {
+		interp_v3_v3v3(r_co, v1, v2, lambda_ss);
+	}
+	else {
+		/* transform into screen-space, interp, then transform back */
+		float v1_ss[3], v2_ss[3];
+
+		mul_v3_project_m4_v3(v1_ss, (float (*)[4])kcd->projmat, v1);
+		mul_v3_project_m4_v3(v2_ss, (float (*)[4])kcd->projmat, v2);
+
+		interp_v3_v3v3(r_co, v1_ss, v2_ss, lambda_ss);
+
+		mul_project_m4_v3((float (*)[4])kcd->projmat_inv, r_co);
+	}
 }
 
 static void knife_pos_data_clear(KnifePosData *kpd)
@@ -445,19 +469,23 @@ static void knife_start_cut(KnifeTool_OpData *kcd)
 	kcd->prev = kcd->curr;
 	kcd->curr.is_space = 0; /*TODO: why do we do this? */
 
-	if (kcd->prev.vert == NULL && kcd->prev.edge == NULL && is_zero_v3(kcd->prev.cage)) {
-		/* Make prevcage a point on the view ray to mouse closest to a point on model: choose vertex 0 */
+	if (kcd->prev.vert == NULL && kcd->prev.edge == NULL) {
 		float origin[3], origin_ofs[3];
-		BMVert *v0;
+		float ofs_local[3];
+
+		negate_v3_v3(ofs_local, kcd->vc.rv3d->ofs);
+		invert_m4_m4(kcd->ob->imat, kcd->ob->obmat);
+		mul_m4_v3(kcd->ob->imat, ofs_local);
 
 		knife_input_ray_segment(kcd, kcd->curr.mval, 1.0f, origin, origin_ofs);
-		v0 = BM_vert_at_index_find(kcd->em->bm, 0);
-		if (v0) {
-			closest_to_line_v3(kcd->prev.cage, v0->co, origin_ofs, origin);
-			copy_v3_v3(kcd->prev.co, kcd->prev.cage); /*TODO: do we need this? */
-			copy_v3_v3(kcd->curr.cage, kcd->prev.cage);
-			copy_v3_v3(kcd->curr.co, kcd->prev.co);
+
+		if (!isect_line_plane_v3(kcd->prev.cage, origin, origin_ofs, ofs_local, kcd->proj_zaxis)) {
+			zero_v3(kcd->prev.cage);
 		}
+
+		copy_v3_v3(kcd->prev.co, kcd->prev.cage); /*TODO: do we need this? */
+		copy_v3_v3(kcd->curr.cage, kcd->prev.cage);
+		copy_v3_v3(kcd->curr.co, kcd->prev.co);
 	}
 }
 
@@ -1625,10 +1653,6 @@ static KnifeEdge *knife_find_closest_edge(KnifeTool_OpData *kcd, float p[3], flo
 	f = knife_find_closest_face(kcd, co, cageco, NULL);
 	*is_space = !f;
 
-	/* set p to co, in case we don't find anything, means a face cut */
-	copy_v3_v3(p, co);
-	copy_v3_v3(cagep, cageco);
-
 	kcd->curr.bmface = f;
 
 	if (f) {
@@ -1638,6 +1662,10 @@ static KnifeEdge *knife_find_closest_edge(KnifeTool_OpData *kcd, float p[3], flo
 		ListBase *lst;
 		Ref *ref;
 		float dis_sq, curdis_sq = FLT_MAX;
+
+		/* set p to co, in case we don't find anything, means a face cut */
+		copy_v3_v3(p, co);
+		copy_v3_v3(cagep, cageco);
 
 		knife_project_v2(kcd, cageco, sco);
 
@@ -1682,8 +1710,8 @@ static KnifeEdge *knife_find_closest_edge(KnifeTool_OpData *kcd, float p[3], flo
 				}
 			}
 
-			/* now we have 'lambda' calculated */
-			interp_v3_v3v3(test_cagep, kfe->v1->cageco, kfe->v2->cageco, lambda);
+			/* now we have 'lambda' calculated (in screen-space) */
+			knife_interp_v3_v3v3(kcd, test_cagep, kfe->v1->cageco, kfe->v2->cageco, lambda);
 
 			if (kcd->vc.rv3d->rflag & RV3D_CLIPPING) {
 				/* check we're in the view */
@@ -1747,9 +1775,6 @@ static KnifeVert *knife_find_closest_vert(KnifeTool_OpData *kcd, float p[3], flo
 
 	f = knife_find_closest_face(kcd, co, cageco, is_space);
 
-	/* set p to co, in case we don't find anything, means a face cut */
-	copy_v3_v3(p, co);
-	copy_v3_v3(cagep, cageco);
 	kcd->curr.bmface = f;
 
 	if (f) {
@@ -1758,6 +1783,10 @@ static KnifeVert *knife_find_closest_vert(KnifeTool_OpData *kcd, float p[3], flo
 		Ref *ref;
 		KnifeVert *curv = NULL;
 		float dis_sq, curdis_sq = FLT_MAX;
+
+		/* set p to co, in case we don't find anything, means a face cut */
+		copy_v3_v3(p, co);
+		copy_v3_v3(cagep, cageco);
 
 		knife_project_v2(kcd, cageco, sco);
 
@@ -1899,8 +1928,12 @@ static int knife_update_active(KnifeTool_OpData *kcd)
 
 		knife_input_ray_segment(kcd, kcd->curr.mval, 1.0f, origin, origin_ofs);
 
-		closest_to_line_v3(kcd->curr.cage, kcd->prev.cage, origin_ofs, origin);
-		copy_v3_v3(kcd->curr.co, kcd->curr.cage);
+		if (!isect_line_plane_v3(kcd->curr.cage, origin, origin_ofs, kcd->prev.cage, kcd->proj_zaxis)) {
+			copy_v3_v3(kcd->curr.cage, kcd->prev.cage);
+
+			/* should never fail! */
+			BLI_assert(0);
+		}
 	}
 
 	if (kcd->mode == MODE_DRAGGING) {
@@ -2267,31 +2300,28 @@ static bool find_hole_chains(KnifeTool_OpData *kcd, ListBase *hole, BMFace *f, L
 
 static bool knife_verts_edge_in_face(KnifeVert *v1, KnifeVert *v2, BMFace *f)
 {
-	BMLoop *l1, *l2, *l;
-	float mid[3];
-	BMIter iter;
-	int v1inside, v2inside;
+	bool v1_inside, v2_inside;
+	bool v1_inface, v2_inface;
 
 	if (!f || !v1 || !v2)
 		return false;
 
-	l1 = NULL;
-	l2 = NULL;
-
 	/* find out if v1 and v2, if set, are part of the face */
-	BM_ITER_ELEM (l, &iter, f, BM_LOOPS_OF_FACE) {
-		if (v1->v && l->v == v1->v)
-			l1 = l;
-		if (v2->v && l->v == v2->v)
-			l2 = l;
-	}
+	v1_inface = v1->v ? BM_vert_in_face(f, v1->v) : false;
+	v2_inface = v2->v ? BM_vert_in_face(f, v2->v) : false;
 
 	/* BM_face_point_inside_test uses best-axis projection so this isn't most accurate test... */
-	v1inside = l1 ? 0 : BM_face_point_inside_test(f, v1->co);
-	v2inside = l2 ? 0 : BM_face_point_inside_test(f, v2->co);
-	if ((l1 && v2inside) || (l2 && v1inside) || (v1inside && v2inside))
+	v1_inside = v1_inface ? false : BM_face_point_inside_test(f, v1->co);
+	v2_inside = v2_inface ? false : BM_face_point_inside_test(f, v2->co);
+	if ((v1_inface && v2_inside) ||
+	    (v2_inface && v1_inside) ||
+	    (v1_inside && v2_inside))
+	{
 		return true;
-	if (l1 && l2) {
+	}
+
+	if (v1_inface && v2_inface) {
+		float mid[3];
 		/* Can have case where v1 and v2 are on shared chain between two faces.
 		 * BM_face_splits_check_legal does visibility and self-intersection tests,
 		 * but it is expensive and maybe a bit buggy, so use a simple
@@ -2390,12 +2420,12 @@ static void knife_make_face_cuts(KnifeTool_OpData *kcd, BMFace *f, ListBase *kfe
 	KnifeEdge *kfe;
 	BMFace *fnew, *fnew2, *fhole;
 	ListBase *chain, *hole, *sidechain;
-	ListBase *fnew_kfedges, *fnew2_kfedges;
 	Ref *ref, *refnext;
 	int count, oldcount;
 
 	oldcount = BLI_countlist(kfedges);
 	while ((chain = find_chain(kcd, kfedges)) != NULL) {
+		ListBase fnew_kfedges;
 		knife_make_chain_cut(kcd, f, chain, &fnew);
 		if (!fnew) {
 			return;
@@ -2403,18 +2433,22 @@ static void knife_make_face_cuts(KnifeTool_OpData *kcd, BMFace *f, ListBase *kfe
 
 		/* Move kfedges to fnew_kfedges if they are now in fnew.
 		 * The chain edges were removed already */
-		fnew_kfedges = knife_empty_list(kcd);
+		BLI_listbase_clear(&fnew_kfedges);
 		for (ref = kfedges->first; ref; ref = refnext) {
 			kfe = ref->ref;
 			refnext = ref->next;
 			if (knife_edge_in_face(kfe, fnew)) {
 				BLI_remlink(kfedges, ref);
 				kfe->basef = fnew;
-				knife_append_list(kcd, fnew_kfedges, kfe);
+				BLI_addtail(&fnew_kfedges, ref);
+			}
+			else if (!knife_edge_in_face(kfe, f)) {
+				/* Concave ngon's - this edge might not be in either faces, T41730 */
+				BLI_remlink(kfedges, ref);
 			}
 		}
-		if (fnew_kfedges->first)
-			knife_make_face_cuts(kcd, fnew, fnew_kfedges);
+		if (fnew_kfedges.first)
+			knife_make_face_cuts(kcd, fnew, &fnew_kfedges);
 
 		/* find_chain should always remove edges if it returns true,
 		 * but guard against infinite loop anyway */
@@ -2428,6 +2462,8 @@ static void knife_make_face_cuts(KnifeTool_OpData *kcd, BMFace *f, ListBase *kfe
 
 	while ((hole = find_hole(kcd, kfedges)) != NULL) {
 		if (find_hole_chains(kcd, hole, f, &chain, &sidechain)) {
+			ListBase fnew_kfedges, fnew2_kfedges;
+
 			/* chain goes across f and sidechain comes back
 			 * from the second last vertex to the second vertex.
 			 */
@@ -2458,28 +2494,28 @@ static void knife_make_face_cuts(KnifeTool_OpData *kcd, BMFace *f, ListBase *kfe
 			BM_face_kill(bm, fhole);
 			/* Move kfedges to either fnew or fnew2 if appropriate.
 			 * The hole edges were removed already */
-			fnew_kfedges = knife_empty_list(kcd);
-			fnew2_kfedges = knife_empty_list(kcd);
+			BLI_listbase_clear(&fnew_kfedges);
+			BLI_listbase_clear(&fnew2_kfedges);
 			for (ref = kfedges->first; ref; ref = refnext) {
 				kfe = ref->ref;
 				refnext = ref->next;
 				if (knife_edge_in_face(kfe, fnew)) {
 					BLI_remlink(kfedges, ref);
 					kfe->basef = fnew;
-					knife_append_list(kcd, fnew_kfedges, kfe);
+					BLI_addtail(&fnew_kfedges, ref);
 				}
 				else if (knife_edge_in_face(kfe, fnew2)) {
 					BLI_remlink(kfedges, ref);
 					kfe->basef = fnew2;
-					knife_append_list(kcd, fnew2_kfedges, kfe);
+					BLI_addtail(&fnew2_kfedges, ref);
 				}
 			}
 			/* We'll skip knife edges that are in the newly formed hole.
 			 * (Maybe we shouldn't have made a hole in the first place?) */
-			if (fnew != fhole && fnew_kfedges->first)
-				knife_make_face_cuts(kcd, fnew, fnew_kfedges);
-			if (fnew2 != fhole && fnew2_kfedges->first)
-				knife_make_face_cuts(kcd, fnew2, fnew2_kfedges);
+			if (fnew != fhole && fnew_kfedges.first)
+				knife_make_face_cuts(kcd, fnew, &fnew_kfedges);
+			if (fnew2 != fhole && fnew2_kfedges.first)
+				knife_make_face_cuts(kcd, fnew2, &fnew2_kfedges);
 			if (f == fhole)
 				break;
 			/* find_hole should always remove edges if it returns true,
@@ -2594,7 +2630,11 @@ static void knife_recalc_projmat(KnifeTool_OpData *kcd)
 {
 	invert_m4_m4(kcd->ob->imat, kcd->ob->obmat);
 	ED_view3d_ob_project_mat_get(kcd->ar->regiondata, kcd->ob, kcd->projmat);
-	//mul_m4_m4m4(kcd->projmat, kcd->vc.rv3d->winmat, kcd->vc.rv3d->viewmat);
+	invert_m4_m4(kcd->projmat_inv, kcd->projmat);
+
+	copy_v3_v3(kcd->proj_zaxis, kcd->vc.rv3d->viewinv[2]);
+	mul_mat3_m4_v3(kcd->ob->imat, kcd->proj_zaxis);
+	normalize_v3(kcd->proj_zaxis);
 
 	kcd->is_ortho = ED_view3d_clip_range_get(kcd->vc.v3d, kcd->vc.rv3d,
 	                                         &kcd->clipsta, &kcd->clipend, true);

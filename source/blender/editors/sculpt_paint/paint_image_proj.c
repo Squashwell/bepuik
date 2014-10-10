@@ -82,6 +82,8 @@
 #include "UI_view2d.h"
 #include "UI_interface.h"
 
+#include "ED_image.h"
+#include "ED_mesh.h"
 #include "ED_paint.h"
 #include "ED_screen.h"
 #include "ED_uvedit.h"
@@ -97,6 +99,7 @@
 #include "RNA_enum_types.h"
 
 #include "GPU_draw.h"
+#include "GPU_buffers.h"
 
 #include "IMB_colormanagement.h"
 
@@ -2920,7 +2923,7 @@ static void project_paint_begin(ProjPaintState *ps)
 	MTFace *tf_base;
 
 	MTFace **tf_clone;
-	MTFace *tf_clone_base;
+	MTFace *tf_clone_base = NULL;
 
 	int a, i; /* generic looping vars */
 	int image_index = -1, face_index;
@@ -4074,7 +4077,7 @@ static void *do_projectpaint_thread(void *ph_v)
 						sub_v2_v2v2(tangent, pos, lastpos);
 						line_len = len_squared_v2(tangent);
 						line_len_sq_inv = 1.0f / line_len;
-						line_len = sqrt(line_len);
+						line_len = sqrtf(line_len);
 
 						switch (brush->gradient_fill_mode) {
 							case BRUSH_GRADIENT_LINEAR:
@@ -4120,6 +4123,11 @@ static void *do_projectpaint_thread(void *ph_v)
 							IMB_blend_color_byte(projPixel->pixel.ch_pt,  projPixel->origColor.ch_pt,
 							                     projPixel->newColor.ch, ps->blend);
 						}
+					}
+					
+					if (lock_alpha) {
+						if (is_floatbuf) projPixel->pixel.f_pt[3] = projPixel->origColor.f_pt[3];
+						else projPixel->pixel.ch_pt[3] = projPixel->origColor.ch_pt[3];
 					}
 
 					last_partial_redraw_cell = last_projIma->partRedrawRect + projPixel->bb_cell_index;
@@ -4525,15 +4533,21 @@ static void project_state_init(bContext *C, Object *ob, ProjPaintState *ps, int 
 	                settings->imapaint.clone : NULL;
 
 	/* setup projection painting data */
-	ps->do_backfacecull = (settings->imapaint.flag & IMAGEPAINT_PROJECT_BACKFACE) ? 0 : 1;
-	ps->do_occlude = (settings->imapaint.flag & IMAGEPAINT_PROJECT_XRAY) ? 0 : 1;
-	ps->do_mask_normal = (settings->imapaint.flag & IMAGEPAINT_PROJECT_FLAT) ? 0 : 1;
+	if (ps->tool != PAINT_TOOL_FILL) {
+		ps->do_backfacecull = (settings->imapaint.flag & IMAGEPAINT_PROJECT_BACKFACE) ? 0 : 1;
+		ps->do_occlude = (settings->imapaint.flag & IMAGEPAINT_PROJECT_XRAY) ? 0 : 1;
+		ps->do_mask_normal = (settings->imapaint.flag & IMAGEPAINT_PROJECT_FLAT) ? 0 : 1;
+	}
+	else {
+		ps->do_backfacecull = ps->do_occlude = ps->do_mask_normal = 0;
+	}
 	ps->do_new_shading_nodes = BKE_scene_use_new_shading_nodes(scene); /* only cache the value */
 
 	if (ps->tool == PAINT_TOOL_CLONE)
 		ps->do_layer_clone = (settings->imapaint.flag & IMAGEPAINT_PROJECT_LAYER_CLONE) ? 1 : 0;
 
-	ps->do_stencil_brush = ps->brush->imagepaint_tool == PAINT_TOOL_MASK;
+
+	ps->do_stencil_brush = (ps->brush && ps->brush->imagepaint_tool == PAINT_TOOL_MASK);
 	/* deactivate stenciling for the stencil brush :) */
 	ps->do_layer_stencil = ((settings->imapaint.flag & IMAGEPAINT_PROJECT_LAYER_STENCIL) &&
 	                        !(ps->do_stencil_brush) && ps->stencil_ima);
@@ -4652,14 +4666,14 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
 	IDProperty *view_data = NULL;
 	Object *ob = OBACT;
 
-	paint_proj_mesh_data_ensure(C, ob, op);
-
-	project_state_init(C, ob, &ps, BRUSH_STROKE_NORMAL);
-
-	if (ps.ob == NULL || ps.ob->type != OB_MESH) {
+	if (ob == NULL || ob->type != OB_MESH) {
 		BKE_report(op->reports, RPT_ERROR, "No active mesh object");
 		return OPERATOR_CANCELLED;
 	}
+
+	paint_proj_mesh_data_ensure(C, ob, op);
+
+	project_state_init(C, ob, &ps, BRUSH_STROKE_NORMAL);
 
 	if (image == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "Image could not be found");
@@ -4843,6 +4857,133 @@ void PAINT_OT_image_from_view(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER;
 
 	RNA_def_string_file_name(ot->srna, "filepath", NULL, FILE_MAX, "File Path", "Name of the file");
+}
+
+/*********************************************
+ * Data generation for projective texturing  *
+ * *******************************************/
+
+
+/* Make sure that active object has a material, and assign UVs and image layers if they do not exist */
+void paint_proj_mesh_data_ensure(bContext *C, Object *ob, wmOperator *op)
+{
+	Mesh *me;
+	int layernum;
+	ImagePaintSettings *imapaint = &(CTX_data_tool_settings(C)->imapaint);
+	bScreen *sc;
+	Scene *scene = CTX_data_scene(C);
+	Main *bmain = CTX_data_main(C);
+	Brush *br = BKE_paint_brush(&imapaint->paint);
+
+	BLI_assert(ob->type == OB_MESH);
+
+	/* no material, add one */
+	if (ob->totcol == 0) {
+		Material *ma = BKE_material_add(CTX_data_main(C), "Material");
+		/* no material found, just assign to first slot */
+		assign_material(ob, ma, 1, BKE_MAT_ASSIGN_USERPREF);
+		proj_paint_add_slot(C, ma, NULL);
+	}
+	else {
+		/* there may be material slots but they may be empty, check */
+		int i;
+		
+		for (i = 1; i < ob->totcol + 1; i++) {
+			Material *ma = give_current_material(ob, i);
+
+			if (ma) {
+				if (imapaint->mode == IMAGEPAINT_MODE_MATERIAL) {
+					if (!ma->texpaintslot) {
+						/* refresh here just in case */
+						BKE_texpaint_slot_refresh_cache(scene, ma);				
+						
+						/* if still no slots, we have to add */
+						if (!ma->texpaintslot) {
+							proj_paint_add_slot(C, ma, NULL);
+							
+							if (ma->texpaintslot) {
+								for (sc = bmain->screen.first; sc; sc = sc->id.next) {
+									ScrArea *sa;
+									for (sa = sc->areabase.first; sa; sa = sa->next) {
+										SpaceLink *sl;
+										for (sl = sa->spacedata.first; sl; sl = sl->next) {
+											if (sl->spacetype == SPACE_IMAGE) {
+												SpaceImage *sima = (SpaceImage *)sl;
+												
+												if (!sima->pin)
+													ED_space_image_set(sima, scene, scene->obedit, ma->texpaintslot[0].ima);
+											}
+										}
+									}
+								}
+							}							
+						}
+					}
+				}
+			}
+			else {
+				Material *ma = BKE_material_add(CTX_data_main(C), "Material");
+				/* no material found, just assign to first slot */
+				assign_material(ob, ma, i, BKE_MAT_ASSIGN_USERPREF);
+				proj_paint_add_slot(C, ma, NULL);
+			}
+		}
+	}
+	
+	if (imapaint->mode == IMAGEPAINT_MODE_IMAGE) {
+		if (imapaint->canvas == NULL) {
+			int width;
+			int height;
+			Main *bmain = CTX_data_main(C);
+			float color[4] = {0.0, 0.0, 0.0, 1.0};
+
+			width = 1024;
+			height = 1024;
+			imapaint->canvas = BKE_image_add_generated(bmain, width, height, "Canvas", 32, false, IMA_GENTYPE_BLANK, color);
+			
+			GPU_drawobject_free(ob->derivedFinal);
+			
+			for (sc = bmain->screen.first; sc; sc = sc->id.next) {
+				ScrArea *sa;
+				for (sa = sc->areabase.first; sa; sa = sa->next) {
+					SpaceLink *sl;
+					for (sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_IMAGE) {
+							SpaceImage *sima = (SpaceImage *)sl;
+							
+							if (!sima->pin)
+								ED_space_image_set(sima, scene, scene->obedit, imapaint->canvas);
+						}
+					}
+				}
+			}			
+		}		
+	}
+		
+	me = BKE_mesh_from_object(ob);
+	layernum = CustomData_number_of_layers(&me->pdata, CD_MTEXPOLY);
+
+	if (layernum == 0) {
+		BKE_reportf(op->reports, RPT_WARNING, "Object did not have UV map, manual unwrap recommended");
+
+		ED_mesh_uv_texture_add(me, "UVMap", true);
+	}
+
+	/* Make sure we have a stencil to paint on! */
+	if (br && br->imagepaint_tool == PAINT_TOOL_MASK) {
+		imapaint->flag |= IMAGEPAINT_PROJECT_LAYER_STENCIL;
+
+		if (imapaint->stencil == NULL) {
+			int width;
+			int height;
+			Main *bmain = CTX_data_main(C);
+			float color[4] = {0.0, 0.0, 0.0, 1.0};
+
+			width = 1024;
+			height = 1024;
+			imapaint->stencil = BKE_image_add_generated(bmain, width, height, "Stencil", 32, false, IMA_GENTYPE_BLANK, color);
+		}
+	}
 }
 
 /* Add layer operator */

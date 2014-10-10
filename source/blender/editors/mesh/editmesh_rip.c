@@ -309,8 +309,7 @@ static EdgeLoopPair *edbm_ripsel_looptag_helper(BMesh *bm)
 		uid_start = uid;
 		uid = uid_end + bm->totedge;
 
-		BLI_array_grow_one(eloop_pairs);
-		lp = &eloop_pairs[BLI_array_count(eloop_pairs) - 1];
+		lp = BLI_array_append_ret(eloop_pairs);
 		BM_edge_loop_pair(e_last, &lp->l_a, &lp->l_b); /* no need to check, we know this will be true */
 
 
@@ -323,8 +322,7 @@ static EdgeLoopPair *edbm_ripsel_looptag_helper(BMesh *bm)
 	}
 
 	/* null terminate */
-	BLI_array_grow_one(eloop_pairs);
-	lp = &eloop_pairs[BLI_array_count(eloop_pairs) - 1];
+	lp = BLI_array_append_ret(eloop_pairs);
 	lp->l_a = lp->l_b = NULL;
 
 	return eloop_pairs;
@@ -990,6 +988,12 @@ static int edbm_rip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		// WM_operator_name_call(C, "MESH_OT_region_to_loop", WM_OP_INVOKE_DEFAULT, NULL);
 
 		BKE_report(op->reports, RPT_ERROR, "Cannot rip selected faces");
+		return OPERATOR_CANCELLED;
+	}
+
+	/* we could support this, but not for now */
+	if ((bm->totvertsel > 1) && (bm->totedgesel == 0)) {
+		BKE_report(op->reports, RPT_ERROR, "Cannot rip multiple disconnected vertices");
 		return OPERATOR_CANCELLED;
 	}
 

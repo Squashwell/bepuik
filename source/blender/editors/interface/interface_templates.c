@@ -2407,8 +2407,7 @@ void uiTemplatePalette(uiLayout *layout, PointerRNA *ptr, const char *propname, 
 
 		RNA_pointer_create(&palette->id, &RNA_PaletteColor, color, &ptr);
 		uiDefButR(block, COLOR, 0, "", 0, 0, UI_UNIT_X, UI_UNIT_Y, &ptr, "color", -1, 0.0, 1.0,
-		          UI_PALETTE_COLOR, (col_id == palette->active_color) ? UI_PALETTE_COLOR_ACTIVE : 0.0, "");
-
+		          UI_PALETTE_COLOR, col_id, "");
 		row_cols++;
 		col_id++;
 	}
@@ -3495,12 +3494,8 @@ static void template_keymap_item_properties(uiLayout *layout, const char *title,
 
 	RNA_STRUCT_BEGIN (ptr, prop)
 	{
-		int flag = RNA_property_flag(prop);
 		const bool is_set = RNA_property_is_set(ptr, prop);
 		uiBut *but;
-
-		if (flag & PROP_HIDDEN)
-			continue;
 
 		/* recurse for nested properties */
 		if (RNA_property_type(prop) == PROP_POINTER) {

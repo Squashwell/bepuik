@@ -383,6 +383,11 @@ class USERPREF_PT_system(Panel):
         col = colsplit.column()
         col.label(text="General:")
         col.prop(system, "dpi")
+        col.label("Virtual Pixel Mode:")
+        col.prop(system, "virtual_pixel_mode", text="")
+
+        col.separator()
+
         col.prop(system, "frame_server_port")
         col.prop(system, "scrollback", text="Console Scrollback")
 
@@ -424,7 +429,6 @@ class USERPREF_PT_system(Panel):
         col.prop(system, "use_gpu_mipmap")
         col.prop(system, "use_16bit_textures")
 
-        
         if system.is_occlusion_query_supported():
             col.separator()
             col.label(text="Selection")

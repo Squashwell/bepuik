@@ -104,6 +104,7 @@ static BMOpDefine bmo_smooth_vert_def = {
 	"smooth_vert",
 	/* slots_in */
 	{{"verts", BMO_OP_SLOT_ELEMENT_BUF, {BM_VERT}},    /* input vertices */
+	 {"factor", BMO_OP_SLOT_FLT},           /* smoothing factor */
 	 {"mirror_clip_x", BMO_OP_SLOT_BOOL},   /* set vertices close to the x axis before the operation to 0 */
 	 {"mirror_clip_y", BMO_OP_SLOT_BOOL},   /* set vertices close to the y axis before the operation to 0 */
 	 {"mirror_clip_z", BMO_OP_SLOT_BOOL},   /* set vertices close to the z axis before the operation to 0 */
@@ -1795,6 +1796,7 @@ static BMOpDefine bmo_inset_region_def = {
 	"inset_region",
 	/* slots_in */
 	{{"faces", BMO_OP_SLOT_ELEMENT_BUF, {BM_FACE}},    /* input faces */
+	 {"faces_exclude", BMO_OP_SLOT_ELEMENT_BUF, {BM_FACE}},
 	 {"use_boundary", BMO_OP_SLOT_BOOL},
 	 {"use_even_offset", BMO_OP_SLOT_BOOL},
 	 {"use_interpolate", BMO_OP_SLOT_BOOL},

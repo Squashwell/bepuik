@@ -35,14 +35,26 @@
 
 /********************************* Init **************************************/
 
+void zero_m2(float m[2][2])
+{
+	memset(m, 0, sizeof(float[2][2]));
+}
+
 void zero_m3(float m[3][3])
 {
-	memset(m, 0, 3 * 3 * sizeof(float));
+	memset(m, 0, sizeof(float[3][3]));
 }
 
 void zero_m4(float m[4][4])
 {
-	memset(m, 0, 4 * 4 * sizeof(float));
+	memset(m, 0, sizeof(float[4][4]));
+}
+
+void unit_m2(float m[2][2])
+{
+	m[0][0] = m[1][1] = 1.0f;
+	m[0][1] = 0.0f;
+	m[1][0] = 0.0f;
 }
 
 void unit_m3(float m[3][3])
@@ -62,15 +74,20 @@ void unit_m4(float m[4][4])
 	m[3][0] = m[3][1] = m[3][2] = 0.0f;
 }
 
+void copy_m2_m2(float m1[2][2], float m2[2][2])
+{
+	memcpy(m1, m2, sizeof(float[2][2]));
+}
+
 void copy_m3_m3(float m1[3][3], float m2[3][3])
 {
 	/* destination comes first: */
-	memcpy(&m1[0], &m2[0], 9 * sizeof(float));
+	memcpy(m1, m2, sizeof(float[3][3]));
 }
 
 void copy_m4_m4(float m1[4][4], float m2[4][4])
 {
-	memcpy(m1, m2, 4 * 4 * sizeof(float));
+	memcpy(m1, m2, sizeof(float[4][4]));
 }
 
 void copy_m3_m4(float m1[3][3], float m2[4][4])
@@ -495,6 +512,16 @@ void mul_project_m4_v3(float mat[4][4], float vec[3])
 	vec[0] /= w;
 	vec[1] /= w;
 	vec[2] /= w;
+}
+
+void mul_v3_project_m4_v3(float r[3], float mat[4][4], const float vec[3])
+{
+	const float w = mul_project_m4_v3_zfac(mat, vec);
+	mul_v3_m4v3(r, mat, vec);
+
+	r[0] /= w;
+	r[1] /= w;
+	r[2] /= w;
 }
 
 void mul_v2_project_m4_v3(float r[2], float mat[4][4], const float vec[3])

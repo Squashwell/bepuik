@@ -160,6 +160,12 @@ float area_poly_v3(const float verts[][3], unsigned int nr)
 	return normal_poly_v3(n, verts, nr) * 0.5f;
 }
 
+/**
+ * Scalar cross product of a 2d polygon.
+ *
+ * - equivalent to ``area * 2``
+ * - useful for checking polygon winding (a positive value is clockwise).
+ */
 float cross_poly_v2(const float verts[][2], unsigned int nr)
 {
 	unsigned int a;
@@ -1786,7 +1792,10 @@ float closest_to_line_v2(float cp[2], const float p[2], const float l1[2], const
 	return lambda;
 }
 
-/* little sister we only need to know lambda */
+/**
+ * A simplified version of #closest_to_line_v3
+ * we only need to return the ``lambda``
+ */
 float line_point_factor_v3(const float p[3], const float l1[3], const float l2[3])
 {
 	float h[3], u[3];
@@ -3193,7 +3202,7 @@ void map_to_tube(float *r_u, float *r_v, const float x, const float y, const flo
 
 	len = sqrtf(x * x + y * y);
 	if (len > 0.0f) {
-		*r_u = (float)((1.0 - (atan2(x / len, y / len) / M_PI)) / 2.0);
+		*r_u = (1.0f - (atan2f(x / len, y / len) / (float)M_PI)) / 2.0f;
 	}
 	else {
 		*r_v = *r_u = 0.0f; /* to avoid un-initialized variables */
@@ -3206,8 +3215,12 @@ void map_to_sphere(float *r_u, float *r_v, const float x, const float y, const f
 
 	len = sqrtf(x * x + y * y + z * z);
 	if (len > 0.0f) {
-		if (x == 0.0f && y == 0.0f) *r_u = 0.0f;  /* othwise domain error */
-		else *r_u = (1.0f - atan2f(x, y) / (float)M_PI) / 2.0f;
+		if (UNLIKELY(x == 0.0f && y == 0.0f)) {
+			*r_u = 0.0f;  /* othwise domain error */
+		}
+		else {
+			*r_u = (1.0f - atan2f(x, y) / (float)M_PI) / 2.0f;
+		}
 
 		*r_v = 1.0f - saacos(z / len) / (float)M_PI;
 	}

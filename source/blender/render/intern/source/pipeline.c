@@ -699,25 +699,27 @@ static void render_result_rescale(Render *re)
 		                               RR_USE_MEM,
 		                               RR_ALL_LAYERS);
 
-		dst_rectf = re->result->rectf;
-		if (dst_rectf == NULL) {
-			RenderLayer *rl;
-			rl = render_get_active_layer(re, re->result);
-			if (rl != NULL) {
-				dst_rectf = rl->rectf;
+		if (re->result != NULL) {
+			dst_rectf = re->result->rectf;
+			if (dst_rectf == NULL) {
+				RenderLayer *rl;
+				rl = render_get_active_layer(re, re->result);
+				if (rl != NULL) {
+					dst_rectf = rl->rectf;
+				}
 			}
-		}
 
-		scale_x = (float) result->rectx / re->result->rectx;
-		scale_y = (float) result->recty / re->result->recty;
-		for (x = 0; x < re->result->rectx; ++x) {
-			for (y = 0; y < re->result->recty; ++y) {
-				int src_x = x * scale_x,
-				    src_y = y * scale_y;
-				int dst_index = y * re->result->rectx + x,
-				    src_index = src_y * result->rectx + src_x;
-				copy_v4_v4(dst_rectf + dst_index * 4,
-				           src_rectf + src_index * 4);
+			scale_x = (float) result->rectx / re->result->rectx;
+			scale_y = (float) result->recty / re->result->recty;
+			for (x = 0; x < re->result->rectx; ++x) {
+				for (y = 0; y < re->result->recty; ++y) {
+					int src_x = x * scale_x,
+					    src_y = y * scale_y;
+					int dst_index = y * re->result->rectx + x,
+					    src_index = src_y * result->rectx + src_x;
+					copy_v4_v4(dst_rectf + dst_index * 4,
+					           src_rectf + src_index * 4);
+				}
 			}
 		}
 	}
@@ -1013,8 +1015,8 @@ static bool find_next_pano_slice(Render *re, int *slice, int *minx, rctf *viewpl
 		
 		/* rotate database according to part coordinates */
 		project_renderdata(re, projectverto, 1, -R.panodxp * phi, 1);
-		R.panosi = sin(R.panodxp * phi);
-		R.panoco = cos(R.panodxp * phi);
+		R.panosi = sinf(R.panodxp * phi);
+		R.panoco = cosf(R.panodxp * phi);
 	}
 	
 	(*slice)++;
@@ -1638,6 +1640,10 @@ static void do_render_fields_blur_3d(Render *re)
 		if (re->r.mode & R_BORDER) {
 			if ((re->r.mode & R_CROP) == 0) {
 				RenderResult *rres;
+
+				/* backup */
+				const rcti orig_disprect = re->disprect;
+				const int  orig_rectx = re->rectx, orig_recty = re->recty;
 				
 				BLI_rw_mutex_lock(&re->resultmutex, THREAD_LOCK_WRITE);
 
@@ -1660,6 +1666,11 @@ static void do_render_fields_blur_3d(Render *re)
 		
 				re->display_init(re->dih, re->result);
 				re->display_update(re->duh, re->result, NULL);
+
+				/* restore the disprect from border */
+				re->disprect = orig_disprect;
+				re->rectx = orig_rectx;
+				re->recty = orig_recty;
 			}
 			else {
 				/* set offset (again) for use in compositor, disprect was manipulated. */
@@ -1728,7 +1739,7 @@ static int composite_needs_render(Scene *sce, int this_scene)
 	if ((sce->r.scemode & R_DOCOMP) == 0) return 1;
 	
 	for (node = ntree->nodes.first; node; node = node->next) {
-		if (node->type == CMP_NODE_R_LAYERS)
+		if (node->type == CMP_NODE_R_LAYERS && (node->flag & NODE_MUTED) == 0)
 			if (this_scene == 0 || node->id == NULL || node->id == &sce->id)
 				return 1;
 	}
@@ -1867,7 +1878,7 @@ static void tag_scenes_for_render(Render *re)
 	/* check for render-layers nodes using other scenes, we tag them LIB_DOIT */
 	for (node = re->scene->nodetree->nodes.first; node; node = node->next) {
 		node->flag &= ~NODE_TEST;
-		if (node->type == CMP_NODE_R_LAYERS) {
+		if (node->type == CMP_NODE_R_LAYERS && (node->flag & NODE_MUTED) == 0) {
 			if (node->id) {
 				if (!MAIN_VERSION_ATLEAST(re->main, 265, 5)) {
 					if (rlayer_node_uses_alpha(re->scene->nodetree, node)) {
@@ -1916,7 +1927,7 @@ static void ntree_render_scenes(Render *re)
 	/* now foreach render-result node tagged we do a full render */
 	/* results are stored in a way compisitor will find it */
 	for (node = re->scene->nodetree->nodes.first; node; node = node->next) {
-		if (node->type == CMP_NODE_R_LAYERS) {
+		if (node->type == CMP_NODE_R_LAYERS && (node->flag & NODE_MUTED) == 0) {
 			if (node->id && node->id != (ID *)re->scene) {
 				if (node->flag & NODE_TEST) {
 					Scene *scene = (Scene *)node->id;
@@ -2202,7 +2213,7 @@ void RE_MergeFullSample(Render *re, Main *bmain, Scene *sce, bNodeTree *ntree)
 #endif
 
 	for (node = ntree->nodes.first; node; node = node->next) {
-		if (node->type == CMP_NODE_R_LAYERS) {
+		if (node->type == CMP_NODE_R_LAYERS && (node->flag & NODE_MUTED) == 0) {
 			Scene *nodescene = (Scene *)node->id;
 			
 			if (nodescene == NULL) nodescene = sce;
@@ -2497,7 +2508,7 @@ static bool check_valid_compositing_camera(Scene *scene, Object *camera_override
 		bNode *node = scene->nodetree->nodes.first;
 
 		while (node) {
-			if (node->type == CMP_NODE_R_LAYERS) {
+			if (node->type == CMP_NODE_R_LAYERS && (node->flag & NODE_MUTED) == 0) {
 				Scene *sce = node->id ? (Scene *)node->id : scene;
 
 				if (!sce->camera && !BKE_scene_camera_find(sce)) {
@@ -2645,13 +2656,22 @@ bool RE_is_rendering_allowed(Scene *scene, Object *camera_override, ReportList *
 		}
 
 #ifdef WITH_FREESTYLE
-		if ((scene->r.mode & R_EDGE_FRS) && (!BKE_scene_use_new_shading_nodes(scene))) {
+		if (scene->r.mode & R_EDGE_FRS) {
 			BKE_report(reports, RPT_ERROR, "Panoramic camera not supported in Freestyle");
 			return 0;
 		}
 #endif
 	}
-	
+
+#ifdef WITH_FREESTYLE
+	if (scene->r.mode & R_EDGE_FRS) {
+		if (scene->r.mode & R_FIELDS) {
+			BKE_report(reports, RPT_ERROR, "Fields not supported in Freestyle");
+			return false;
+		}
+	}
+#endif
+
 	/* layer flag tests */
 	if (!render_scene_has_layers_to_render(scene)) {
 		BKE_report(reports, RPT_ERROR, "All render layers are disabled");

@@ -38,12 +38,15 @@ extern "C" {
 
 /********************************* Init **************************************/
 
+void zero_m2(float R[2][2]);
 void zero_m3(float R[3][3]);
 void zero_m4(float R[4][4]);
 
+void unit_m2(float R[2][2]);
 void unit_m3(float R[3][3]);
 void unit_m4(float R[4][4]);
 
+void copy_m2_m2(float R[2][2], float A[2][2]);
 void copy_m3_m3(float R[3][3], float A[3][3]);
 void copy_m4_m4(float R[4][4], float A[4][4]);
 void copy_m3_m4(float R[3][3], float A[4][4]);
@@ -106,6 +109,7 @@ void mul_mat3_m4_v3(float M[4][4], float r[3]);
 void mul_m4_v4(float M[4][4], float r[4]);
 void mul_v4_m4v4(float r[4], float M[4][4], const float v[4]);
 void mul_project_m4_v3(float M[4][4], float vec[3]);
+void mul_v3_project_m4_v3(float r[3], float mat[4][4], const float vec[3]);
 void mul_v2_project_m4_v3(float r[2], float M[4][4], const float vec[3]);
 
 void mul_m3_v2(float m[3][3], float r[2]);

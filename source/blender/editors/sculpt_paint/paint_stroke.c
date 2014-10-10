@@ -283,9 +283,9 @@ static bool paint_brush_update(bContext *C,
 		const float dx = mouse[0] - stroke->initial_mouse[0];
 		const float dy = mouse[1] - stroke->initial_mouse[1];
 
-		ups->anchored_size = ups->pixel_radius = sqrt(dx * dx + dy * dy);
+		ups->anchored_size = ups->pixel_radius = sqrtf(dx * dx + dy * dy);
 
-		ups->brush_rotation = atan2(dx, dy) + M_PI;
+		ups->brush_rotation = atan2f(dx, dy) + M_PI;
 
 		if (brush->flag & BRUSH_EDGE_TO_EDGE) {
 			halfway[0] = dx * 0.5f + stroke->initial_mouse[0];
@@ -396,8 +396,7 @@ static void paint_brush_stroke_add_step(bContext *C, wmOperator *op, const float
 	copy_v2_v2(stroke->last_mouse_position, mouse_in);
 	stroke->last_pressure = pressure;
 
-	if (paint_stroke_use_jitter(mode, brush, stroke->stroke_mode == BRUSH_STROKE_INVERT))
-	{
+	if (paint_stroke_use_jitter(mode, brush, stroke->stroke_mode == BRUSH_STROKE_INVERT)) {
 		float delta[2];
 		float factor = stroke->zoom_2d;
 
@@ -499,7 +498,7 @@ static float paint_stroke_overlapped_curve(Brush *br, float x, float spacing)
 	for (i = 0; i < n; i++) {
 		float xx;
 
-		xx = fabs(x0 + i * h);
+		xx = fabsf(x0 + i * h);
 
 		if (xx < 1.0f)
 			sum += BKE_brush_curve_strength(br, xx, 1);
@@ -759,7 +758,7 @@ bool paint_supports_smooth_stroke(Brush *br, PaintMode mode)
 
 bool paint_supports_texture(PaintMode mode)
 {
-	/* ommit: PAINT_WEIGHT, PAINT_SCULPT_UV, PAINT_INVALID */
+	/* omit: PAINT_WEIGHT, PAINT_SCULPT_UV, PAINT_INVALID */
 	return ELEM(mode, PAINT_SCULPT, PAINT_VERTEX, PAINT_TEXTURE_PROJECTIVE, PAINT_TEXTURE_2D);
 }
 

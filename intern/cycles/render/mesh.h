@@ -79,6 +79,8 @@ public:
 	vector<uint> shader;
 	vector<bool> smooth;
 
+	bool has_volume;  /* Set in the device_update(). */
+
 	vector<float4> curve_keys; /* co + radius */
 	vector<Curve> curves;
 
@@ -123,7 +125,7 @@ public:
 	void add_face_normals();
 	void add_vertex_normals();
 
-	void pack_normals(Scene *scene, float *shader, float4 *vnormal);
+	void pack_normals(Scene *scene, uint *shader, float4 *vnormal);
 	void pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset);
 	void pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, size_t curvekey_offset);
 	void compute_bvh(SceneParams *params, Progress *progress, int n, int total);

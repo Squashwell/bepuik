@@ -1893,7 +1893,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	col = uiLayoutColumn(split, false);
 	uiItemL(col, IFACE_("Links"), ICON_NONE);
 	uiItemStringO(col, IFACE_("Support an Open Animation Movie"), ICON_URL, "WM_OT_url_open", "url",
-	              "http://cloud.blender.org/gooseberry");
+	              "https://cloud.blender.org/join");
 	uiItemStringO(col, IFACE_("Donations"), ICON_URL, "WM_OT_url_open", "url",
 	              "http://www.blender.org/foundation/donation-payment/");
 	uiItemStringO(col, IFACE_("Credits"), ICON_URL, "WM_OT_url_open", "url",
@@ -2208,7 +2208,7 @@ static void WM_OT_read_homefile(wmOperatorType *ot)
 	                       "Load user interface setup from the .blend file");
 	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
-	/* ommit poll to run in background mode */
+	/* omit poll to run in background mode */
 }
 
 static void WM_OT_read_factory_settings(wmOperatorType *ot)
@@ -2219,7 +2219,7 @@ static void WM_OT_read_factory_settings(wmOperatorType *ot)
 	
 	ot->invoke = WM_operator_confirm;
 	ot->exec = wm_homefile_read_exec;
-	/* ommit poll to run in background mode */
+	/* omit poll to run in background mode */
 }
 
 /* *************** open file **************** */
@@ -2372,7 +2372,7 @@ static void WM_OT_open_mainfile(wmOperatorType *ot)
 	ot->exec = wm_open_mainfile_exec;
 	ot->check = wm_open_mainfile_check;
 	ot->ui = wm_open_mainfile_ui;
-	/* ommit window poll so this can work in background mode */
+	/* omit window poll so this can work in background mode */
 
 	WM_operator_properties_filesel(ot, FOLDERFILE | BLENDERFILE, FILE_BLENDER, FILE_OPENFILE,
 	                               WM_FILESEL_FILEPATH, FILE_DEFAULTDISPLAY);
@@ -2470,7 +2470,7 @@ static short wm_link_append_flag(wmOperator *op)
 
 	if (RNA_boolean_get(op->ptr, "autoselect")) flag |= FILE_AUTOSELECT;
 	if (RNA_boolean_get(op->ptr, "active_layer")) flag |= FILE_ACTIVELAY;
-	if (RNA_boolean_get(op->ptr, "relative_path")) flag |= FILE_RELPATH;
+	if (RNA_struct_find_property(op->ptr, "relative_path") && RNA_boolean_get(op->ptr, "relative_path")) flag |= FILE_RELPATH;
 	if (RNA_boolean_get(op->ptr, "link")) flag |= FILE_LINK;
 	if (RNA_boolean_get(op->ptr, "instance_groups")) flag |= FILE_GROUP_INSTANCE;
 
@@ -2601,13 +2601,31 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-static void WM_OT_link_append(wmOperatorType *ot)
+static void wm_link_append_properties_common(wmOperatorType *ot, bool is_link)
 {
 	PropertyRNA *prop;
 
-	ot->name = "Link/Append from Library";
-	ot->idname = "WM_OT_link_append";
-	ot->description = "Link or Append from a Library .blend file";
+	/* better not save _any_ settings for this operator */
+	/* properties */
+	prop = RNA_def_boolean(ot->srna, "link", is_link,
+	                       "Link", "Link the objects or datablocks rather than appending");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
+	prop = RNA_def_boolean(ot->srna, "autoselect", true,
+	                       "Select", "Select new objects");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+	prop = RNA_def_boolean(ot->srna, "active_layer", true,
+	                       "Active Layer", "Put new objects on the active layer");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+	prop = RNA_def_boolean(ot->srna, "instance_groups", is_link,
+	                       "Instance Groups", "Create Dupli-Group instances for each group");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+}
+
+static void WM_OT_link(wmOperatorType *ot)
+{
+	ot->name = "Link from Library";
+	ot->idname = "WM_OT_link";
+	ot->description = "Link from a Library .blend file";
 	
 	ot->invoke = wm_link_append_invoke;
 	ot->exec = wm_link_append_exec;
@@ -2620,16 +2638,27 @@ static void WM_OT_link_append(wmOperatorType *ot)
 	        WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILENAME | WM_FILESEL_RELPATH | WM_FILESEL_FILES,
 	        FILE_DEFAULTDISPLAY);
 	
-	/* better not save _any_ settings for this operator */
-	/* properties */
-	prop = RNA_def_boolean(ot->srna, "link", 1, "Link", "Link the objects or datablocks rather than appending");
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
-	prop = RNA_def_boolean(ot->srna, "autoselect", 1, "Select", "Select the linked objects");
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-	prop = RNA_def_boolean(ot->srna, "active_layer", 1, "Active Layer", "Put the linked objects on the active layer");
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-	prop = RNA_def_boolean(ot->srna, "instance_groups", 1, "Instance Groups", "Create instances for each group as a DupliGroup");
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+	wm_link_append_properties_common(ot, true);
+}
+
+static void WM_OT_append(wmOperatorType *ot)
+{
+	ot->name = "Append from Library";
+	ot->idname = "WM_OT_append";
+	ot->description = "Append from a Library .blend file";
+
+	ot->invoke = wm_link_append_invoke;
+	ot->exec = wm_link_append_exec;
+	ot->poll = wm_link_append_poll;
+
+	ot->flag |= OPTYPE_UNDO;
+
+	WM_operator_properties_filesel(
+		ot, FOLDERFILE | BLENDERFILE, FILE_LOADLIB, FILE_OPENFILE,
+		WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILENAME | WM_FILESEL_FILES,
+		FILE_DEFAULTDISPLAY);
+
+	wm_link_append_properties_common(ot, false);
 }
 
 /* *************** recover last session **************** */
@@ -2831,7 +2860,7 @@ static void WM_OT_save_as_mainfile(wmOperatorType *ot)
 	ot->invoke = wm_save_as_mainfile_invoke;
 	ot->exec = wm_save_as_mainfile_exec;
 	ot->check = blend_save_check;
-	/* ommit window poll so this can work in background mode */
+	/* omit window poll so this can work in background mode */
 
 	WM_operator_properties_filesel(ot, FOLDERFILE | BLENDERFILE, FILE_BLENDER, FILE_SAVE,
 	                               WM_FILESEL_FILEPATH, FILE_DEFAULTDISPLAY);
@@ -2907,7 +2936,7 @@ static void WM_OT_save_mainfile(wmOperatorType *ot)
 	ot->invoke = wm_save_mainfile_invoke;
 	ot->exec = wm_save_as_mainfile_exec;
 	ot->check = blend_save_check;
-	/* ommit window poll so this can work in background mode */
+	/* omit window poll so this can work in background mode */
 	
 	WM_operator_properties_filesel(ot, FOLDERFILE | BLENDERFILE, FILE_BLENDER, FILE_SAVE,
 	                               WM_FILESEL_FILEPATH, FILE_DEFAULTDISPLAY);
@@ -3720,8 +3749,8 @@ static void radial_control_set_initial_mouse(RadialControl *rc, const wmEvent *e
 			d[0] = (1 - rc->initial_value) * WM_RADIAL_CONTROL_DISPLAY_WIDTH + WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE;
 			break;
 		case PROP_ANGLE:
-			d[0] = WM_RADIAL_CONTROL_DISPLAY_SIZE * cos(rc->initial_value);
-			d[1] = WM_RADIAL_CONTROL_DISPLAY_SIZE * sin(rc->initial_value);
+			d[0] = WM_RADIAL_CONTROL_DISPLAY_SIZE * cosf(rc->initial_value);
+			d[1] = WM_RADIAL_CONTROL_DISPLAY_SIZE * sinf(rc->initial_value);
 			break;
 		default:
 			return;
@@ -4222,7 +4251,7 @@ static int radial_control_modal(bContext *C, wmOperator *op, const wmEvent *even
 					if (snap) new_value = ((int)ceil(new_value * 10.f) * 10.0f) / 100.f;
 					break;
 				case PROP_ANGLE:
-					new_value = atan2(delta[1], delta[0]) + M_PI + angle_precision;
+					new_value = atan2f(delta[1], delta[0]) + M_PI + angle_precision;
 					new_value = fmod(new_value, 2.0f * (float)M_PI);
 					if (new_value < 0.0f)
 						new_value += 2.0f * (float)M_PI;
@@ -4325,6 +4354,7 @@ static void redraw_timer_window_swap(bContext *C)
 {
 	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa;
+	CTX_wm_menu_set(C, NULL);
 
 	for (sa = CTX_wm_screen(C)->areabase.first; sa; sa = sa->next)
 		ED_area_tag_redraw(sa);
@@ -4363,7 +4393,8 @@ static int redraw_timer_exec(bContext *C, wmOperator *op)
 		}
 		else if (type == 1) {
 			wmWindow *win = CTX_wm_window(C);
-			
+			CTX_wm_menu_set(C, NULL);
+		
 			ED_region_tag_redraw(ar);
 			wm_draw_update(C);
 			
@@ -4376,6 +4407,8 @@ static int redraw_timer_exec(bContext *C, wmOperator *op)
 			ScrArea *sa_back = CTX_wm_area(C);
 			ARegion *ar_back = CTX_wm_region(C);
 
+			CTX_wm_menu_set(C, NULL);
+			
 			for (sa = CTX_wm_screen(C)->areabase.first; sa; sa = sa->next) {
 				ARegion *ar_iter;
 				CTX_wm_area_set(C, sa);
@@ -4536,7 +4569,8 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_quit_blender);
 	WM_operatortype_append(WM_OT_open_mainfile);
 	WM_operatortype_append(WM_OT_revert_mainfile);
-	WM_operatortype_append(WM_OT_link_append);
+	WM_operatortype_append(WM_OT_link);
+	WM_operatortype_append(WM_OT_append);
 	WM_operatortype_append(WM_OT_recover_last_session);
 	WM_operatortype_append(WM_OT_recover_auto_save);
 	WM_operatortype_append(WM_OT_save_as_mainfile);
@@ -4763,10 +4797,8 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	WM_keymap_add_menu(keymap, "INFO_MT_file_open_recent", OKEY, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "WM_OT_open_mainfile", OKEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "WM_OT_open_mainfile", F1KEY, KM_PRESS, 0, 0);
-	WM_keymap_add_item(keymap, "WM_OT_link_append", OKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
-	kmi = WM_keymap_add_item(keymap, "WM_OT_link_append", F1KEY, KM_PRESS, KM_SHIFT, 0);
-	RNA_boolean_set(kmi->ptr, "link", false);
-	RNA_boolean_set(kmi->ptr, "instance_groups", false);
+	WM_keymap_add_item(keymap, "WM_OT_link", OKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
+	WM_keymap_add_item(keymap, "WM_OT_append", F1KEY, KM_PRESS, KM_SHIFT, 0);
 
 	WM_keymap_add_item(keymap, "WM_OT_save_mainfile", SKEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "WM_OT_save_mainfile", WKEY, KM_PRESS, KM_CTRL, 0);

@@ -26,6 +26,7 @@
  */
 
 #include "BLI_utildefines.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 
 #include "DNA_brush_types.h"
@@ -98,6 +99,7 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 		linestyle->sort_key = LS_SORT_KEY_DISTANCE_FROM_CAMERA;
 		linestyle->integration_type = LS_INTEGRATION_MEAN;
 		linestyle->texstep = 1.0;
+		linestyle->chain_count = 10;
 	}
 
 	{
@@ -107,11 +109,18 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 			ScrArea *area;
 			for (area = screen->areabase.first; area; area = area->next) {
 				SpaceLink *space_link;
+				ARegion *ar;
+
 				for (space_link = area->spacedata.first; space_link; space_link = space_link->next) {
 					if (space_link->spacetype == SPACE_CLIP) {
 						SpaceClip *space_clip = (SpaceClip *) space_link;
 						space_clip->flag &= ~SC_MANUAL_CALIBRATION;
 					}
+				}
+
+				/* Remove all stored panels, we want to use defaults (order, open/closed) as defined by UI code here! */
+				for (ar = area->regionbase.first; ar; ar = ar->next) {
+					BLI_freelistN(&ar->panels);
 				}
 			}
 		}

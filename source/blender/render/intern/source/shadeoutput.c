@@ -144,7 +144,7 @@ float mistfactor(float zcor, float const co[3])
 				/* pass */
 			}
 			else {
-				fac = sqrt(fac);
+				fac = sqrtf(fac);
 			}
 		}
 		else {
@@ -338,9 +338,9 @@ static void spothalo(struct LampRen *lar, ShadeInput *shi, float *intens)
 			
 		/* now we have 2 points, make three lengths with it */
 		
-		a= sqrt(p1[0]*p1[0]+p1[1]*p1[1]+p1[2]*p1[2]);
-		b= sqrt(p2[0]*p2[0]+p2[1]*p2[1]+p2[2]*p2[2]);
-		c= len_v3v3(p1, p2);
+		a = len_v3(p1);
+		b = len_v3(p2);
+		c = len_v3v3(p1, p2);
 		
 		a/= ladist;
 		a= sqrt(a);
@@ -640,7 +640,7 @@ static float Blinn_Spec(const float n[3], const float l[3], const float v[3], fl
 	
 	/* conversion from 'hardness' (1-255) to 'spec_power' (50 maps at 0.1) */
 	if (spec_power<100.0f)
-		spec_power= sqrt(1.0f/spec_power);
+		spec_power = sqrtf(1.0f / spec_power);
 	else spec_power= 10.0f/spec_power;
 	
 	h[0]= v[0]+l[0];
@@ -731,7 +731,7 @@ static float WardIso_Spec(const float n[3], const float l[3], const float v[3], 
 	if (tangent) nl = sasqrt(1.0f - nl*nl);
 	if (nl<=0.0f) nl = 0.001f;
 
-	angle = tan(saacos(nh));
+	angle = tanf(saacos(nh));
 	alpha = MAX2(rms, 0.001f);
 
 	i= nl * (1.0f/(4.0f*(float)M_PI*alpha*alpha)) * (expf( -(angle*angle)/(alpha*alpha))/(sqrtf(nv*nl)));
@@ -746,7 +746,7 @@ static float Toon_Diff(const float n[3], const float l[3], const float UNUSED(v[
 
 	rslt = n[0]*l[0] + n[1]*l[1] + n[2]*l[2];
 
-	ang = saacos( (double)(rslt) );
+	ang = saacos(rslt);
 
 	if ( ang < size ) rslt = 1.0f;
 	else if ( ang >= (size + smooth) || smooth == 0.0f ) rslt = 0.0f;
@@ -1257,7 +1257,7 @@ float lamp_get_visibility(LampRen *lar, const float co[3], float lv[3], float *d
 							x = max_ff(fabsf(lvrot[0]/lvrot[2]), fabsf(lvrot[1]/lvrot[2]));
 							/* 1.0f/(sqrt(1+x*x)) is equivalent to cos(atan(x)) */
 							
-							inpr= 1.0f/(sqrt(1.0f+x*x));
+							inpr = 1.0f / (sqrtf(1.0f + x * x));
 						}
 						else inpr= 0.0f;
 					}
@@ -1494,11 +1494,14 @@ static void shade_one_light(LampRen *lar, ShadeInput *shi, ShadeResult *shr, int
 				add_to_diffuse(shr->shad, shi, is, lashdw[0]*(i_noshad-i)*lacol[0], lashdw[1]*(i_noshad-i)*lacol[1], lashdw[2]*(i_noshad-i)*lacol[2]);
 			}
 			if (i_noshad>0.0f) {
-				if (passflag & (SCE_PASS_DIFFUSE|SCE_PASS_SHADOW)) {
+				if (passflag & (SCE_PASS_DIFFUSE|SCE_PASS_SHADOW) ||
+				    ((passflag & SCE_PASS_COMBINED) && !(shi->combinedflag & SCE_PASS_SHADOW)))
+				{
 					add_to_diffuse(shr->diff, shi, is, i_noshad*lacol[0], i_noshad*lacol[1], i_noshad*lacol[2]);
 				}
-				else
+				else {
 					copy_v3_v3(shr->diff, shr->shad);
+				}
 			}
 		}
 		
@@ -1648,7 +1651,8 @@ static void shade_lamp_loop_only_shadow(ShadeInput *shi, ShadeResult *shr)
 				else { /* shadowonly_flag == MA_SO_SHADED */
 					/* Use shaded value */
 					accum = 1.0f - shaded;
-			}}
+				}
+			}
 
 			shr->alpha= (shi->alpha)*(accum);
 			if (shr->alpha<0.0f) shr->alpha=0.0f;
@@ -1714,7 +1718,7 @@ void shade_lamp_loop(ShadeInput *shi, ShadeResult *shr)
 	 */
 	const int color_passes =
 		SCE_PASS_COMBINED | SCE_PASS_RGBA | SCE_PASS_DIFFUSE | SCE_PASS_SPEC |
-		SCE_PASS_REFLECT | SCE_PASS_NORMAL | SCE_PASS_REFRACT | SCE_PASS_EMIT;
+		SCE_PASS_REFLECT | SCE_PASS_NORMAL | SCE_PASS_REFRACT | SCE_PASS_EMIT | SCE_PASS_SHADOW;
 
 	Material *ma= shi->mat;
 	int passflag= shi->passflag;
@@ -1889,7 +1893,7 @@ void shade_lamp_loop(ShadeInput *shi, ShadeResult *shr)
 		}
 		
 		if (shi->combinedflag & SCE_PASS_SHADOW)
-			copy_v3_v3(shr->diffshad, shr->shad); 	/* note, no ';' ! */
+			copy_v3_v3(shr->diffshad, shr->shad);
 		else
 			copy_v3_v3(shr->diffshad, shr->diff);
 

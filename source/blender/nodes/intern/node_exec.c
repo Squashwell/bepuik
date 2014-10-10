@@ -160,7 +160,6 @@ bNodeTreeExec *ntree_exec_begin(bNodeExecContext *context, bNodeTree *ntree, bNo
 	bNode **nodelist;
 	int totnodes, n;
 	/* XXX texnodes have threading issues with muting, have to disable it there ... */
-	bool use_muting = (ntree->type != NTREE_TEXTURE);
 	
 	/* ensure all sock->link pointers and node levels are correct */
 	ntreeUpdateTree(G.main, ntree);
@@ -184,7 +183,7 @@ bNodeTreeExec *ntree_exec_begin(bNodeExecContext *context, bNodeTree *ntree, bNo
 		for (sock = node->inputs.first; sock; sock = sock->next)
 			node_init_input_index(sock, &index);
 		
-		if (use_muting && (node->flag & NODE_MUTED || node->type == NODE_REROUTE)) {
+		if (node->flag & NODE_MUTED || node->type == NODE_REROUTE) {
 			for (sock = node->outputs.first; sock; sock = sock->next)
 				node_init_output_index(sock, &index, &node->internal_links);
 		}
@@ -306,7 +305,7 @@ bool ntreeExecThreadNodes(bNodeTreeExec *exec, bNodeThreadStack *nts, void *call
 			 */
 //			if (node->typeinfo->compatibility == NODE_NEW_SHADING)
 //				return false;
-			if (node->typeinfo->execfunc)
+			if (node->typeinfo->execfunc && !(node->flag & NODE_MUTED))
 				node->typeinfo->execfunc(callerdata, thread, node, &nodeexec->data, nsin, nsout);
 		}
 	}

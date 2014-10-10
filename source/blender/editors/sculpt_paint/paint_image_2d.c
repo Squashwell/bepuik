@@ -411,11 +411,11 @@ static ImBuf *brush_painter_imbuf_new(BrushPainter *painter, int size, float pre
 			if (is_texbrush) {
 				brush_imbuf_tex_co(&tex_mapping, x, y, texco);
 				BKE_brush_sample_tex_3D(scene, brush, texco, rgba, thread, pool);
+				mul_v3_v3(rgba, brush_rgb);
 				/* TODO(sergey): Support texture paint color space. */
 				if (!use_float) {
 					IMB_colormanagement_scene_linear_to_display_v3(rgba, display);
 				}
-				mul_v3_v3(rgba, brush_rgb);
 			}
 			else {
 				copy_v3_v3(rgba, brush_rgb);
@@ -485,11 +485,11 @@ static void brush_painter_imbuf_update(BrushPainter *painter, ImBuf *oldtexibuf,
 				if (is_texbrush) {
 					brush_imbuf_tex_co(&tex_mapping, x, y, texco);
 					BKE_brush_sample_tex_3D(scene, brush, texco, rgba, thread, pool);
+					mul_v3_v3(rgba, brush_rgb);
 					/* TODO(sergey): Support texture paint color space. */
 					if (!use_float) {
 						IMB_colormanagement_scene_linear_to_display_v3(rgba, display);
 					}
-					mul_v3_v3(rgba, brush_rgb);
 				}
 				else {
 					copy_v3_v3(rgba, brush_rgb);
@@ -1564,7 +1564,7 @@ void paint_2d_gradient_fill(
 	sub_v2_v2v2(tangent, image_final, image_init);
 	line_len = len_squared_v2(tangent);
 	line_len_sq_inv = 1.0f / line_len;
-	line_len = sqrt(line_len);
+	line_len = sqrtf(line_len);
 
 	do_float = (ibuf->rect_float != NULL);
 

@@ -546,7 +546,8 @@ static void edge_queue_insert(EdgeQueueContext *eq_ctx, BMEdge *e,
 	 * should already make the brush move the vertices only 50%, which means
 	 * that topology updates will also happen less frequent, that should be
 	 * enough. */
-	if ((check_mask(eq_ctx, e->v1) || check_mask(eq_ctx, e->v2)) &&
+	if (((eq_ctx->cd_vert_mask_offset == -1) ||
+	     (check_mask(eq_ctx, e->v1) || check_mask(eq_ctx, e->v2))) &&
 	    !(BM_elem_flag_test_bool(e->v1, BM_ELEM_HIDDEN) ||
 	      BM_elem_flag_test_bool(e->v2, BM_ELEM_HIDDEN)))
 	{
@@ -1213,7 +1214,7 @@ bool BKE_pbvh_bmesh_update_topology(PBVH *bvh, PBVHTopologyUpdateMode mode,
                                    const float center[3], float radius)
 {
 	/* 2 is enough for edge faces - manifold edge */
-	BLI_buffer_declare_static(BMFace *, edge_loops, BLI_BUFFER_NOP, 2);
+	BLI_buffer_declare_static(BMLoop *, edge_loops, BLI_BUFFER_NOP, 2);
 	BLI_buffer_declare_static(BMFace *, deleted_faces, BLI_BUFFER_NOP, 32);
 	const int cd_vert_mask_offset = CustomData_get_offset(&bvh->bm->vdata, CD_PAINT_MASK);
 	const int cd_vert_node_offset = bvh->cd_vert_node_offset;

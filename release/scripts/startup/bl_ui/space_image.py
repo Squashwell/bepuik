@@ -154,6 +154,7 @@ class IMAGE_MT_brush(Menu):
         ups = context.tool_settings.unified_paint_settings
         layout.prop(ups, "use_unified_size", text="Unified Size")
         layout.prop(ups, "use_unified_strength", text="Unified Strength")
+        layout.prop(ups, "use_unified_color", text="Unified Color")
         layout.separator()
 
         # brush tool
@@ -1014,10 +1015,12 @@ class IMAGE_UV_sculpt(Panel, ImagePaintPanel):
         col = layout.column()
         col.prop(toolsettings, "uv_sculpt_lock_borders")
         col.prop(toolsettings, "uv_sculpt_all_islands")
-        col.prop(toolsettings, "uv_sculpt_tool")
 
+        col.prop(toolsettings, "uv_sculpt_tool")
         if toolsettings.uv_sculpt_tool == 'RELAX':
             col.prop(toolsettings, "uv_relax_method")
+
+        col.prop(uvsculpt, "show_brush")
 
 
 class IMAGE_PT_tools_mask(MASK_PT_tools, Panel):

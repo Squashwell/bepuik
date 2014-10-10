@@ -17,10 +17,85 @@
 # ##### END GPL LICENSE BLOCK #####
 
 """
-Predicates operating on vertices (0D elements) and polylines (1D
-elements).  Also intended to be a collection of examples for predicate
-definition in Python
+This module contains predicates operating on vertices (0D elements)
+and polylines (1D elements).  It is also intended to be a collection
+of examples for predicate definition in Python.
+
+User-defined predicates inherit one of the following base classes,
+depending on the object type (0D or 1D) to operate on and the arity
+(unary or binary):
+
+- :class:`freestyle.types.BinaryPredicate0D`
+- :class:`freestyle.types.BinaryPredicate1D`
+- :class:`freestyle.types.UnaryPredicate0D`
+- :class:`freestyle.types.UnaryPredicate1D`
 """
+
+__all__ = (
+    "AndBP1D",
+    "AndUP1D",
+    "ContourUP1D",
+    "DensityLowerThanUP1D",
+    "EqualToChainingTimeStampUP1D",
+    "EqualToTimeStampUP1D",
+    "ExternalContourUP1D",
+    "FalseBP1D",
+    "FalseUP0D",
+    "FalseUP1D",
+    "Length2DBP1D",
+    "NotBP1D",
+    "NotUP1D",
+    "ObjectNamesUP1D",
+    "OrBP1D",
+    "OrUP1D",
+    "QuantitativeInvisibilityRangeUP1D",
+    "QuantitativeInvisibilityUP1D",
+    "SameShapeIdBP1D",
+    "ShapeUP1D",
+    "TrueBP1D",
+    "TrueUP0D",
+    "TrueUP1D",
+    "ViewMapGradientNormBP1D",
+    "WithinImageBoundaryUP1D",
+    "pyBackTVertexUP0D",
+    "pyClosedCurveUP1D",
+    "pyDensityFunctorUP1D",
+    "pyDensityUP1D",
+    "pyDensityVariableSigmaUP1D",
+    "pyHighDensityAnisotropyUP1D",
+    "pyHighDirectionalViewMapDensityUP1D",
+    "pyHighSteerableViewMapDensityUP1D",
+    "pyHighViewMapDensityUP1D",
+    "pyHighViewMapGradientNormUP1D",
+    "pyHigherCurvature2DAngleUP0D",
+    "pyHigherLengthUP1D",
+    "pyHigherNumberOfTurnsUP1D",
+    "pyIsInOccludersListUP1D",
+    "pyIsOccludedByIdListUP1D",
+    "pyIsOccludedByItselfUP1D",
+    "pyIsOccludedByUP1D",
+    "pyLengthBP1D",
+    "pyLowDirectionalViewMapDensityUP1D",
+    "pyLowSteerableViewMapDensityUP1D",
+    "pyNFirstUP1D",
+    "pyNatureBP1D",
+    "pyNatureUP1D",
+    "pyParameterUP0D",
+    "pyParameterUP0DGoodOne",
+    "pyProjectedXBP1D",
+    "pyProjectedYBP1D",
+    "pyShapeIdListUP1D",
+    "pyShapeIdUP1D",
+    "pyShuffleBP1D",
+    "pySilhouetteFirstBP1D",
+    "pyUEqualsUP0D",
+    "pyVertexNatureUP0D",
+    "pyViewMapGradientNormBP1D",
+    "pyZBP1D",
+    "pyZDiscontinuityBP1D",
+    "pyZSmallerUP1D",
+    )
+
 
 # module members
 from _freestyle import (
@@ -62,6 +137,8 @@ from freestyle.functions import (
     GetCurvilinearAbscissaF0D,
     GetDirectionalViewMapDensityF1D,
     GetOccludersF1D,
+    GetProjectedXF1D,
+    GetProjectedYF1D,
     GetProjectedZF1D,
     GetShapeF1D,
     GetSteerableViewMapDensityF1D,
@@ -511,13 +588,31 @@ class NotBP1D(BinaryPredicate1D):
         self._predicate = predicate
 
     def __call__(self, i1, i2):
-        return (not self._precicate(i1, i2))
+        return (not self._predicate(i1, i2))
 
 
 class pyZBP1D(BinaryPredicate1D):
     def __init__(self, iType=IntegrationType.MEAN):
         BinaryPredicate1D.__init__(self)
         self.func = GetZF1D(iType)
+
+    def __call__(self, i1, i2):
+        return (self.func(i1) > self.func(i2))
+
+
+class pyProjectedXBP1D(BinaryPredicate1D):
+    def __init__(self, iType=IntegrationType.MEAN):
+        BinaryPredicate1D.__init__(self)
+        self.func = GetProjectedXF1D(iType)
+
+    def __call__(self, i1, i2):
+        return (self.func(i1) > self.func(i2))
+
+
+class pyProjectedYBP1D(BinaryPredicate1D):
+    def __init__(self, iType=IntegrationType.MEAN):
+        BinaryPredicate1D.__init__(self)
+        self.func = GetProjectedYF1D(iType)
 
     def __call__(self, i1, i2):
         return (self.func(i1) > self.func(i2))

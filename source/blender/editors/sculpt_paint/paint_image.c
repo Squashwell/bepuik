@@ -74,7 +74,6 @@
 #include "UI_view2d.h"
 
 #include "ED_image.h"
-#include "ED_mesh.h"
 #include "ED_object.h"
 #include "ED_paint.h"
 #include "ED_screen.h"
@@ -528,8 +527,11 @@ BlurKernel *paint_new_blur_kernel(Brush *br, bool proj)
 		kernel->pixel_len = radius;
 	}
 	else {
-		radius = br->blur_kernel_radius;
+		if (br->blur_kernel_radius <= 0)
+			br->blur_kernel_radius = 1;
 		
+		radius = br->blur_kernel_radius;
+					
 		side = kernel->side = radius * 2 + 1;
 		kernel->side_squared = kernel->side * kernel->side;
 		kernel->wdata = MEM_mallocN(sizeof(float) * kernel->side_squared, "blur kernel data");
@@ -544,11 +546,11 @@ BlurKernel *paint_new_blur_kernel(Brush *br, bool proj)
 
 		case KERNEL_GAUSSIAN:
 		{
-			/* at standard deviation of 3.0 kernel is at about zero */			
+			/* at 3.0 standard deviations distance, kernel is about zero */			
 			float standard_dev = radius / 3.0f; 
 			
 			/* make the necessary adjustment to the value for use in the normal distribution formula */
-			standard_dev = standard_dev * standard_dev * 2;
+			standard_dev = -standard_dev * standard_dev * 2;
 
 			for (i = 0; i < side; i++) {
 				for (j = 0; j < side; j++) {
@@ -592,11 +594,12 @@ static Brush *image_paint_brush(bContext *C)
 
 static int image_paint_poll(bContext *C)
 {
-	Object *obact = CTX_data_active_object(C);
+	Object *obact;
 
 	if (!image_paint_brush(C))
 		return 0;
 
+	obact = CTX_data_active_object(C);
 	if ((obact && obact->mode & OB_MODE_TEXTURE_PAINT) && CTX_wm_region_view3d(C)) {
 		return 1;
 	}
@@ -1346,121 +1349,6 @@ static int texture_paint_toggle_poll(bContext *C)
 	return 1;
 }
 
-
-/* Make sure that active object has a material, and assign UVs and image layers if they do not exist */
-void paint_proj_mesh_data_ensure(bContext *C, Object *ob, wmOperator *op)
-{
-	Mesh *me;
-	int layernum;
-	ImagePaintSettings *imapaint = &(CTX_data_tool_settings(C)->imapaint);
-	bScreen *sc;
-	Scene *scene = CTX_data_scene(C);
-	Main *bmain = CTX_data_main(C);
-	Brush *br = BKE_paint_brush(&imapaint->paint);
-
-	if (imapaint->mode == IMAGEPAINT_MODE_MATERIAL) {
-		/* no material, add one */
-		if (ob->totcol == 0) {
-			Material *ma = BKE_material_add(CTX_data_main(C), "Material");
-			/* no material found, just assign to first slot */
-			assign_material(ob, ma, 1, BKE_MAT_ASSIGN_USERPREF);
-			proj_paint_add_slot(C, ma, NULL);
-		}
-		else {
-			/* there may be material slots but they may be empty, check */
-			int i;
-			
-			for (i = 1; i < ob->totcol + 1; i++) {
-				Material *ma = give_current_material(ob, i);
-				if (ma) {
-					if (!ma->texpaintslot) {
-						/* refresh here just in case */
-						BKE_texpaint_slot_refresh_cache(scene, ma);				
-						
-						/* if still no slots, we have to add */
-						if (!ma->texpaintslot) {
-							proj_paint_add_slot(C, ma, NULL);
-							
-							if (ma->texpaintslot) {
-								for (sc = bmain->screen.first; sc; sc = sc->id.next) {
-									ScrArea *sa;
-									for (sa = sc->areabase.first; sa; sa = sa->next) {
-										SpaceLink *sl;
-										for (sl = sa->spacedata.first; sl; sl = sl->next) {
-											if (sl->spacetype == SPACE_IMAGE) {
-												SpaceImage *sima = (SpaceImage *)sl;
-												
-												ED_space_image_set(sima, scene, scene->obedit, ma->texpaintslot[0].ima);
-											}
-										}
-									}
-								}
-							}							
-						}
-					}
-				}
-				else {
-					Material *ma = BKE_material_add(CTX_data_main(C), "Material");
-					/* no material found, just assign to first slot */
-					assign_material(ob, ma, i, BKE_MAT_ASSIGN_USERPREF);
-					proj_paint_add_slot(C, ma, NULL);
-				}
-			}
-		}
-	}
-	else if (imapaint->mode == IMAGEPAINT_MODE_IMAGE) {
-		if (imapaint->canvas == NULL) {
-			int width;
-			int height;
-			Main *bmain = CTX_data_main(C);
-			float color[4] = {0.0, 0.0, 0.0, 1.0};
-
-			width = 1024;
-			height = 1024;
-			imapaint->canvas = BKE_image_add_generated(bmain, width, height, "Canvas", 32, false, IMA_GENTYPE_BLANK, color);
-			
-			for (sc = bmain->screen.first; sc; sc = sc->id.next) {
-				ScrArea *sa;
-				for (sa = sc->areabase.first; sa; sa = sa->next) {
-					SpaceLink *sl;
-					for (sl = sa->spacedata.first; sl; sl = sl->next) {
-						if (sl->spacetype == SPACE_IMAGE) {
-							SpaceImage *sima = (SpaceImage *)sl;
-							
-							ED_space_image_set(sima, scene, scene->obedit, imapaint->canvas);
-						}
-					}
-				}
-			}			
-		}		
-	}
-		
-	me = BKE_mesh_from_object(ob);
-	layernum = CustomData_number_of_layers(&me->pdata, CD_MTEXPOLY);
-
-	if (layernum == 0) {
-		BKE_reportf(op->reports, RPT_WARNING, "Object did not have UV map, manual unwrap recommended");
-
-		ED_mesh_uv_texture_add(me, "UVMap", true);
-	}
-
-	/* Make sure we have a stencil to paint on! */
-	if (br && br->imagepaint_tool == PAINT_TOOL_MASK) {
-		imapaint->flag |= IMAGEPAINT_PROJECT_LAYER_STENCIL;
-
-		if (imapaint->stencil == NULL) {
-			int width;
-			int height;
-			Main *bmain = CTX_data_main(C);
-			float color[4] = {0.0, 0.0, 0.0, 1.0};
-
-			width = 1024;
-			height = 1024;
-			imapaint->stencil = BKE_image_add_generated(bmain, width, height, "Stencil", 32, false, IMA_GENTYPE_BLANK, color);
-		}
-	}
-}
-
 static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -1514,7 +1402,8 @@ static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 					if (sl->spacetype == SPACE_IMAGE) {
 						SpaceImage *sima = (SpaceImage *)sl;
 						
-						ED_space_image_set(sima, scene, scene->obedit, ima);
+						if (!sima->pin)
+							ED_space_image_set(sima, scene, scene->obedit, ima);
 					}
 				}
 			}
@@ -1597,12 +1486,17 @@ void PAINT_OT_brush_colors_flip(wmOperatorType *ot)
 
 void ED_imapaint_bucket_fill(struct bContext *C, float color[3], wmOperator *op)
 {
+	SpaceImage *sima = CTX_wm_space_image(C);
+	Image *ima = sima->image;
+
 	ED_undo_paint_push_begin(UNDO_PAINT_IMAGE, op->type->name,
 	                      ED_image_undo_restore, ED_image_undo_free, NULL);
 
 	paint_2d_bucket_fill(C, color, NULL, NULL, NULL);
 
 	ED_undo_paint_push_end(UNDO_PAINT_IMAGE);
+
+	DAG_id_tag_update(&ima->id, 0);
 }
 
 

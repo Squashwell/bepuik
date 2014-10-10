@@ -22,9 +22,79 @@
 #  Purpose  : Stroke shaders to be used for creation of stylized strokes
 
 """
-Stroke shaders used for creation of stylized strokes.  Also intended
-to be a collection of examples for shader definition in Python.
+This module contains stroke shaders used for creation of stylized
+strokes.  It is also intended to be a collection of examples for
+shader definition in Python.
+
+User-defined stroke shaders inherit the
+:class:`freestyle.types.StrokeShader` class.
 """
+
+__all__ = (
+    "BackboneStretcherShader",
+    "BezierCurveShader",
+    "BlenderTextureShader",
+    "CalligraphicShader",
+    "ColorNoiseShader",
+    "ColorVariationPatternShader",
+    "ConstantColorShader",
+    "ConstantThicknessShader",
+    "ConstrainedIncreasingThicknessShader",
+    "GuidingLinesShader",
+    "IncreasingColorShader",
+    "IncreasingThicknessShader",
+    "PolygonalizationShader",
+    "RoundCapShader",
+    "SamplingShader",
+    "SmoothingShader",
+    "SpatialNoiseShader",
+    "SquareCapShader",
+    "StrokeTextureShader",
+    "StrokeTextureStepShader",
+    "TextureAssignerShader",
+    "ThicknessNoiseShader",
+    "ThicknessVariationPatternShader",
+    "TipRemoverShader",
+    "fstreamShader",
+    "py2DCurvatureColorShader",
+    "pyBackboneStretcherNoCuspShader",
+    "pyBackboneStretcherShader",
+    "pyBluePrintCirclesShader",
+    "pyBluePrintDirectedSquaresShader",
+    "pyBluePrintEllipsesShader",
+    "pyBluePrintSquaresShader",
+    "pyConstantColorShader",
+    "pyConstantThicknessShader",
+    "pyConstrainedIncreasingThicknessShader",
+    "pyDecreasingThicknessShader",
+    "pyDepthDiscontinuityThicknessShader",
+    "pyDiffusion2Shader",
+    "pyFXSVaryingThicknessWithDensityShader",
+    "pyGuidingLineShader",
+    "pyHLRShader",
+    "pyImportance2DThicknessShader",
+    "pyImportance3DThicknessShader",
+    "pyIncreasingColorShader",
+    "pyIncreasingThicknessShader",
+    "pyInterpolateColorShader",
+    "pyLengthDependingBackboneStretcherShader",
+    "pyMaterialColorShader",
+    "pyModulateAlphaShader",
+    "pyNonLinearVaryingThicknessShader",
+    "pyPerlinNoise1DShader",
+    "pyPerlinNoise2DShader",
+    "pyRandomColorShader",
+    "pySLERPThicknessShader",
+    "pySamplingShader",
+    "pySinusDisplacementShader",
+    "pyTVertexRemoverShader",
+    "pyTVertexThickenerShader",
+    "pyTimeColorShader",
+    "pyTipRemoverShader",
+    "pyZDependingThicknessShader",
+    "streamShader",
+    )
+
 
 # module members
 from _freestyle import (
@@ -671,10 +741,8 @@ class pyTipRemoverShader(StrokeShader):
 
     @staticmethod
     def check_vertex(v, length):
-        """
-        Returns True if the given strokevertex is less than self._l away
-        from the stroke's tip and therefore should be removed.
-        """
+        # Returns True if the given strokevertex is less than self._l away
+        # from the stroke's tip and therefore should be removed.
         return (v.curvilinear_abscissa < length or v.stroke_length-v.curvilinear_abscissa < length)
 
     def shade(self, stroke):

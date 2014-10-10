@@ -1967,7 +1967,7 @@ static int ui_text_position_from_hidden(uiBut *but, int pos)
 
 static int ui_text_position_to_hidden(uiBut *but, int pos)
 {
-	const char *butstr = butstr = (but->editstr) ? but->editstr : but->drawstr;
+	const char *butstr = (but->editstr) ? but->editstr : but->drawstr;
 	return BLI_strnlen_utf8(butstr, pos);
 }
 
@@ -2491,6 +2491,9 @@ static void ui_textedit_end(bContext *C, uiBut *but, uiHandleButtonData *data)
 				    (ui_searchbox_find_index(data->searchbox, but->editstr) == -1))
 				{
 					data->cancel = true;
+
+					/* ensure menu (popup) too is closed! */
+					data->escapecancel = true;
 				}
 			}
 
@@ -4252,11 +4255,21 @@ static bool ui_numedit_but_NORMAL(uiBut *but, uiHandleButtonData *data,
 	return changed;
 }
 
+static void ui_palette_set_active(uiBut *but)
+{
+	if ((int)(but->a1) == UI_PALETTE_COLOR) {
+		Palette *palette = but->rnapoin.id.data;
+		PaletteColor *color = but->rnapoin.data;
+		palette->active_color = BLI_findindex(&palette->colors, color);
+	}
+}
+
 static int ui_do_but_COLOR(bContext *C, uiBut *but, uiHandleButtonData *data, const wmEvent *event)
 {
 	if (data->state == BUTTON_STATE_HIGHLIGHT) {
 		/* first handle click on icondrag type button */
 		if (event->type == LEFTMOUSE && but->dragpoin && event->val == KM_PRESS) {
+			ui_palette_set_active(but);
 			if (ui_but_mouse_inside_icon(but, data->region, event)) {
 				button_activate_state(C, but, BUTTON_STATE_WAIT_DRAG);
 				data->dragstartx = event->x;
@@ -4266,6 +4279,7 @@ static int ui_do_but_COLOR(bContext *C, uiBut *but, uiHandleButtonData *data, co
 		}
 #ifdef USE_DRAG_TOGGLE
 		if (event->type == LEFTMOUSE && event->val == KM_PRESS) {
+			ui_palette_set_active(but);
 			button_activate_state(C, but, BUTTON_STATE_WAIT_DRAG);
 			data->dragstartx = event->x;
 			data->dragstarty = event->y;
@@ -4274,6 +4288,7 @@ static int ui_do_but_COLOR(bContext *C, uiBut *but, uiHandleButtonData *data, co
 #endif
 		/* regular open menu */
 		if (ELEM(event->type, LEFTMOUSE, PADENTER, RETKEY) && event->val == KM_PRESS) {
+			ui_palette_set_active(but);
 			button_activate_state(C, but, BUTTON_STATE_MENU_OPEN);
 			return WM_UI_HANDLER_BREAK;
 		}
@@ -4303,9 +4318,7 @@ static int ui_do_but_COLOR(bContext *C, uiBut *but, uiHandleButtonData *data, co
 		else if ((int)(but->a1) == UI_PALETTE_COLOR &&
 		         event->type == DELKEY && event->val == KM_PRESS)
 		{
-			Scene *scene = CTX_data_scene(C);
-			Paint *paint = BKE_paint_get_active(scene);
-			Palette *palette = BKE_paint_palette(paint);
+			Palette *palette = but->rnapoin.id.data;
 			PaletteColor *color = but->rnapoin.data;
 
 			BKE_palette_color_remove(palette, color);
@@ -4330,10 +4343,6 @@ static int ui_do_but_COLOR(bContext *C, uiBut *but, uiHandleButtonData *data, co
 
 		if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {
 			if ((int)(but->a1) == UI_PALETTE_COLOR) {
-				Palette *palette = but->rnapoin.id.data;
-				PaletteColor *color = but->rnapoin.data;
-				palette->active_color = BLI_findindex(&palette->colors, color);
-
 				if (!event->ctrl) {
 					float color[3];
 					Scene *scene = CTX_data_scene(C);

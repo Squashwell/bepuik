@@ -315,8 +315,14 @@ void BKE_paint_curve_set(Brush *br, PaintCurve *pc)
 /* remove colour from palette. Must be certain color is inside the palette! */
 void BKE_palette_color_remove(Palette *palette, PaletteColor *color)
 {
-	BLI_remlink(&palette->colors, color);
-	BLI_addhead(&palette->deleted, color);
+	if (color) {
+		int numcolors = BLI_countlist(&palette->colors);
+		if ((numcolors == palette->active_color + 1) && (numcolors != 1))
+			palette->active_color--;
+		
+		BLI_remlink(&palette->colors, color);
+		BLI_addhead(&palette->deleted, color);
+	}
 }
 
 void BKE_palette_cleanup(Palette *palette)
@@ -348,19 +354,6 @@ PaletteColor *BKE_palette_color_add(Palette *palette)
 	BLI_addtail(&palette->colors, color);
 	palette->active_color = BLI_countlist(&palette->colors) - 1;
 	return color;
-}
-
-void BKE_palette_color_delete(struct Palette *palette)
-{
-	PaletteColor *color = BLI_findlink(&palette->colors, palette->active_color);
-
-	if (color) {
-		if ((color == palette->colors.last) && (palette->colors.last != palette->colors.first))
-			palette->active_color--;
-
-		BLI_remlink(&palette->colors, color);
-		BLI_addhead(&palette->deleted, color);
-	}
 }
 
 
@@ -493,7 +486,7 @@ void paint_calculate_rake_rotation(UnifiedPaintSettings *ups, const float mouse_
 	sub_v2_v2v2(dpos, ups->last_rake, mouse_pos);
 
 	if (len_squared_v2(dpos) >= r * r) {
-		ups->brush_rotation = atan2(dpos[0], dpos[1]);
+		ups->brush_rotation = atan2f(dpos[0], dpos[1]);
 
 		interp_v2_v2v2(ups->last_rake, ups->last_rake,
 		               mouse_pos, u);
