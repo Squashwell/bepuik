@@ -31,7 +31,7 @@
  * Convert material node-trees to GLSL.
  */
 
-#include "GL/glew.h"
+#include "GPU_glew.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -242,12 +242,12 @@ GPUFunction *GPU_lookup_function(const char *name)
 	return (GPUFunction*)BLI_ghash_lookup(FUNCTION_HASH, (void *)name);
 }
 
-void GPU_codegen_init(void)
+void gpu_codegen_init(void)
 {
 	GPU_code_generate_glsl_lib();
 }
 
-void GPU_codegen_exit(void)
+void gpu_codegen_exit(void)
 {
 	extern Material defmaterial;    // render module abuse...
 
@@ -665,7 +665,7 @@ static char *code_generate_vertex(ListBase *nodes)
 		for (input=node->inputs.first; input; input=input->next)
 			if (input->source == GPU_SOURCE_ATTRIB && input->attribfirst) {
 				if (input->attribtype == CD_TANGENT) { /* silly exception */
-					BLI_dynstr_appendf(ds, "\tvar%d.xyz = normalize((gl_ModelViewMatrix * vec4(att%d.xyz, 0)).xyz);\n", input->attribid, input->attribid);
+					BLI_dynstr_appendf(ds, "\tvar%d.xyz = normalize(gl_NormalMatrix * att%d.xyz);\n", input->attribid, input->attribid);
 					BLI_dynstr_appendf(ds, "\tvar%d.w = att%d.w;\n", input->attribid, input->attribid);
 				}
 				else

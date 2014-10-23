@@ -83,7 +83,7 @@ static void beckmann_table_rows(float *table, int row_from, int row_to)
 			}
 
 			/* CDF of P22_{omega_i}(x_slope, 1, 1), Eq. (10) */
-			CDF_P22_omega_i[index_slope_x] = CDF_P22_omega_i[index_slope_x - 1] + P22_omega_i;
+			CDF_P22_omega_i[index_slope_x] = CDF_P22_omega_i[index_slope_x - 1] + (double)P22_omega_i;
 		}
 
 		/* renormalize CDF_P22_omega_i */
@@ -106,8 +106,8 @@ static void beckmann_table_rows(float *table, int row_from, int row_to)
 
 			/* store value */
 			table[index_U + index_theta*BECKMANN_TABLE_SIZE] = (float)(
-				interp * slope_x[index_slope_x - 1]
-				+ (1.0f-interp) * slope_x[index_slope_x]);
+				interp * slope_x[index_slope_x - 1] +
+				    (1.0 - interp) * slope_x[index_slope_x]);
 		}
 	}
 }
@@ -138,7 +138,8 @@ Shader::Shader()
 	use_mis = true;
 	use_transparent_shadow = true;
 	heterogeneous_volume = true;
-	volume_sampling_method = 0;
+	volume_sampling_method = VOLUME_SAMPLING_DISTANCE;
+	volume_interpolation_method = VOLUME_INTERPOLATION_LINEAR;
 
 	has_surface = false;
 	has_surface_transparent = false;
@@ -352,10 +353,12 @@ void ShaderManager::device_update_common(Device *device, DeviceScene *dscene, Sc
 			flag |= SD_HAS_BSSRDF_BUMP;
 		if(shader->has_converter_blackbody)
 			has_converter_blackbody = true;
-		if(shader->volume_sampling_method == 1)
+		if(shader->volume_sampling_method == VOLUME_SAMPLING_EQUIANGULAR)
 			flag |= SD_VOLUME_EQUIANGULAR;
-		if(shader->volume_sampling_method == 2)
+		if(shader->volume_sampling_method == VOLUME_SAMPLING_MULTIPLE_IMPORTANCE)
 			flag |= SD_VOLUME_MIS;
+		if(shader->volume_interpolation_method == VOLUME_INTERPOLATION_CUBIC)
+			flag |= SD_VOLUME_CUBIC;
 
 		/* regular shader */
 		shader_flag[i++] = flag;

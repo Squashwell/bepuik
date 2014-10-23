@@ -110,7 +110,8 @@ class IMAGE_MT_view(Menu):
             layout.separator()
 
         layout.operator("screen.area_dupli")
-        layout.operator("screen.screen_full_area")
+        layout.operator("screen.screen_full_area", text="Toggle Maximize Area")
+        layout.operator("screen.screen_full_area").use_hide_panels = True
 
 
 class IMAGE_MT_select(Menu):
@@ -660,6 +661,11 @@ class IMAGE_PT_view_properties(Panel):
             sub = col.column()
             sub.active = uvedit.show_stretch
             sub.row().prop(uvedit, "draw_stretch_type", expand=True)
+
+        if ima:
+            layout.separator()
+            render_slot = ima.render_slots.active
+            layout.prop(render_slot, "name", text="Slot Name")
 
 
 class IMAGE_PT_tools_transform_uvs(Panel, UVToolsPanel):

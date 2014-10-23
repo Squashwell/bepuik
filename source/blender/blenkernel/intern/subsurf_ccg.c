@@ -72,10 +72,9 @@
 #  include "BLI_array.h"
 #endif
 
-#include "GL/glew.h"
-
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
+#include "GPU_glew.h"
 #include "GPU_material.h"
 
 #include "CCGSubSurf.h"
@@ -2353,8 +2352,9 @@ static void ccgDM_drawFacesTex_common(DerivedMesh *dm,
 
 				mat_nr_cache = mat_nr;
 			}
-			tf = tf_base + gridOffset;
-			tf_stencil = tf_stencil_base + gridOffset;
+
+			tf = tf_base ? tf_base + gridOffset : NULL;
+			tf_stencil = tf_stencil_base ? tf_stencil_base + gridOffset : NULL;
 			gridOffset += gridFaces * gridFaces * numVerts;
 		}
 

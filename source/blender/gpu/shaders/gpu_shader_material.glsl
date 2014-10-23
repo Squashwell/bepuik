@@ -1507,9 +1507,9 @@ void mtex_nspace_world(mat4 viewmat, vec3 texnormal, out vec3 outnormal)
 	outnormal = normalize((viewmat*vec4(texnormal, 0.0)).xyz);
 }
 
-void mtex_nspace_object(mat4 viewmat, mat4 obmat, vec3 texnormal, out vec3 outnormal)
+void mtex_nspace_object(vec3 texnormal, out vec3 outnormal)
 {
-	outnormal = normalize((viewmat*(obmat*vec4(texnormal, 0.0))).xyz);
+	outnormal = normalize(gl_NormalMatrix * texnormal);
 }
 
 void mtex_blend_normal(float norfac, vec3 normal, vec3 newnormal, out vec3 outnormal)
@@ -1956,6 +1956,11 @@ void shade_mul(vec4 col1, vec4 col2, out vec4 outcol)
 }
 
 void shade_mul_value(float fac, vec4 col, out vec4 outcol)
+{
+	outcol = col*fac;
+}
+
+void shade_mul_value_v3(float fac, vec3 col, out vec3 outcol)
 {
 	outcol = col*fac;
 }

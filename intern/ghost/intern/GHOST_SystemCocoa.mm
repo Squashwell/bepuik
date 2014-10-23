@@ -22,6 +22,7 @@
  *
  * Contributors: Maarten Gribnau 05/2001
  *               Damien Plisson 09/2009
+ *               Jens Verwiebe   10/2014
  *
  * ***** END GPL LICENSE BLOCK *****
  */
@@ -55,6 +56,7 @@
 #endif
 
 #include "AssertMacros.h"
+
 
 #pragma mark KeyMap, mouse converters
 
@@ -254,27 +256,6 @@ static GHOST_TKey convertKey(int rawCode, unichar recvChar, UInt16 keyAction)
 }
 
 
-#pragma mark defines for 10.6 api not documented in 10.5
-
-#pragma mark Utility functions
-
-#define FIRSTFILEBUFLG 512
-static bool g_hasFirstFile = false;
-static char g_firstFileBuf[512];
-
-//TODO:Need to investigate this. Function called too early in creator.c to have g_hasFirstFile == true
-extern "C" int GHOST_HACK_getFirstFile(char buf[FIRSTFILEBUFLG])
-{
-	if (g_hasFirstFile) {
-		strncpy(buf, g_firstFileBuf, FIRSTFILEBUFLG - 1);
-		buf[FIRSTFILEBUFLG - 1] = '\0';
-		return 1;
-	}
-	else {
-		return 0; 
-	}
-}
-
 #pragma mark Cocoa objects
 
 /**
@@ -334,11 +315,7 @@ extern "C" int GHOST_HACK_getFirstFile(char buf[FIRSTFILEBUFLG])
 @end
 
 
-
-
 #pragma mark initialization/finalization
-
-char GHOST_user_locale[128]; // Global current user locale
 
 GHOST_SystemCocoa::GHOST_SystemCocoa()
 {
@@ -377,15 +354,6 @@ GHOST_SystemCocoa::GHOST_SystemCocoa()
 	rstring = NULL;
 	
 	m_ignoreWindowSizedMessages = false;
-	
-	//Get current locale
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	CFLocaleRef myCFLocale = CFLocaleCopyCurrent();
-	NSLocale * myNSLocale = (NSLocale *) myCFLocale;
-	[myNSLocale autorelease];
-	NSString *nsIdentifier = [myNSLocale localeIdentifier];
-	strncpy(GHOST_user_locale, [nsIdentifier UTF8String], sizeof(GHOST_user_locale) - 1);
-	[pool drain];
 }
 
 GHOST_SystemCocoa::~GHOST_SystemCocoa()
@@ -567,25 +535,21 @@ GHOST_IWindow* GHOST_SystemCocoa::createWindow(
 
 	window = new GHOST_WindowCocoa (this, title, left, bottom, width, height, state, type, stereoVisual, numOfAASamples);
 
-	if (window) {
-		if (window->getValid()) {
-			// Store the pointer to the window
-			GHOST_ASSERT(m_windowManager, "m_windowManager not initialized");
-			m_windowManager->addWindow(window);
-			m_windowManager->setActiveWindow(window);
-			//Need to tell window manager the new window is the active one (Cocoa does not send the event activate upon window creation)
-			pushEvent(new GHOST_Event(getMilliSeconds(), GHOST_kEventWindowActivate, window));
-			pushEvent(new GHOST_Event(getMilliSeconds(), GHOST_kEventWindowSize, window));
-		}
-		else {
-			GHOST_PRINT("GHOST_SystemCocoa::createWindow(): window invalid\n");
-			delete window;
-			window = 0;
-		}
+	if (window->getValid()) {
+		// Store the pointer to the window
+		GHOST_ASSERT(m_windowManager, "m_windowManager not initialized");
+		m_windowManager->addWindow(window);
+		m_windowManager->setActiveWindow(window);
+		//Need to tell window manager the new window is the active one (Cocoa does not send the event activate upon window creation)
+		pushEvent(new GHOST_Event(getMilliSeconds(), GHOST_kEventWindowActivate, window));
+		pushEvent(new GHOST_Event(getMilliSeconds(), GHOST_kEventWindowSize, window));
 	}
 	else {
-		GHOST_PRINT("GHOST_SystemCocoa::createWindow(): could not create window\n");
+		GHOST_PRINT("GHOST_SystemCocoa::createWindow(): window invalid\n");
+		delete window;
+		window = 0;
 	}
+	
 	[pool drain];
 	return window;
 }
@@ -672,7 +636,6 @@ GHOST_TSuccess GHOST_SystemCocoa::getButtons(GHOST_Buttons& buttons) const
 }
 
 
-
 #pragma mark Event handlers
 
 /**
@@ -740,7 +703,7 @@ bool GHOST_SystemCocoa::processEvents(bool waitForEvent)
 				// For some reason NSApp is swallowing the key up events when modifier
 				// key is pressed, even if there seems to be no apparent reason to do
 				// so, as a workaround we always handle these up events.
-				if ([event type] == NSKeyUp && (([event modifierFlags] & NSCommandKeyMask) || ([event modifierFlags] & NSAlternateKeyMask)))
+				if ([event type] == NSKeyUp && ([event modifierFlags] & (NSCommandKeyMask | NSAlternateKeyMask)))
 					handleKeyEvent(event);
 
 				[NSApp sendEvent:event];
@@ -1607,7 +1570,6 @@ GHOST_TSuccess GHOST_SystemCocoa::handleKeyEvent(void *eventPtr)
 	
 	return GHOST_kSuccess;
 }
-
 
 
 #pragma mark Clipboard get/set

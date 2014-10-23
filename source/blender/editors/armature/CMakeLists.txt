@@ -23,11 +23,12 @@ set(INC
 	../../blenfont
 	../../blenkernel
 	../../blenlib
+	../../gpu
 	../../makesdna
 	../../makesrna
 	../../windowmanager
-	../../gpu
 	../../../../intern/guardedalloc
+	../../../../intern/glew-mx
 )
 
 set(INC_SYS
@@ -73,6 +74,8 @@ if(WITH_OPENNL)
 		../../../../intern/opennl/extern
 	)
 endif()
+
+add_definitions(${GL_DEFINITIONS})
 
 if(WITH_BEPUIK)
         add_definitions(-DWITH_BEPUIK)

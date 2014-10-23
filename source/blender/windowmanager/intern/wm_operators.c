@@ -2098,7 +2098,7 @@ static int wm_operator_winactive_normal(bContext *C)
 {
 	wmWindow *win = CTX_wm_window(C);
 
-	if (win == NULL || win->screen == NULL || win->screen->full != SCREENNORMAL)
+	if (win == NULL || win->screen == NULL || win->screen->state != SCREENNORMAL)
 		return 0;
 
 	return 1;
@@ -2946,7 +2946,7 @@ static void WM_OT_save_mainfile(wmOperatorType *ot)
 
 static void WM_OT_window_fullscreen_toggle(wmOperatorType *ot)
 {
-	ot->name = "Toggle Fullscreen";
+	ot->name = "Toggle Window Fullscreen";
 	ot->idname = "WM_OT_window_fullscreen_toggle";
 	ot->description = "Toggle the current window fullscreen";
 
@@ -4740,6 +4740,7 @@ static void gesture_border_modal_keymap(wmKeyConfig *keyconf)
 	WM_modalkeymap_assign(keymap, "VIEW3D_OT_render_border");
 	WM_modalkeymap_assign(keymap, "VIEW3D_OT_select_border");
 	WM_modalkeymap_assign(keymap, "VIEW3D_OT_zoom_border"); /* XXX TODO: zoom border should perhaps map rightmouse to zoom out instead of in+cancel */
+	WM_modalkeymap_assign(keymap, "IMAGE_OT_render_border");
 }
 
 /* zoom to border modal operators */

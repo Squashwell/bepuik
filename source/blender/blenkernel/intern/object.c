@@ -185,6 +185,7 @@ void BKE_object_free_curve_cache(Object *ob)
 		if (ob->curve_cache->path) {
 			free_path(ob->curve_cache->path);
 		}
+		BKE_nurbList_free(&ob->curve_cache->deformed_nurbs);
 		MEM_freeN(ob->curve_cache);
 		ob->curve_cache = NULL;
 	}
@@ -321,18 +322,7 @@ void BKE_object_free_derived_caches(Object *ob)
 		ob->derivedDeform = NULL;
 	}
 	
-	if (ob->curve_cache) {
-		BKE_displist_free(&ob->curve_cache->disp);
-		BKE_curve_bevelList_free(&ob->curve_cache->bev);
-		if (ob->curve_cache->path) {
-			free_path(ob->curve_cache->path);
-			ob->curve_cache->path = NULL;
-		}
-
-		/* Signal for viewport to run DAG workarounds. */
-		MEM_freeN(ob->curve_cache);
-		ob->curve_cache = NULL;
-	}
+	BKE_object_free_curve_cache(ob);
 }
 
 /* do not free object itself */
@@ -1138,7 +1128,7 @@ static LodLevel *lod_level_select(Object *ob, const float camera_position[3])
 	}
 	else {
 		/* check for lower LoD */
-		while (current->next && dist_sq > (current->next->distance * current->next->distance)) {
+		while (current->next && dist_sq > SQUARE(current->next->distance)) {
 			current = current->next;
 		}
 	}
@@ -2231,8 +2221,18 @@ static void give_parvert(Object *par, int nr, float vec[3])
 		}
 	}
 	else if (ELEM(par->type, OB_CURVE, OB_SURF)) {
-		Curve *cu       = par->data;
-		ListBase *nurb  = BKE_curve_nurbs_get(cu);
+		ListBase *nurb;
+
+		/* Unless there's some weird depsgraph failure the cache should exist. */
+		BLI_assert(par->curve_cache != NULL);
+
+		if (par->curve_cache->deformed_nurbs.first != NULL) {
+			nurb = &par->curve_cache->deformed_nurbs;
+		}
+		else {
+			Curve *cu = par->data;
+			nurb = BKE_curve_nurbs_get(cu);
+		}
 
 		BKE_nurbList_index_get_co(nurb, nr, vec);
 	}

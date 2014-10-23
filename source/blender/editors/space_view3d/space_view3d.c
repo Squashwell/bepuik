@@ -434,9 +434,7 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
 	BGpic *bgpic;
 	
 	/* clear or remove stuff from old */
-	
-// XXX	BIF_view3d_previewrender_free(v3do);
-	
+
 	if (v3dn->localvd) {
 		v3dn->localvd = NULL;
 		v3dn->properties_storage = NULL;
@@ -698,10 +696,6 @@ static void view3d_main_area_free(ARegion *ar)
 		if (rv3d->localvd) MEM_freeN(rv3d->localvd);
 		if (rv3d->clipbb) MEM_freeN(rv3d->clipbb);
 
-		if (rv3d->ri) {
-			// XXX		BIF_view3d_previewrender_free(rv3d);
-		}
-
 		if (rv3d->render_engine)
 			RE_engine_free(rv3d->render_engine);
 		
@@ -735,7 +729,6 @@ static void *view3d_main_area_duplicate(void *poin)
 		
 		new->depths = NULL;
 		new->gpuoffscreen = NULL;
-		new->ri = NULL;
 		new->render_engine = NULL;
 		new->sms = NULL;
 		new->smooth_timer = NULL;

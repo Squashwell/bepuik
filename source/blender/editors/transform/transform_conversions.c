@@ -249,7 +249,7 @@ static void set_prop_dist(TransInfo *t, const bool with_dist)
 					}
 
 					dist_sq = len_squared_v3(vec);
-					if ((tob->rdist == -1.0f) || (dist_sq < (tob->rdist * tob->rdist))) {
+					if ((tob->rdist == -1.0f) || (dist_sq < SQUARE(tob->rdist))) {
 						tob->rdist = sqrtf(dist_sq);
 					}
 				}
@@ -1385,11 +1385,13 @@ static void createTransPose(TransInfo *t, Object *ob)
 
 void restoreBones(TransInfo *t)
 {
+	bArmature *arm = t->obedit->data;
 	BoneInitData *bid = t->customData;
 	EditBone *ebo;
 
 	while (bid->bone) {
 		ebo = bid->bone;
+		
 		ebo->dist = bid->dist;
 		ebo->rad_tail = bid->rad_tail;
 		ebo->roll = bid->roll;
@@ -1397,7 +1399,26 @@ void restoreBones(TransInfo *t)
 		ebo->zwidth = bid->zwidth;
 		copy_v3_v3(ebo->head, bid->head);
 		copy_v3_v3(ebo->tail, bid->tail);
+		
+		if (arm->flag & ARM_MIRROR_EDIT) {
+			EditBone *ebo_child;
 
+			/* Also move connected ebo_child, in case ebo_child's name aren't mirrored properly */
+			for (ebo_child = arm->edbo->first; ebo_child; ebo_child = ebo_child->next) {
+				if ((ebo_child->flag & BONE_CONNECTED) && (ebo_child->parent == ebo)) {
+					copy_v3_v3(ebo_child->head, ebo->tail);
+					ebo_child->rad_head = ebo->rad_tail;
+				}
+			}
+
+			/* Also move connected parent, in case parent's name isn't mirrored properly */
+			if ((ebo->flag & BONE_CONNECTED) && ebo->parent) {
+				EditBone *parent = ebo->parent;
+				copy_v3_v3(parent->tail, ebo->head);
+				parent->rad_tail = ebo->rad_head;
+			}
+		}
+		
 		bid++;
 	}
 }
@@ -2040,7 +2061,9 @@ static void createTransLatticeVerts(TransInfo *t)
 				if (bp->f1 & SELECT) {
 					td->flag = TD_SELECTED;
 				}
-				else td->flag = 0;
+				else {
+					td->flag = 0;
+				}
 				copy_m3_m3(td->smtx, smtx);
 				copy_m3_m3(td->mtx, mtx);
 
@@ -3100,8 +3123,8 @@ void flushTransUVs(TransInfo *t)
 		td->loc2d[1] = td->loc[1] * invy;
 
 		if ((sima->flag & SI_PIXELSNAP) && (t->state != TRANS_CANCEL)) {
-			td->loc2d[0] = (float)floor(width * td->loc2d[0] + 0.5f) / width;
-			td->loc2d[1] = (float)floor(height * td->loc2d[1] + 0.5f) / height;
+			td->loc2d[0] = floorf(width * td->loc2d[0] + 0.5f) / width;
+			td->loc2d[1] = floorf(height * td->loc2d[1] + 0.5f) / height;
 		}
 	}
 }
@@ -5098,7 +5121,6 @@ static bool constraints_list_needinv(TransInfo *t, ListBase *list)
 				/* (affirmative) returns for specific constraints here... */
 				/* constraints that require this regardless  */
 				if (ELEM(con->type,
-				         CONSTRAINT_TYPE_CHILDOF,
 				         CONSTRAINT_TYPE_FOLLOWPATH,
 				         CONSTRAINT_TYPE_CLAMPTO,
 				         CONSTRAINT_TYPE_OBJECTSOLVER,
@@ -5108,7 +5130,14 @@ static bool constraints_list_needinv(TransInfo *t, ListBase *list)
 				}
 				
 				/* constraints that require this only under special conditions */
-				if (con->type == CONSTRAINT_TYPE_ROTLIKE) {
+				if (con->type == CONSTRAINT_TYPE_CHILDOF) {
+					/* ChildOf constraint only works when using all location components, see T42256. */
+					bChildOfConstraint *data = (bChildOfConstraint *)con->data;
+					
+					if ((data->flag & CHILDOF_LOCX) && (data->flag & CHILDOF_LOCY) && (data->flag & CHILDOF_LOCZ))
+						return true;
+				}
+				else if (con->type == CONSTRAINT_TYPE_ROTLIKE) {
 					/* CopyRot constraint only does this when rotating, and offset is on */
 					bRotateLikeConstraint *data = (bRotateLikeConstraint *)con->data;
 					
