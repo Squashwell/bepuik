@@ -829,11 +829,12 @@ static void bepu_transpose_data_setup(TransInfo *t)
 
 	t->customFree = bepu_transinfo_free;
 	bepu_store_pchans(t);
-	G.bepuik_modal_solving = true;
+
 	if(ELEM(t->mode,TFM_TRANSLATION,TFM_ROTATION,TFM_TRACKBALL))
 	{ 
 		if(t->bepuikflag & T_BEPUIK_DYNAMIC)
 		{
+			G.bepuik_modal_dynamic_solving = true;
 			BKE_pose_bepuik_visual_transform_apply(t->scene,ob,true,false,0);
 
 			pose->bepuikflag |= POSE_BEPUIK_DYNAMIC;

@@ -72,7 +72,8 @@ typedef struct Global {
 	short moving;
 	short winpos, displaymode;  /* used to be in Render */
 
-    bool bepuik_modal_solving; /* TODO:BEPUIK XXX lame hack: global flag to indicate that bepuik is continuously solving, therefore always redraw all 3d views */
+    bool bepuik_modal_dynamic_solving; /* TODO:BEPUIK XXX lame hack: indicate that bepuik is continuously solving, therefore always redraw all 3d views */
+
 	/* to indicate render is busy, prevent renderwindow events etc */
 	bool is_rendering;
 

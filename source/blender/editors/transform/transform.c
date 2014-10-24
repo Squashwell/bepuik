@@ -7849,7 +7849,7 @@ void bepu_transinfo_free(TransInfo * t)
 	bPoseChannel * pchan;
 	Object * ob = t->poseobj;
 	BEPUikUndoData *ud = t->customData;
-	G.bepuik_modal_solving = false;
+	G.bepuik_modal_dynamic_solving = false;
 
 	ob->pose->bepuikflag &= ~(POSE_BEPUIK_SELECTION_AS_DRAGCONTROL |
 							  POSE_BEPUIK_SELECTION_AS_STATECONTROL |

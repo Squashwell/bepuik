@@ -2206,8 +2206,8 @@ void wm_event_do_handlers(bContext *C)
 		else {
 			Scene *scene = win->screen->scene;
 			
-            /* BEPUIK:TODO XXX hack to redraw all 3d view areas when bepuik is solving.... gross. */
-            if(G.bepuik_modal_solving)
+            /* BEPUIK:TODO XXX hack to redraw all 3d view areas when bepuik is continuously solving.... gross. */
+            if(G.bepuik_modal_dynamic_solving)
             {
                 ScrArea *sa;
                 ARegion *ar;
