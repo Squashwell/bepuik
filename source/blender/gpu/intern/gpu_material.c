@@ -739,8 +739,9 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 	i = is;
 	GPU_link(mat, "shade_visifac", i, visifac, shi->refl, &i);
 	
-	GPU_link(mat, "set_value", GPU_dynamic_uniform(lamp->dyncol, GPU_DYNAMIC_LAMP_DYNCOL, lamp->ob), &lcol);
+	GPU_link(mat, "set_rgb", GPU_dynamic_uniform(lamp->dyncol, GPU_DYNAMIC_LAMP_DYNCOL, lamp->ob), &lcol);
 	shade_light_textures(mat, lamp, &lcol);
+	GPU_link(mat, "shade_mul_value_v3", GPU_dynamic_uniform(&lamp->dynenergy, GPU_DYNAMIC_LAMP_DYNENERGY, lamp->ob), lcol, &lcol);	
 
 #if 0
 	if (ma->mode & MA_TANGENT_VN)
@@ -943,6 +944,12 @@ static void texture_rgb_blend(GPUMaterial *mat, GPUNodeLink *tex, GPUNodeLink *o
 		break;
 	case MTEX_BLEND_COLOR:
 		GPU_link(mat, "mtex_rgb_color", out, tex, fact, facg, in);
+		break;
+	case MTEX_SOFT_LIGHT:
+		GPU_link(mat, "mtex_rgb_soft", out, tex, fact, facg, in);
+		break;
+	case MTEX_LIN_LIGHT:
+		GPU_link(mat, "mtex_rgb_linear", out, tex, fact, facg, in);
 		break;
 	default:
 		GPU_link(mat, "set_rgb_zero", &in);
@@ -1710,9 +1717,9 @@ void GPU_lamp_update_colors(GPULamp *lamp, float r, float g, float b, float ener
 	lamp->energy = energy;
 	if (lamp->mode & LA_NEG) lamp->energy= -lamp->energy;
 
-	lamp->col[0]= r* lamp->energy;
-	lamp->col[1]= g* lamp->energy;
-	lamp->col[2]= b* lamp->energy;
+	lamp->col[0]= r;
+	lamp->col[1]= g;
+	lamp->col[2]= b;
 }
 
 void GPU_lamp_update_distance(GPULamp *lamp, float distance, float att1, float att2)
@@ -1744,9 +1751,9 @@ static void gpu_lamp_from_blender(Scene *scene, Object *ob, Object *par, Lamp *l
 	lamp->energy = la->energy;
 	if (lamp->mode & LA_NEG) lamp->energy= -lamp->energy;
 
-	lamp->col[0]= la->r*lamp->energy;
-	lamp->col[1]= la->g*lamp->energy;
-	lamp->col[2]= la->b*lamp->energy;
+	lamp->col[0]= la->r;
+	lamp->col[1]= la->g;
+	lamp->col[2]= la->b;
 
 	GPU_lamp_update(lamp, ob->lay, (ob->restrictflag & OB_RESTRICT_RENDER), ob->obmat);
 
@@ -2009,6 +2016,7 @@ GPUNodeLink *GPU_lamp_get_data(GPUMaterial *mat, GPULamp *lamp, GPUNodeLink **co
 
 	*col = GPU_dynamic_uniform(lamp->dyncol, GPU_DYNAMIC_LAMP_DYNCOL, lamp->ob);
 	visifac = lamp_get_visibility(mat, lamp, lv, dist);
+	/* looks like it's not used? psy-fi */
 	shade_light_textures(mat, lamp, col);
 
 	if (GPU_lamp_has_shadow_buffer(lamp)) {

@@ -49,6 +49,7 @@ static PyStructSequence_Field app_cb_info_fields[] = {
 	{(char *)"render_pre",        (char *)"Callback list - on render (before)"},
 	{(char *)"render_post",       (char *)"Callback list - on render (after)"},
 	{(char *)"render_stats",      (char *)"Callback list - on printing render statistics"},
+	{(char *)"render_init",       (char *)"Callback list - on initialization of a render job"},
 	{(char *)"render_complete",   (char *)"Callback list - on completion of render job"},
 	{(char *)"render_cancel",     (char *)"Callback list - on canceling a render job"},
 	{(char *)"load_pre",          (char *)"Callback list - on loading a new blend file (before)"},
@@ -59,6 +60,7 @@ static PyStructSequence_Field app_cb_info_fields[] = {
 	{(char *)"scene_update_post", (char *)"Callback list - on updating the scenes data (after)"},
 	{(char *)"game_pre",          (char *)"Callback list - on starting the game engine"},
 	{(char *)"game_post",         (char *)"Callback list - on ending the game engine"},
+	{(char *)"version_update",    (char *)"Callback list - on ending the versioning code"},
 
 	/* sets the permanent tag */
 #   define APP_CB_OTHER_FIELDS 1
@@ -238,7 +240,10 @@ PyObject *BPY_app_handlers_struct(void)
 
 void BPY_app_handlers_reset(const short do_all)
 {
+	PyGILState_STATE gilstate;
 	int pos = 0;
+
+	gilstate = PyGILState_Ensure();
 
 	if (do_all) {
 		for (pos = 0; pos < BLI_CB_EVT_TOT; pos++) {
@@ -277,6 +282,8 @@ void BPY_app_handlers_reset(const short do_all)
 
 		Py_DECREF(perm_id_str);
 	}
+
+	PyGILState_Release(gilstate);
 }
 
 /* the actual callback - not necessarily called from py */

@@ -728,14 +728,15 @@ GHOST_WindowCocoa::GHOST_WindowCocoa(
 	if (state == GHOST_kWindowStateFullScreen)
 		setState(GHOST_kWindowStateFullScreen);
 
-	//Starting with 10.9 (darwin 13.x.x), we always use Lion fullscreen, since it
-	//now has proper multi-monitor support for fullscreen
-	char darwin_ver[10];
-	size_t len = sizeof(darwin_ver);
-	sysctlbyname("kern.osrelease", &darwin_ver, &len, NULL, 0);
-	if(darwin_ver[0] == '1' && darwin_ver[1] >= '3') {
-		m_lionStyleFullScreen = true;
-	}
+	// Starting with 10.9 (darwin 13.x.x), we can use Lion fullscreen,
+	// since it now has better multi-monitor support
+    // if the screens are spawned, additional screens get useless,
+    // so we only use lionStyleFullScreen when screens have separate spaces
+    
+    if ([NSScreen respondsToSelector:@selector(screensHaveSeparateSpaces)] && [NSScreen screensHaveSeparateSpaces]) {
+        // implies we are on >= OSX 10.9
+        m_lionStyleFullScreen = true;
+    }
 	
 	[pool drain];
 }
@@ -962,7 +963,12 @@ GHOST_TWindowState GHOST_WindowCocoa::getState() const
 
 	if (masks & NSFullScreenWindowMask) {
 		// Lion style fullscreen
-		state = GHOST_kWindowStateFullScreen;
+        if (!m_immediateDraw) {
+            state = GHOST_kWindowStateFullScreen;
+        }
+        else {
+            state = GHOST_kWindowStateNormal;
+        }
 	}
 	else
 #endif
@@ -976,7 +982,12 @@ GHOST_TWindowState GHOST_WindowCocoa::getState() const
 		state = GHOST_kWindowStateMaximized;
 	}
 	else {
+        if (m_immediateDraw) {
+            state = GHOST_kWindowStateFullScreen;
+        }
+        else {
 		state = GHOST_kWindowStateNormal;
+        }
 	}
 	[pool drain];
 	return state;

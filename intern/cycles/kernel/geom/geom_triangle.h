@@ -18,7 +18,7 @@
 /* Triangle Primitive
  *
  * Basic triangle with 3 vertices is used to represent mesh surfaces. For BVH
- * ray intersection we use a precomputed triangle storage to accelarate
+ * ray intersection we use a precomputed triangle storage to accelerate
  * intersection at the cost of more memory usage */
 
 CCL_NAMESPACE_BEGIN
@@ -117,24 +117,27 @@ ccl_device_inline float3 triangle_refine_subsurface(KernelGlobals *kg, ShaderDat
 }
 
 /* normal on triangle  */
-ccl_device_inline float3 triangle_normal(KernelGlobals *kg, int prim)
+ccl_device_inline float3 triangle_normal(KernelGlobals *kg, ShaderData *sd)
 {
 	/* load triangle vertices */
-	float3 tri_vindex = float4_to_float3(kernel_tex_fetch(__tri_vindex, prim));
+	float4 tri_vindex = kernel_tex_fetch(__tri_vindex, sd->prim);
 
 	float3 v0 = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.x)));
 	float3 v1 = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.y)));
 	float3 v2 = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.z)));
 	
 	/* return normal */
-	return normalize(cross(v1 - v0, v2 - v0));
+	if(sd->flag & SD_NEGATIVE_SCALE_APPLIED)
+		return normalize(cross(v2 - v0, v1 - v0));
+	else
+		return normalize(cross(v1 - v0, v2 - v0));
 }
 
 /* point and normal on triangle  */
-ccl_device_inline void triangle_point_normal(KernelGlobals *kg, int prim, float u, float v, float3 *P, float3 *Ng, int *shader)
+ccl_device_inline void triangle_point_normal(KernelGlobals *kg, int object, int prim, float u, float v, float3 *P, float3 *Ng, int *shader)
 {
 	/* load triangle vertices */
-	float3 tri_vindex = float4_to_float3(kernel_tex_fetch(__tri_vindex, prim));
+	float4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
 
 	float3 v0 = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.x)));
 	float3 v1 = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.y)));
@@ -144,8 +147,14 @@ ccl_device_inline void triangle_point_normal(KernelGlobals *kg, int prim, float 
 	float t = 1.0f - u - v;
 	*P = (u*v0 + v*v1 + t*v2);
 
+	/* get object flags, instance-aware */
+	int object_flag = kernel_tex_fetch(__object_flag, object >= 0 ? object : ~object);
+
 	/* compute normal */
-	*Ng = normalize(cross(v1 - v0, v2 - v0));
+	if(object_flag & SD_NEGATIVE_SCALE_APPLIED)
+		*Ng = normalize(cross(v2 - v0, v1 - v0));
+	else
+		*Ng = normalize(cross(v1 - v0, v2 - v0));
 
 	/* shader`*/
 	*shader = __float_as_int(kernel_tex_fetch(__tri_shader, prim));
@@ -155,7 +164,7 @@ ccl_device_inline void triangle_point_normal(KernelGlobals *kg, int prim, float 
 
 ccl_device_inline void triangle_vertices(KernelGlobals *kg, int prim, float3 P[3])
 {
-	float3 tri_vindex = float4_to_float3(kernel_tex_fetch(__tri_vindex, prim));
+	float4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
 
 	P[0] = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.x)));
 	P[1] = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.y)));
@@ -167,7 +176,7 @@ ccl_device_inline void triangle_vertices(KernelGlobals *kg, int prim, float3 P[3
 ccl_device_inline float3 triangle_smooth_normal(KernelGlobals *kg, int prim, float u, float v)
 {
 	/* load triangle vertices */
-	float3 tri_vindex = float4_to_float3(kernel_tex_fetch(__tri_vindex, prim));
+	float4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
 
 	float3 n0 = float4_to_float3(kernel_tex_fetch(__tri_vnormal, __float_as_int(tri_vindex.x)));
 	float3 n1 = float4_to_float3(kernel_tex_fetch(__tri_vnormal, __float_as_int(tri_vindex.y)));
@@ -181,7 +190,7 @@ ccl_device_inline float3 triangle_smooth_normal(KernelGlobals *kg, int prim, flo
 ccl_device_inline void triangle_dPdudv(KernelGlobals *kg, int prim, float3 *dPdu, float3 *dPdv)
 {
 	/* fetch triangle vertex coordinates */
-	float3 tri_vindex = float4_to_float3(kernel_tex_fetch(__tri_vindex, prim));
+	float4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
 
 	float3 p0 = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.x)));
 	float3 p1 = float4_to_float3(kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.y)));
@@ -203,7 +212,7 @@ ccl_device float triangle_attribute_float(KernelGlobals *kg, const ShaderData *s
 		return kernel_tex_fetch(__attributes_float, offset + sd->prim);
 	}
 	else if(elem == ATTR_ELEMENT_VERTEX || elem == ATTR_ELEMENT_VERTEX_MOTION) {
-		float3 tri_vindex = float4_to_float3(kernel_tex_fetch(__tri_vindex, sd->prim));
+		float4 tri_vindex = kernel_tex_fetch(__tri_vindex, sd->prim);
 
 		float f0 = kernel_tex_fetch(__attributes_float, offset + __float_as_int(tri_vindex.x));
 		float f1 = kernel_tex_fetch(__attributes_float, offset + __float_as_int(tri_vindex.y));
@@ -246,7 +255,7 @@ ccl_device float3 triangle_attribute_float3(KernelGlobals *kg, const ShaderData 
 		return float4_to_float3(kernel_tex_fetch(__attributes_float3, offset + sd->prim));
 	}
 	else if(elem == ATTR_ELEMENT_VERTEX || elem == ATTR_ELEMENT_VERTEX_MOTION) {
-		float3 tri_vindex = float4_to_float3(kernel_tex_fetch(__tri_vindex, sd->prim));
+		float4 tri_vindex = kernel_tex_fetch(__tri_vindex, sd->prim);
 
 		float3 f0 = float4_to_float3(kernel_tex_fetch(__attributes_float3, offset + __float_as_int(tri_vindex.x)));
 		float3 f1 = float4_to_float3(kernel_tex_fetch(__attributes_float3, offset + __float_as_int(tri_vindex.y)));

@@ -371,6 +371,9 @@ void BKE_tracking_clipboard_paste_tracks(MovieTracking *tracking, MovieTrackingO
 
 	while (track) {
 		MovieTrackingTrack *new_track = BKE_tracking_track_duplicate(track);
+		if (track->prev == NULL) {
+			tracking->act_track = new_track;
+		}
 
 		BLI_addtail(tracksbase, new_track);
 		BKE_tracking_track_unique_name(tracksbase, new_track);
@@ -1891,11 +1894,21 @@ ImBuf *BKE_tracking_distort_frame(MovieTracking *tracking, ImBuf *ibuf, int cali
 	                                    calibration_height, overscan, false);
 }
 
-void BKE_tracking_max_undistortion_delta_across_bound(MovieTracking *tracking, rcti *rect, float delta[2])
+void BKE_tracking_max_distortion_delta_across_bound(MovieTracking *tracking, rcti *rect,
+                                                    bool undistort, float delta[2])
 {
 	int a;
 	float pos[2], warped_pos[2];
 	const int coord_delta = 5;
+	void (*apply_distortion) (MovieTracking *tracking,
+	                         const float pos[2], float out[2]);
+
+	if (undistort) {
+		apply_distortion = BKE_tracking_undistort_v2;
+	}
+	else {
+		apply_distortion = BKE_tracking_distort_v2;
+	}
 
 	delta[0] = delta[1] = -FLT_MAX;
 
@@ -1907,7 +1920,7 @@ void BKE_tracking_max_undistortion_delta_across_bound(MovieTracking *tracking, r
 		pos[0] = a;
 		pos[1] = rect->ymin;
 
-		BKE_tracking_undistort_v2(tracking, pos, warped_pos);
+		apply_distortion(tracking, pos, warped_pos);
 
 		delta[0] = max_ff(delta[0], fabsf(pos[0] - warped_pos[0]));
 		delta[1] = max_ff(delta[1], fabsf(pos[1] - warped_pos[1]));
@@ -1916,7 +1929,7 @@ void BKE_tracking_max_undistortion_delta_across_bound(MovieTracking *tracking, r
 		pos[0] = a;
 		pos[1] = rect->ymax;
 
-		BKE_tracking_undistort_v2(tracking, pos, warped_pos);
+		apply_distortion(tracking, pos, warped_pos);
 
 		delta[0] = max_ff(delta[0], fabsf(pos[0] - warped_pos[0]));
 		delta[1] = max_ff(delta[1], fabsf(pos[1] - warped_pos[1]));
@@ -1933,7 +1946,7 @@ void BKE_tracking_max_undistortion_delta_across_bound(MovieTracking *tracking, r
 		pos[0] = rect->xmin;
 		pos[1] = a;
 
-		BKE_tracking_undistort_v2(tracking, pos, warped_pos);
+		apply_distortion(tracking, pos, warped_pos);
 
 		delta[0] = max_ff(delta[0], fabsf(pos[0] - warped_pos[0]));
 		delta[1] = max_ff(delta[1], fabsf(pos[1] - warped_pos[1]));
@@ -1942,7 +1955,7 @@ void BKE_tracking_max_undistortion_delta_across_bound(MovieTracking *tracking, r
 		pos[0] = rect->xmax;
 		pos[1] = a;
 
-		BKE_tracking_undistort_v2(tracking, pos, warped_pos);
+		apply_distortion(tracking, pos, warped_pos);
 
 		delta[0] = max_ff(delta[0], fabsf(pos[0] - warped_pos[0]));
 		delta[1] = max_ff(delta[1], fabsf(pos[1] - warped_pos[1]));

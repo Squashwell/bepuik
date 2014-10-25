@@ -84,7 +84,7 @@ void DrawRasterizerLine(const float* from,const float* to,int color);
 
 // This was copied from the old KX_ConvertPhysicsObjects
 #ifdef WIN32
-#if defined(_MSC_VER) && (_MSC_VER >= 1310)
+#ifdef _MSC_VER
 //only use SIMD Hull code under Win32
 //#define TEST_HULL 1
 #ifdef TEST_HULL
@@ -2094,7 +2094,7 @@ void	CcdPhysicsEnvironment::SetConstraintParam(int constraintId,int param,float 
 
 			case 12: case 13: case 14: case 15: case 16: case 17:
 			{
-				//param 13-17 are for motorized springs on each of the degrees of freedom
+				//param 12-17 are for motorized springs on each of the degrees of freedom
 					btGeneric6DofSpringConstraint* genCons = (btGeneric6DofSpringConstraint*)typedConstraint;
 					int springIndex = param-12;
 					if (value0!=0.f)

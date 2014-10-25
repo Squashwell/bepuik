@@ -86,7 +86,7 @@ ccl_device void shader_setup_from_ray(KernelGlobals *kg, ShaderData *sd,
 #endif
 	if(sd->type & PRIMITIVE_TRIANGLE) {
 		/* static triangle */
-		float3 Ng = triangle_normal(kg, sd->prim);
+		float3 Ng = triangle_normal(kg, sd);
 		sd->shader =  __float_as_int(kernel_tex_fetch(__tri_shader, sd->prim));
 
 		/* vectors */
@@ -165,7 +165,7 @@ ccl_device_inline void shader_setup_from_subsurface(KernelGlobals *kg, ShaderDat
 
 	/* fetch triangle data */
 	if(sd->type == PRIMITIVE_TRIANGLE) {
-		float3 Ng = triangle_normal(kg, sd->prim);
+		float3 Ng = triangle_normal(kg, sd);
 		sd->shader =  __float_as_int(kernel_tex_fetch(__tri_shader, sd->prim));
 
 		/* static triangle */
@@ -340,7 +340,7 @@ ccl_device void shader_setup_from_displace(KernelGlobals *kg, ShaderData *sd,
 	float3 P, Ng, I = make_float3(0.0f, 0.0f, 0.0f);
 	int shader;
 
-	triangle_point_normal(kg, prim, u, v, &P, &Ng, &shader);
+	triangle_point_normal(kg, object, prim, u, v, &P, &Ng, &shader);
 
 	/* force smooth shading for displacement */
 	shader |= SHADER_SMOOTH_NORMAL;
@@ -798,8 +798,8 @@ ccl_device void shader_eval_surface(KernelGlobals *kg, ShaderData *sd,
 #ifdef __SVM__
 		svm_eval_nodes(kg, sd, SHADER_TYPE_SURFACE, path_flag);
 #else
-		sd->closure.weight = make_float3(0.8f, 0.8f, 0.8f);
-		sd->closure.N = sd->N;
+		sd->closure->weight = make_float3(0.8f, 0.8f, 0.8f);
+		sd->closure->N = sd->N;
 		sd->flag |= bsdf_diffuse_setup(&sd->closure);
 #endif
 	}

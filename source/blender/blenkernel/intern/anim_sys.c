@@ -405,7 +405,7 @@ void action_move_fcurves_by_basepath(bAction *srcAct, bAction *dstAct, const cha
 	FCurve *fcu, *fcn = NULL;
 	
 	/* sanity checks */
-	if (ELEM3(NULL, srcAct, dstAct, basepath)) {
+	if (ELEM(NULL, srcAct, dstAct, basepath)) {
 		if (G.debug & G_DEBUG) {
 			printf("ERROR: action_partition_fcurves_by_basepath(%p, %p, %p) has insufficient info to work with\n",
 			       (void *)srcAct, (void *)dstAct, (void *)basepath);
@@ -1062,7 +1062,7 @@ KS_Path *BKE_keyingset_find_path(KeyingSet *ks, ID *id, const char group_name[],
 	KS_Path *ksp;
 	
 	/* sanity checks */
-	if (ELEM3(NULL, ks, rna_path, id))
+	if (ELEM(NULL, ks, rna_path, id))
 		return NULL;
 	
 	/* loop over paths in the current KeyingSet, finding the first one where all settings match 
@@ -2338,6 +2338,17 @@ static void animsys_evaluate_nla(ListBase *echannels, PointerRNA *ptr, AnimData 
 		
 	/* 3. free temporary evaluation data that's not used elsewhere */
 	BLI_freelistN(&estrips);
+
+	/* Tag ID as updated so render engines will recognize changes in data
+	 * which is animated but doesn't have actions.
+	 */
+	if (ptr->id.data != NULL) {
+		ID *id = ptr->id.data;
+		if (!(id->flag & LIB_ANIM_NO_RECALC)) {
+			id->flag |= LIB_ID_RECALC;
+			DAG_id_type_tag(G.main, GS(id->name));
+		}
+	}
 }
 
 /* NLA Evaluation function (mostly for use through do_animdata) 
@@ -2392,7 +2403,7 @@ static void animsys_evaluate_overrides(PointerRNA *ptr, AnimData *adt)
 
 /* Overview of how this system works:
  *	1) Depsgraph sorts data as necessary, so that data is in an order that means 
- *		that all dependencies are resolved before dependants.
+ *		that all dependencies are resolved before dependents.
  *	2) All normal animation is evaluated, so that drivers have some basis values to
  *		work with
  *		a.	NLA stacks are done first, as the Active Actions act as 'tweaking' tracks

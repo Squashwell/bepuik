@@ -310,20 +310,25 @@ int insert_bezt_fcurve(FCurve *fcu, BezTriple *bezt, short flag)
 		if (replace) {
 			/* sanity check: 'i' may in rare cases exceed arraylen */
 			if ((i >= 0) && (i < fcu->totvert)) {
-				/* just change the values when replacing, so as to not overwrite handles */
-				BezTriple *dst = (fcu->bezt + i);
-				float dy = bezt->vec[1][1] - dst->vec[1][1];
-				
-				/* just apply delta value change to the handle values */
-				dst->vec[0][1] += dy;
-				dst->vec[1][1] += dy;
-				dst->vec[2][1] += dy;
-				
-				dst->f1 = bezt->f1;
-				dst->f2 = bezt->f2;
-				dst->f3 = bezt->f3;
-				
-				/* TODO: perform some other operations? */
+				if (flag & INSERTKEY_OVERWRITE_FULL) {
+					fcu->bezt[i] = *bezt;
+				}
+				else {
+					/* just change the values when replacing, so as to not overwrite handles */
+					BezTriple *dst = (fcu->bezt + i);
+					float dy = bezt->vec[1][1] - dst->vec[1][1];
+					
+					/* just apply delta value change to the handle values */
+					dst->vec[0][1] += dy;
+					dst->vec[1][1] += dy;
+					dst->vec[2][1] += dy;
+					
+					dst->f1 = bezt->f1;
+					dst->f2 = bezt->f2;
+					dst->f3 = bezt->f3;
+					
+					/* TODO: perform some other operations? */
+				}
 			}
 		}
 		/* keyframing modes allow to not replace keyframe */
@@ -652,7 +657,7 @@ static bool visualkey_can_use(PointerRNA *ptr, PropertyRNA *prop)
 	const char *identifier = NULL;
 	
 	/* validate data */
-	if (ELEM3(NULL, ptr, ptr->data, prop))
+	if (ELEM(NULL, ptr, ptr->data, prop))
 		return 0;
 	
 	/* get first constraint and determine type of keyframe constraints to check for 
@@ -1042,7 +1047,7 @@ short insert_keyframe(ReportList *reports, ID *id, bAction *act, const char grou
 				/* for Loc/Rot/Scale and also Color F-Curves, the color of the F-Curve in the Graph Editor,
 				 * is determined by the array index for the F-Curve
 				 */
-				if (ELEM5(RNA_property_subtype(prop), PROP_TRANSLATION, PROP_XYZ, PROP_EULER, PROP_COLOR, PROP_COORDS)) {
+				if (ELEM(RNA_property_subtype(prop), PROP_TRANSLATION, PROP_XYZ, PROP_EULER, PROP_COLOR, PROP_COORDS)) {
 					fcu->color_mode = FCURVE_COLOR_AUTO_RGB;
 				}
 			}

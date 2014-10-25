@@ -117,7 +117,7 @@ static int particles_are_dynamic(ParticleSystem *psys)
 	if (psys->part->type == PART_HAIR)
 		return psys->flag & PSYS_HAIR_DYNAMICS;
 	else
-		return ELEM3(psys->part->phystype, PART_PHYS_NEWTON, PART_PHYS_BOIDS, PART_PHYS_FLUID);
+		return ELEM(psys->part->phystype, PART_PHYS_NEWTON, PART_PHYS_BOIDS, PART_PHYS_FLUID);
 }
 
 float psys_get_current_display_percentage(ParticleSystem *psys)
@@ -399,7 +399,7 @@ void psys_calc_dmcache(Object *ob, DerivedMesh *dm, ParticleSystem *psys)
 				}
 			}
 
-			if (origindex_final != ORIGINDEX_NONE) {
+			if (origindex_final != ORIGINDEX_NONE && origindex_final < totelem) {
 				if (nodearray[origindex_final]) {
 					/* prepend */
 					node->next = nodearray[origindex_final];
@@ -507,7 +507,7 @@ static void distribute_grid(DerivedMesh *dm, ParticleSystem *psys)
 	sub_v3_v3v3(delta, max, min);
 
 	/* determine major axis */
-	axis = (delta[0]>=delta[1]) ? 0 : ((delta[1]>=delta[2]) ? 1 : 2);
+	axis = axis_dominant_v3_single(delta);
 	 
 	d = delta[axis]/(float)res;
 
@@ -1079,7 +1079,7 @@ static int distribute_threads_init_data(ParticleThread *threads, Scene *scene, D
 	float *element_weight=NULL,*element_sum=NULL,*jitter_offset=NULL, *vweight=NULL;
 	float cur, maxweight=0.0, tweight, totweight, inv_totweight, co[3], nor[3], orco[3];
 	
-	if (ELEM3(NULL, ob, psys, psys->part))
+	if (ELEM(NULL, ob, psys, psys->part))
 		return 0;
 
 	part=psys->part;
@@ -2638,7 +2638,7 @@ static void sph_particle_courant(SPHData *sphdata, SPHRangeData *pfr)
 		mul_v3_v3fl(sphdata->flow, flow, 1.0f / pfr->tot_neighbors);
 	}
 	else {
-		sphdata->element_size = MAXFLOAT;
+		sphdata->element_size = FLT_MAX;
 		copy_v3_v3(sphdata->flow, flow);
 	}
 }
@@ -3153,7 +3153,7 @@ static void basic_rotate(ParticleSettings *part, ParticleData *pa, float dfra, f
 		extrotfac = 0.0f;
 	}
 
-	if ((part->flag & PART_ROT_DYN) && ELEM3(part->avemode, PART_AVE_VELOCITY, PART_AVE_HORIZONTAL, PART_AVE_VERTICAL)) {
+	if ((part->flag & PART_ROT_DYN) && ELEM(part->avemode, PART_AVE_VELOCITY, PART_AVE_HORIZONTAL, PART_AVE_VERTICAL)) {
 		float angle;
 		float len1 = len_v3(pa->prev_state.vel);
 		float len2 = len_v3(pa->state.vel);
@@ -4012,6 +4012,7 @@ static void do_hair_dynamics(ParticleSimulationData *sim)
 	if (!psys->clmd) {
 		psys->clmd = (ClothModifierData*)modifier_new(eModifierType_Cloth);
 		psys->clmd->sim_parms->goalspring = 0.0f;
+		psys->clmd->sim_parms->vel_damping = 1.0f;
 		psys->clmd->sim_parms->flags |= CLOTH_SIMSETTINGS_FLAG_GOAL|CLOTH_SIMSETTINGS_FLAG_NO_SPRING_COMPRESS;
 		psys->clmd->coll_parms->flags &= ~CLOTH_COLLSETTINGS_FLAG_SELF;
 	}
@@ -4846,13 +4847,13 @@ void psys_changed_type(Object *ob, ParticleSystem *psys)
 		psys->flag &= ~PSYS_KEYED;
 
 	if (part->type == PART_HAIR) {
-		if (ELEM4(part->ren_as, PART_DRAW_NOT, PART_DRAW_PATH, PART_DRAW_OB, PART_DRAW_GR)==0)
+		if (ELEM(part->ren_as, PART_DRAW_NOT, PART_DRAW_PATH, PART_DRAW_OB, PART_DRAW_GR)==0)
 			part->ren_as = PART_DRAW_PATH;
 
 		if (part->distr == PART_DISTR_GRID)
 			part->distr = PART_DISTR_JIT;
 
-		if (ELEM3(part->draw_as, PART_DRAW_NOT, PART_DRAW_REND, PART_DRAW_PATH)==0)
+		if (ELEM(part->draw_as, PART_DRAW_NOT, PART_DRAW_REND, PART_DRAW_PATH)==0)
 			part->draw_as = PART_DRAW_REND;
 
 		CLAMP(part->path_start, 0.0f, 100.0f);

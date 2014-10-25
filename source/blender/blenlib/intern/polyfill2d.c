@@ -387,7 +387,7 @@ static bool kdtree2d_isect_tri_recursive(
 			    (span_tri_v2_sign(tri_coords[1], tri_coords[2], co) != CONCAVE) &&
 			    (span_tri_v2_sign(tri_coords[2], tri_coords[0], co) != CONCAVE))
 			{
-				if (!ELEM3(node->index, tri_index[0], tri_index[1], tri_index[2])) {
+				if (!ELEM(node->index, tri_index[0], tri_index[1], tri_index[2])) {
 					return true;
 				}
 			}
@@ -567,7 +567,7 @@ static void pf_triangulate(PolyFill *pf)
 
 #ifdef USE_CLIP_EVEN
 #ifdef USE_CLIP_SWEEP
-		pi_ear_init = reverse ? pi_next->next : pi_prev->prev;
+		pi_ear_init = reverse ? pi_prev->prev : pi_next->next;
 #else
 		pi_ear_init = pi_next->next;
 #endif
@@ -661,11 +661,11 @@ static PolyIndex *pf_ear_tip_find(
 
 static bool pf_ear_tip_check(PolyFill *pf, PolyIndex *pi_ear_tip)
 {
-	/* localize */
-	PolyIndex *pi_curr;
-	const float (*coords)[2] = pf->coords;
-
 #ifndef USE_KDTREE
+	/* localize */
+	const float (*coords)[2] = pf->coords;
+	PolyIndex *pi_curr;
+
 	const float *v1, *v2, *v3;
 #endif
 
@@ -711,8 +711,6 @@ static bool pf_ear_tip_check(PolyFill *pf, PolyIndex *pi_ear_tip)
 			return false;
 		}
 	}
-	(void)pi_curr;
-	(void)coords;
 #else
 
 	v1 = coords[pi_ear_tip->prev->index];

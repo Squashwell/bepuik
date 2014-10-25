@@ -102,8 +102,8 @@ static PyObject *StrokeVertexIterator_iter(BPy_StrokeVertexIterator *self)
 static PyObject *StrokeVertexIterator_iternext(BPy_StrokeVertexIterator *self)
 {
 	/* Because Freestyle iterators for which it.isEnd() holds true have no valid object
-	 * (referencing it.object in this case leads to a crash), we must check if it.object
-	 * is valid after incrementing, to prevent crashes in Python.
+	 * (they point to the past-the-end element and can't be dereferenced), we have to check
+	 * iterators for validity.
 	 * Additionally, the at_start attribute is used to keep Freestyle iterator objects
 	 * and Python for loops in sync. */
 
@@ -115,22 +115,24 @@ static PyObject *StrokeVertexIterator_iternext(BPy_StrokeVertexIterator *self)
 		self->sv_it->decrement();
 	}
 	else {
+		/* If sv_it.isEnd() is true, the iterator can't be incremented. */
 		if (self->sv_it->isEnd()) {
 			PyErr_SetNone(PyExc_StopIteration);
 			return NULL;
 		}
-		/* if at the start of the iterator, only return the object
-		 * and don't increment, to keep for-loops in sync */
-		if (self->at_start)
+		/* If at the start of the iterator, only return the object
+		* and don't increment, to keep for-loops in sync */
+		else if (self->at_start) {
 			self->at_start = false;
-		/* after incrementing, check if the iterator is at its end
-		 * exit the loop if it is. not doing so will result in a crash */
+		}
+		/* If sv_it.atLast() is true, the iterator is currently pointing to the final valid element.
+		 * Incrementing it further would lead to a state that the iterator can't be dereferenced. */
+		else if (self->sv_it->atLast()) {
+			PyErr_SetNone(PyExc_StopIteration);
+			return NULL;
+		}
 		else {
 			self->sv_it->increment();
-			if (self->sv_it->isEnd()) {
-				PyErr_SetNone(PyExc_StopIteration);
-				return NULL;
-			}
 		}
 	}
 	StrokeVertex *sv = self->sv_it->operator->();
@@ -153,9 +155,9 @@ static PyObject *StrokeVertexIterator_incremented(BPy_StrokeVertexIterator *self
 		PyErr_SetString(PyExc_RuntimeError, "cannot increment any more");
 		return NULL;
 	}
-	StrokeInternal::StrokeVertexIterator *copy = new StrokeInternal::StrokeVertexIterator(*self->sv_it);
-	copy->increment();
-	return BPy_StrokeVertexIterator_from_StrokeVertexIterator(*copy, self->reversed);
+	StrokeInternal::StrokeVertexIterator copy(*self->sv_it);
+	copy.increment();
+	return BPy_StrokeVertexIterator_from_StrokeVertexIterator(copy, self->reversed);
 }
 
 PyDoc_STRVAR(StrokeVertexIterator_decremented_doc,
@@ -172,10 +174,9 @@ static PyObject *StrokeVertexIterator_decremented(BPy_StrokeVertexIterator *self
 		PyErr_SetString(PyExc_RuntimeError, "cannot decrement any more");
 		return NULL;
 	}
-
-	StrokeInternal::StrokeVertexIterator *copy = new StrokeInternal::StrokeVertexIterator(*self->sv_it);
-	copy->decrement();
-	return BPy_StrokeVertexIterator_from_StrokeVertexIterator(*copy, self->reversed);
+	StrokeInternal::StrokeVertexIterator copy(*self->sv_it);
+	copy.decrement();
+	return BPy_StrokeVertexIterator_from_StrokeVertexIterator(copy, self->reversed);
 }
 
 PyDoc_STRVAR(StrokeVertexIterator_reversed_doc,
@@ -189,12 +190,11 @@ PyDoc_STRVAR(StrokeVertexIterator_reversed_doc,
 
 static PyObject *StrokeVertexIterator_reversed(BPy_StrokeVertexIterator *self)
 {
-	StrokeInternal::StrokeVertexIterator *copy = new StrokeInternal::StrokeVertexIterator(*self->sv_it);
-	return BPy_StrokeVertexIterator_from_StrokeVertexIterator(*copy, !self->reversed);
+	return BPy_StrokeVertexIterator_from_StrokeVertexIterator(*self->sv_it, !self->reversed);
 }
 
 static PyMethodDef BPy_StrokeVertexIterator_methods[] = {
-	{"incremented", (PyCFunction) StrokeVertexIterator_incremented, METH_NOARGS, StrokeVertexIterator_incremented_doc},
+	{"incremented", (PyCFunction)StrokeVertexIterator_incremented, METH_NOARGS, StrokeVertexIterator_incremented_doc},
 	{"decremented", (PyCFunction)StrokeVertexIterator_decremented, METH_NOARGS, StrokeVertexIterator_decremented_doc},
 	{"reversed", (PyCFunction)StrokeVertexIterator_reversed, METH_NOARGS, StrokeVertexIterator_reversed_doc},
 	{NULL, NULL, 0, NULL}
@@ -239,11 +239,25 @@ static PyObject *StrokeVertexIterator_u_get(BPy_StrokeVertexIterator *self, void
 	return PyFloat_FromDouble(self->sv_it->u());
 }
 
+PyDoc_STRVAR(StrokeVertexIterator_at_last_doc,
+"True if the interator points to the last valid element.\n"
+"For its counterpart (pointing to the first valid element), use it.is_begin.\n"
+"\n"
+":type: bool");
+
+static PyObject *StrokeVertexIterator_at_last_get(BPy_StrokeVertexIterator *self)
+{
+	return PyBool_from_bool(self->sv_it->atLast());
+
+}
+
 static PyGetSetDef BPy_StrokeVertexIterator_getseters[] = {
 	{(char *)"object", (getter)StrokeVertexIterator_object_get, (setter)NULL,
 	                   (char *)StrokeVertexIterator_object_doc, NULL},
 	{(char *)"t", (getter)StrokeVertexIterator_t_get, (setter)NULL, (char *)StrokeVertexIterator_t_doc, NULL},
 	{(char *)"u", (getter)StrokeVertexIterator_u_get, (setter)NULL, (char *)StrokeVertexIterator_u_doc, NULL},
+	{(char *)"at_last", (getter)StrokeVertexIterator_at_last_get, (setter)NULL,
+	                    (char *)StrokeVertexIterator_at_last_doc, NULL},
 	{NULL, NULL, NULL, NULL, NULL}  /* Sentinel */
 };
 

@@ -1191,7 +1191,7 @@ static int *initialize_index_map(Object *obedit, int *r_old_totvert)
 
 	for (nu = editnurb->nurbs.first, vertex_index = 0;
 	     nu != NULL;
-	     nu = nu->next, vertex_index++)
+	     nu = nu->next)
 	{
 		if (nu->bezt) {
 			BezTriple *bezt = nu->bezt;
@@ -1238,8 +1238,17 @@ static void remap_hooks_and_vertex_parents(Object *obedit)
 {
 	Object *object;
 	Curve *curve = (Curve *) obedit->data;
+	EditNurb *editnurb = curve->editnurb;
 	int *old_to_new_map = NULL;
 	int old_totvert;
+
+	if (editnurb->keyindex == NULL) {
+		/* TODO(sergey): Happens when separating curves, this would lead to
+		 * the wrong indices in the hook modifier, address this together with
+		 * other indices issues.
+		 */
+		return;
+	}
 
 	for (object = G.main->object.first; object; object = object->id.next) {
 		ModifierData *md;
@@ -1465,37 +1474,6 @@ void ED_curve_select_swap(EditNurb *editnurb, bool hide_handles)
 			}
 		}
 	}
-}
-
-/******************** transform operator **********************/
-
-void ED_curve_transform(Curve *cu, float mat[4][4])
-{
-	Nurb *nu;
-	BPoint *bp;
-	BezTriple *bezt;
-	int a;
-
-	float scale = mat4_to_scale(mat);
-
-	for (nu = cu->nurb.first; nu; nu = nu->next) {
-		if (nu->type == CU_BEZIER) {
-			a = nu->pntsu;
-			for (bezt = nu->bezt; a--; bezt++) {
-				mul_m4_v3(mat, bezt->vec[0]);
-				mul_m4_v3(mat, bezt->vec[1]);
-				mul_m4_v3(mat, bezt->vec[2]);
-				bezt->radius *= scale;
-			}
-			BKE_nurb_handles_calc(nu);
-		}
-		else {
-			a = nu->pntsu * nu->pntsv;
-			for (bp = nu->bp; a--; bp++)
-				mul_m4_v3(mat, bp->vec);
-		}
-	}
-	DAG_id_tag_update(&cu->id, 0);
 }
 
 /******************** separate operator ***********************/
@@ -1975,17 +1953,15 @@ static void ed_curve_delete_selected(Object *obedit)
 		next = nu->next;
 		type = 0;
 		if (nu->type == CU_BEZIER) {
-			int delta = 0;
 			bezt = nu->bezt;
 			for (a = 0; a < nu->pntsu; a++) {
 				if (BEZSELECTED_HIDDENHANDLES(cu, bezt)) {
 					memmove(bezt, bezt + 1, (nu->pntsu - a - 1) * sizeof(BezTriple));
-					keyIndex_delBezt(editnurb, bezt + delta);
+					keyIndex_delBezt(editnurb, bezt);
 					keyIndex_updateBezt(editnurb, bezt + 1, bezt, nu->pntsu - a - 1);
 					nu->pntsu--;
 					a--;
 					type = 1;
-					delta++;
 				}
 				else {
 					bezt++;
@@ -2001,18 +1977,16 @@ static void ed_curve_delete_selected(Object *obedit)
 			}
 		}
 		else if (nu->pntsv == 1) {
-			int delta = 0;
 			bp = nu->bp;
 
 			for (a = 0; a < nu->pntsu; a++) {
 				if (bp->f1 & SELECT) {
 					memmove(bp, bp + 1, (nu->pntsu - a - 1) * sizeof(BPoint));
-					keyIndex_delBP(editnurb, bp + delta);
+					keyIndex_delBP(editnurb, bp);
 					keyIndex_updateBP(editnurb, bp + 1, bp, nu->pntsu - a - 1);
 					nu->pntsu--;
 					a--;
 					type = 1;
-					delta++;
 				}
 				else {
 					bp++;
@@ -7023,7 +6997,7 @@ static int match_texture_space_poll(bContext *C)
 {
 	Object *object = CTX_data_active_object(C);
 
-	return object && ELEM3(object->type, OB_CURVE, OB_SURF, OB_FONT);
+	return object && ELEM(object->type, OB_CURVE, OB_SURF, OB_FONT);
 }
 
 static int match_texture_space_exec(bContext *C, wmOperator *UNUSED(op))

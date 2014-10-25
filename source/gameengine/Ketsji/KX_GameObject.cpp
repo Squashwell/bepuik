@@ -51,6 +51,7 @@ typedef unsigned long uint_ptr;
 #include "KX_Light.h"  // only for their ::Type
 #include "KX_FontObject.h"  // only for their ::Type
 #include "RAS_MeshObject.h"
+#include "KX_NavMeshObject.h"
 #include "KX_MeshProxy.h"
 #include "KX_PolyProxy.h"
 #include <stdio.h> // printf
@@ -1586,9 +1587,10 @@ CListValue* KX_GameObject::GetChildrenRecursive()
 KX_Scene* KX_GameObject::GetScene()
 {
 	SG_Node* node = this->GetSGNode();
-	KX_Scene* scene = static_cast<KX_Scene*>(node->GetSGClientInfo());
-
-	return scene;
+    if (node == NULL)
+        // this happens for object in non active layers, rely on static scene then
+        return KX_GetActiveScene();
+    return static_cast<KX_Scene*>(node->GetSGClientInfo());
 }
 
 /* ---------------------------------------------------------------------
@@ -3795,7 +3797,8 @@ bool ConvertPythonToGameObject(PyObject *value, KX_GameObject **object, bool py_
 	if (	PyObject_TypeCheck(value, &KX_GameObject::Type)	||
 			PyObject_TypeCheck(value, &KX_LightObject::Type)	||
 			PyObject_TypeCheck(value, &KX_Camera::Type)			||
-			PyObject_TypeCheck(value, &KX_FontObject::Type))
+            PyObject_TypeCheck(value, &KX_FontObject::Type) ||
+            PyObject_TypeCheck(value, &KX_NavMeshObject::Type))
 	{
 		*object = static_cast<KX_GameObject*>BGE_PROXY_REF(value);
 		

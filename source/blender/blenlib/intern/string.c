@@ -648,7 +648,7 @@ int BLI_str_rstrip_float_zero(char *str, const char pad)
  * \param str_array_len The length of the array, or -1 for a NULL-terminated array.
  * \return The index of str in str_array or -1.
  */
-int BLI_str_index_in_array_n(const char *str, const char **str_array, const int str_array_len)
+int BLI_str_index_in_array_n(const char *__restrict str, const char **__restrict str_array, const int str_array_len)
 {
 	int index;
 	const char **str_iter = str_array;
@@ -668,7 +668,7 @@ int BLI_str_index_in_array_n(const char *str, const char **str_array, const int 
  * \param str_array Array of strings, (must be NULL-terminated).
  * \return The index of str in str_array or -1.
  */
-int BLI_str_index_in_array(const char *str, const char **str_array)
+int BLI_str_index_in_array(const char *__restrict str, const char **__restrict str_array)
 {
 	int index;
 	const char **str_iter = str_array;
@@ -740,4 +740,39 @@ size_t BLI_str_partition_ex(const char *str, const char delim[], char **sep, cha
 	}
 
 	return strlen(str);
+}
+
+/**
+ * Format ints with decimal grouping.
+ * 1000 -> 1,000
+ *
+ * \param dst  The resulting string
+ * \param num  Number to format
+ * \return The length of \a dst
+ */
+size_t BLI_str_format_int_grouped(char dst[16], int num)
+{
+	char src[16];
+	char *p_src = src;
+	char *p_dst = dst;
+
+	const char separator = ',';
+	int num_len, commas;
+
+	num_len = sprintf(src, "%d", num);
+
+	if (*p_src == '-') {
+		*p_dst++ = *p_src++;
+		num_len--;
+	}
+
+	for (commas = 2 - num_len % 3; *p_src; commas = (commas + 1) % 3) {
+		*p_dst++ = *p_src++;
+		if (commas == 1) {
+			*p_dst++ = separator;
+		}
+	}
+	*--p_dst = '\0';
+
+	return (size_t)(p_dst - dst);
 }

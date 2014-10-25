@@ -135,6 +135,7 @@ bool ImageManager::is_float_image(const string& filename, void *builtin_data, bo
 				              (colorspace == "" &&
 				                  (strcmp(in->format_name(), "png") == 0 ||
 				                   strcmp(in->format_name(), "tiff") == 0 ||
+				                   strcmp(in->format_name(), "dpx") == 0 ||
 				                   strcmp(in->format_name(), "jpeg2000") == 0)));
 			}
 			else {
@@ -173,6 +174,10 @@ int ImageManager::add_image(const string& filename, void *builtin_data, bool ani
 			if(img && image_equals(img, filename, builtin_data, interpolation)) {
 				if(img->frame != frame) {
 					img->frame = frame;
+					img->need_load = true;
+				}
+				if(img->use_alpha != use_alpha) {
+					img->use_alpha = use_alpha;
 					img->need_load = true;
 				}
 				img->users++;
@@ -216,6 +221,10 @@ int ImageManager::add_image(const string& filename, void *builtin_data, bool ani
 			if(img && image_equals(img, filename, builtin_data, interpolation)) {
 				if(img->frame != frame) {
 					img->frame = frame;
+					img->need_load = true;
+				}
+				if(img->use_alpha != use_alpha) {
+					img->use_alpha = use_alpha;
 					img->need_load = true;
 				}
 				img->users++;
@@ -307,6 +316,32 @@ void ImageManager::remove_image(const string& filename, void *builtin_data, Inte
 		for(slot = 0; slot < float_images.size(); slot++) {
 			if(float_images[slot] && image_equals(float_images[slot], filename, builtin_data, interpolation)) {
 				remove_image(slot);
+				break;
+			}
+		}
+	}
+}
+
+/* TODO(sergey): Deduplicate with the iteration above, but make it pretty,
+ * without bunch of arguments passing around making code readability even
+ * more cluttered.
+ */
+void ImageManager::tag_reload_image(const string& filename, void *builtin_data, InterpolationType interpolation)
+{
+	size_t slot;
+
+	for(slot = 0; slot < images.size(); slot++) {
+		if(images[slot] && image_equals(images[slot], filename, builtin_data, interpolation)) {
+			images[slot]->need_load = true;
+			break;
+		}
+	}
+
+	if(slot == images.size()) {
+		/* see if it's in a float texture slot */
+		for(slot = 0; slot < float_images.size(); slot++) {
+			if(float_images[slot] && image_equals(float_images[slot], filename, builtin_data, interpolation)) {
+				float_images[slot]->need_load = true;
 				break;
 			}
 		}

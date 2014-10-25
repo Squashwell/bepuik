@@ -2239,6 +2239,13 @@ static void rna_def_modifier_bevel(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0.15f, 1.0f, 0.05, 2);
 	RNA_def_property_ui_text(prop, "Profile", "The profile shape (0.5 = round)");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "material", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "mat");
+	RNA_def_property_range(prop, -1, SHRT_MAX);
+	RNA_def_property_ui_text(prop, "Material", "Material index of generated faces, -1 for automatic");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
 }
 
 static void rna_def_modifier_shrinkwrap(BlenderRNA *brna)
@@ -2600,6 +2607,11 @@ static void rna_def_modifier_solidify(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_flip_normals", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_SOLIDIFY_FLIP);
 	RNA_def_property_ui_text(prop, "Flip Normals", "Invert the face direction");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "use_rim_only", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_SOLIDIFY_NOSHELL);
+	RNA_def_property_ui_text(prop, "Only Rim", "Only add the rim to the original data");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -3700,7 +3712,8 @@ void RNA_def_modifier(BlenderRNA *brna)
 	
 	prop = RNA_def_property(srna, "show_on_cage", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", eModifierMode_OnCage);
-	RNA_def_property_ui_text(prop, "On Cage", "Enable direct editing of modifier control cage");
+	RNA_def_property_ui_text(prop, "On Cage", "Adjust edit cage to modifier result");
+	RNA_def_property_ui_icon(prop, ICON_MESH_DATA, 0);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 	
 	prop = RNA_def_property(srna, "show_expanded", PROP_BOOLEAN, PROP_NONE);

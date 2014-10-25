@@ -48,7 +48,7 @@ extern "C"
 {
 
 // The following prevents a linking error in debug mode for MSVC using the libs in CVS
-#if defined(WITH_OPENEXR) && defined(_WIN32) && defined(_DEBUG) && !defined(__MINGW32__) && !defined(__CYGWIN__)
+#if defined(WITH_OPENEXR) && defined(_WIN32) && defined(DEBUG) && !defined(__MINGW32__)
 _CRTIMP void __cdecl _invalid_parameter_noinfo(void)
 {
 }
@@ -896,7 +896,7 @@ static int imb_exr_split_channel_name(ExrChannel *echan, char *layname, char *pa
 		echan->chan_id = name[0];
 		layname[0] = '\0';
 
-		if (ELEM4(name[0], 'R', 'G', 'B', 'A'))
+		if (ELEM(name[0], 'R', 'G', 'B', 'A'))
 			strcpy(passname, "Combined");
 		else if (name[0] == 'Z')
 			strcpy(passname, "Depth");
@@ -927,9 +927,9 @@ static int imb_exr_split_channel_name(ExrChannel *echan, char *layname, char *pa
 			 *
 			 * Here we do some magic to distinguish such cases.
 			 */
-			if (ELEM3(token[1], 'X', 'Y', 'Z') ||
-			    ELEM3(token[1], 'R', 'G', 'B') ||
-			    ELEM3(token[1], 'U', 'V', 'A'))
+			if (ELEM(token[1], 'X', 'Y', 'Z') ||
+			    ELEM(token[1], 'R', 'G', 'B') ||
+			    ELEM(token[1], 'U', 'V', 'A'))
 			{
 				echan->chan_id = token[1];
 				ok = true;

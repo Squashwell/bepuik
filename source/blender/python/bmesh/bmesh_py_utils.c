@@ -198,6 +198,65 @@ static PyObject *bpy_bm_utils_vert_dissolve(PyObject *UNUSED(self), PyObject *ar
 	return PyBool_FromLong((BM_vert_dissolve(bm, py_vert->v)));
 }
 
+PyDoc_STRVAR(bpy_bm_utils_vert_splice_doc,
+".. method:: vert_splice(vert, vert_target)\n"
+"\n"
+"   Splice vert into vert_target.\n"
+"\n"
+"   :arg vert: The vertex to be removed.\n"
+"   :type vert: :class:`bmesh.types.BMVert`\n"
+"   :arg vert_target: The vertex to use.\n"
+"   :type vert_target: :class:`bmesh.types.BMVert`\n"
+"\n"
+"   .. note:: The verts mustn't share an edge or face.\n"
+);
+static PyObject *bpy_bm_utils_vert_splice(PyObject *UNUSED(self), PyObject *args)
+{
+	BPy_BMVert *py_vert;
+	BPy_BMVert *py_vert_target;
+
+	BMesh *bm;
+
+	bool ok;
+
+	if (!PyArg_ParseTuple(args, "O!O!:vert_splice",
+	                      &BPy_BMVert_Type, &py_vert,
+	                      &BPy_BMVert_Type, &py_vert_target))
+	{
+		return NULL;
+	}
+
+	BPY_BM_CHECK_OBJ(py_vert);
+	BPY_BM_CHECK_OBJ(py_vert_target);
+
+	bm = py_vert->bm;
+	BPY_BM_CHECK_SOURCE_OBJ(bm, "vert_splice", py_vert_target);
+
+	if (py_vert->v == py_vert_target->v) {
+		PyErr_SetString(PyExc_ValueError,
+		                "vert_splice(...): vert arguments match");
+		return NULL;
+	}
+
+	if (BM_edge_exists(py_vert->v, py_vert_target->v)) {
+		PyErr_SetString(PyExc_ValueError,
+		                "vert_splice(...): verts can't share an edge");
+		return NULL;
+	}
+
+	if (BM_vert_pair_share_face_check(py_vert->v, py_vert_target->v)) {
+		PyErr_SetString(PyExc_ValueError,
+		                "vert_splice(...): verts can't share a face");
+		return NULL;
+	}
+
+	/* should always succeed */
+	ok = BM_vert_splice(bm, py_vert->v, py_vert_target->v);
+	BLI_assert(ok == true);
+
+	Py_RETURN_NONE;
+}
+
 PyDoc_STRVAR(bpy_bm_utils_vert_separate_doc,
 ".. method:: vert_separate(vert, edges)\n"
 "\n"
@@ -536,7 +595,9 @@ static PyObject *bpy_bm_utils_face_split_edgenet(PyObject *UNUSED(self), PyObjec
 
 	if (ok) {
 		PyObject *ret = BPy_BMFace_Array_As_Tuple(bm, face_arr, face_arr_len);
-		MEM_freeN(face_arr);
+		if (face_arr) {
+			MEM_freeN(face_arr);
+		}
 		return ret;
 	}
 	else {
@@ -618,7 +679,7 @@ static PyObject *bpy_bm_utils_face_vert_separate(PyObject *UNUSED(self), PyObjec
 
 	BMesh *bm;
 	BMLoop *l;
-	BMVert *v_new;
+	BMVert *v_old, *v_new;
 
 	if (!PyArg_ParseTuple(args, "O!O!:face_vert_separate",
 	                      &BPy_BMFace_Type, &py_face,
@@ -630,7 +691,7 @@ static PyObject *bpy_bm_utils_face_vert_separate(PyObject *UNUSED(self), PyObjec
 	bm = py_face->bm;
 
 	BPY_BM_CHECK_OBJ(py_face);
-	BPY_BM_CHECK_SOURCE_OBJ(py_vert, bm, "face_vert_separate()");
+	BPY_BM_CHECK_SOURCE_OBJ(bm, "face_vert_separate()", py_vert);
 
 	l = BM_face_vert_share_loop(py_face->f, py_vert->v);
 
@@ -640,9 +701,10 @@ static PyObject *bpy_bm_utils_face_vert_separate(PyObject *UNUSED(self), PyObjec
 		return NULL;
 	}
 
+	v_old = l->v;
 	v_new = BM_face_loop_separate(bm, l);
 
-	if (v_new != l->v) {
+	if (v_new != v_old) {
 		return BPy_BMVert_CreatePyObject(bm, v_new);
 	}
 	else {
@@ -690,7 +752,8 @@ PyDoc_STRVAR(bpy_bm_utils_loop_separate_doc,
 static PyObject *bpy_bm_utils_loop_separate(PyObject *UNUSED(self), BPy_BMLoop *value)
 {
 	BMesh *bm;
-	BMVert *v_new;
+	BMLoop *l;
+	BMVert *v_old, *v_new;
 
 	if (!BPy_BMLoop_Check(value)) {
 		PyErr_Format(PyExc_TypeError,
@@ -702,10 +765,12 @@ static PyObject *bpy_bm_utils_loop_separate(PyObject *UNUSED(self), BPy_BMLoop *
 	BPY_BM_CHECK_OBJ(value);
 
 	bm = value->bm;
+	l = value->l;
 
-	v_new = BM_face_loop_separate(bm, value->l);
+	v_old = l->v;
+	v_new = BM_face_loop_separate(bm, l);
 
-	if (v_new != value->l->v) {
+	if (v_new != v_old) {
 		return BPy_BMVert_CreatePyObject(bm, v_new);
 	}
 	else {
@@ -718,6 +783,7 @@ static struct PyMethodDef BPy_BM_utils_methods[] = {
 	{"vert_collapse_edge",  (PyCFunction)bpy_bm_utils_vert_collapse_edge,  METH_VARARGS, bpy_bm_utils_vert_collapse_edge_doc},
 	{"vert_collapse_faces", (PyCFunction)bpy_bm_utils_vert_collapse_faces, METH_VARARGS, bpy_bm_utils_vert_collapse_faces_doc},
 	{"vert_dissolve",       (PyCFunction)bpy_bm_utils_vert_dissolve,       METH_VARARGS, bpy_bm_utils_vert_dissolve_doc}, /* could use METH_O */
+	{"vert_splice",         (PyCFunction)bpy_bm_utils_vert_splice,         METH_VARARGS, bpy_bm_utils_vert_splice_doc},
 	{"vert_separate",       (PyCFunction)bpy_bm_utils_vert_separate,       METH_VARARGS, bpy_bm_utils_vert_separate_doc},
 	{"edge_split",          (PyCFunction)bpy_bm_utils_edge_split,          METH_VARARGS, bpy_bm_utils_edge_split_doc},
 	{"edge_rotate",         (PyCFunction)bpy_bm_utils_edge_rotate,         METH_VARARGS, bpy_bm_utils_edge_rotate_doc},

@@ -107,10 +107,7 @@ static void region_draw_emboss(ARegion *ar, rcti *scirct)
 
 void ED_region_pixelspace(ARegion *ar)
 {
-	int width  = BLI_rcti_size_x(&ar->winrct) + 1;
-	int height = BLI_rcti_size_y(&ar->winrct) + 1;
-	
-	wmOrtho2(-GLA_PIXEL_OFS, (float)width - GLA_PIXEL_OFS, -GLA_PIXEL_OFS, (float)height - GLA_PIXEL_OFS);
+	wmOrtho2_region_pixelspace(ar);
 	glLoadIdentity();
 }
 
@@ -421,6 +418,8 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 	
 	/* note; this sets state, so we can use wmOrtho and friends */
 	wmSubWindowScissorSet(win, ar->swinid, &ar->drawrct, scissor_pad);
+
+	wmOrtho2_region_ui(ar);
 	
 	UI_SetTheme(sa ? sa->spacetype : 0, at->regionid);
 	
@@ -472,8 +471,8 @@ void ED_region_tag_redraw(ARegion *ar)
 	 * but python scripts can cause this to happen indirectly */
 	if (ar && !(ar->do_draw & RGN_DRAWING)) {
 		/* zero region means full region redraw */
-		ar->do_draw &= ~RGN_DRAW_PARTIAL;  /* just incase */
-		ar->do_draw = RGN_DRAW;
+		ar->do_draw &= ~RGN_DRAW_PARTIAL;
+		ar->do_draw |= RGN_DRAW;
 		memset(&ar->drawrct, 0, sizeof(ar->drawrct));
 	}
 }
@@ -494,9 +493,9 @@ void ED_region_tag_refresh_ui(ARegion *ar)
 void ED_region_tag_redraw_partial(ARegion *ar, rcti *rct)
 {
 	if (ar && !(ar->do_draw & RGN_DRAWING)) {
-		if (!ar->do_draw) {
+		if (!(ar->do_draw & RGN_DRAW)) {
 			/* no redraw set yet, set partial region */
-			ar->do_draw = RGN_DRAW_PARTIAL;
+			ar->do_draw |= RGN_DRAW_PARTIAL;
 			ar->drawrct = *rct;
 		}
 		else if (ar->drawrct.xmin != ar->drawrct.xmax) {
@@ -891,38 +890,59 @@ static int rct_fits(rcti *rect, char dir, int size)
 /* function checks if some overlapping region was defined before - on same place */
 static void region_overlap_fix(ScrArea *sa, ARegion *ar)
 {
-	ARegion *ar1 = ar->prev;
-	
+	ARegion *ar1;
+	const int align = ar->alignment & ~RGN_SPLIT_PREV;
+	int align1 = 0;
+
 	/* find overlapping previous region on same place */
-	while (ar1) {
-		if (ar1->overlap) {
-			if ((ar1->alignment & RGN_SPLIT_PREV) == 0)
-				if (BLI_rcti_isect(&ar1->winrct, &ar->winrct, NULL))
-					break;
+	for (ar1 = ar->prev; ar1; ar1 = ar1->prev) {
+		if (ar1->overlap && ((ar1->alignment & RGN_SPLIT_PREV) == 0)) {
+			align1 = ar1->alignment;
+			if (BLI_rcti_isect(&ar1->winrct, &ar->winrct, NULL)) {
+				if (align1 != align) {
+					/* Left overlapping right or vice-versa, forbid this! */
+					ar->flag |= RGN_FLAG_TOO_SMALL;
+					return;
+				}
+				/* Else, we have our previous region on same side. */
+				break;
+			}
 		}
-		ar1 = ar1->prev;
 	}
-	
+
 	/* translate or close */
 	if (ar1) {
-		int align1 = ar1->alignment & ~RGN_SPLIT_PREV;
-
 		if (align1 == RGN_ALIGN_LEFT) {
-			if (ar->winrct.xmax + ar1->winx > sa->winx - U.widget_unit)
+			if (ar->winrct.xmax + ar1->winx > sa->winx - U.widget_unit) {
 				ar->flag |= RGN_FLAG_TOO_SMALL;
-			else
+				return;
+			}
+			else {
 				BLI_rcti_translate(&ar->winrct, ar1->winx, 0);
+			}
 		}
 		else if (align1 == RGN_ALIGN_RIGHT) {
-			if (ar->winrct.xmin - ar1->winx < U.widget_unit)
+			if (ar->winrct.xmin - ar1->winx < U.widget_unit) {
 				ar->flag |= RGN_FLAG_TOO_SMALL;
-			else
+				return;
+			}
+			else {
 				BLI_rcti_translate(&ar->winrct, -ar1->winx, 0);
+			}
 		}
 	}
 
-	
-	
+	/* At this point, 'ar' is in its final position and still open.
+	 * Make a final check it does not overlap any previous 'other side' region. */
+	for (ar1 = ar->prev; ar1; ar1 = ar1->prev) {
+		if (ar1->overlap && (ar1->alignment & RGN_SPLIT_PREV) == 0) {
+			if ((ar1->alignment != align) && BLI_rcti_isect(&ar1->winrct, &ar->winrct, NULL)) {
+				/* Left overlapping right or vice-versa, forbid this! */
+				ar->flag |= RGN_FLAG_TOO_SMALL;
+				return;
+			}
+		}
+	}
 }
 
 /* overlapping regions only in the following restricted cases */
@@ -931,11 +951,11 @@ static bool region_is_overlap(wmWindow *win, ScrArea *sa, ARegion *ar)
 	if (U.uiflag2 & USER_REGION_OVERLAP) {
 		if (WM_is_draw_triple(win)) {
 			if (ELEM(sa->spacetype, SPACE_VIEW3D, SPACE_SEQ)) {
-				if (ELEM3(ar->regiontype, RGN_TYPE_TOOLS, RGN_TYPE_UI, RGN_TYPE_TOOL_PROPS))
+				if (ELEM(ar->regiontype, RGN_TYPE_TOOLS, RGN_TYPE_UI, RGN_TYPE_TOOL_PROPS))
 					return 1;
 			}
 			else if (sa->spacetype == SPACE_IMAGE) {
-				if (ELEM4(ar->regiontype, RGN_TYPE_TOOLS, RGN_TYPE_UI, RGN_TYPE_TOOL_PROPS, RGN_TYPE_PREVIEW))
+				if (ELEM(ar->regiontype, RGN_TYPE_TOOLS, RGN_TYPE_UI, RGN_TYPE_TOOL_PROPS, RGN_TYPE_PREVIEW))
 					return 1;
 			}
 		}
@@ -1234,7 +1254,9 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *hand
 		/* time space only has this keymap, the others get a boundbox restricted map */
 		if (sa->spacetype != SPACE_TIME) {
 			ARegion *ar;
-			static rcti rect = {0, 10000, 0, 30};    /* same local check for all areas */
+			/* same local check for all areas */
+			static rcti rect = {0, 10000, 0, -1};
+			rect.ymax = (30 * UI_DPI_FAC);
 			ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 			if (ar) {
 				WM_event_add_keymap_handler_bb(handlers, keymap, &rect, &ar->winrct);

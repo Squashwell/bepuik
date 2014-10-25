@@ -307,7 +307,7 @@ static int poselib_sanitize_exec(bContext *C, wmOperator *op)
 		/* check if any pose matches this */
 		/* TODO: don't go looking through the list like this every time... */
 		for (marker = act->markers.first; marker; marker = marker->next) {
-			if (IS_EQ(marker->frame, (double)ak->cfra)) {
+			if (IS_EQ((double)marker->frame, (double)ak->cfra)) {
 				marker->flag = -1;
 				break;
 			}
@@ -1417,7 +1417,7 @@ static void poselib_preview_init_data(bContext *C, wmOperator *op)
 		pld->marker = (pld->act) ? BLI_findlink(&pld->act->markers, pose_index) : NULL;
 	
 	/* check if valid poselib */
-	if (ELEM3(NULL, pld->ob, pld->pose, pld->arm)) {
+	if (ELEM(NULL, pld->ob, pld->pose, pld->arm)) {
 		BKE_report(op->reports, RPT_ERROR, "Pose lib is only for armatures in pose mode");
 		pld->state = PL_PREVIEW_ERROR;
 		return;

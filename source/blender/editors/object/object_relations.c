@@ -444,7 +444,7 @@ EnumPropertyItem prop_clear_parent_types[] = {
 /* Helper for ED_object_parent_clear() - Remove deform-modifiers associated with parent */
 static void object_remove_parent_deform_modifiers(Object *ob, const Object *par)
 {
-	if (ELEM3(par->type, OB_ARMATURE, OB_LATTICE, OB_CURVE)) {
+	if (ELEM(par->type, OB_ARMATURE, OB_LATTICE, OB_CURVE)) {
 		ModifierData *md, *mdn;
 		
 		/* assume that we only need to remove the first instance of matching deform modifier here */
@@ -506,11 +506,14 @@ void ED_object_parent_clear(Object *ob, int type)
 		}
 		case CLEAR_PARENT_INVERSE:
 		{
-			/* object stays parented, but the parent inverse (i.e. offset from parent to retain binding state) is cleared */
-			unit_m4(ob->parentinv);
+			/* object stays parented, but the parent inverse (i.e. offset from parent to retain binding state)
+			 * is cleared. In other words: nothing to do here! */
 			break;
 		}
 	}
+	
+	/* Always clear parentinv matrix for sake of consistency, see T41950. */
+	unit_m4(ob->parentinv);
 	
 	DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 }
@@ -556,6 +559,9 @@ void OBJECT_OT_parent_clear(wmOperatorType *ot)
 
 void ED_object_parent(Object *ob, Object *par, int type, const char *substr)
 {
+	/* Always clear parentinv matrix for sake of consistency, see T41950. */
+	unit_m4(ob->parentinv);
+
 	if (!par || BKE_object_parent_loop_check(par, ob)) {
 		ob->parent = NULL;
 		ob->partype = PAROBJECT;
@@ -593,7 +599,7 @@ int ED_object_parent_set(ReportList *reports, Main *bmain, Scene *scene, Object 
                          int partype, bool xmirror, bool keep_transform, const int vert_par[3])
 {
 	bPoseChannel *pchan = NULL;
-	int pararm = ELEM4(partype, PAR_ARMATURE, PAR_ARMATURE_NAME, PAR_ARMATURE_ENVELOPE, PAR_ARMATURE_AUTO);
+	int pararm = ELEM(partype, PAR_ARMATURE, PAR_ARMATURE_NAME, PAR_ARMATURE_ENVELOPE, PAR_ARMATURE_AUTO);
 	
 	DAG_id_tag_update(&par->id, OB_RECALC_OB);
 	
@@ -655,6 +661,8 @@ int ED_object_parent_set(ReportList *reports, Main *bmain, Scene *scene, Object 
 			/* set the parent (except for follow-path constraint option) */
 			if (partype != PAR_PATH_CONST) {
 				ob->parent = par;
+				/* Always clear parentinv matrix for sake of consistency, see T41950. */
+				unit_m4(ob->parentinv);
 			}
 			
 			/* handle types */
@@ -678,7 +686,7 @@ int ED_object_parent_set(ReportList *reports, Main *bmain, Scene *scene, Object 
 				 *   assuming that the parent is selected too...
 				 */
 				// XXX currently this should only happen for meshes, curves, surfaces, and lattices - this stuff isn't available for metas yet
-				if (ELEM5(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
+				if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
 					ModifierData *md;
 					
 					switch (partype) {
@@ -1128,7 +1136,7 @@ static int object_track_clear_exec(bContext *C, wmOperator *op)
 		/* also remove all tracking constraints */
 		for (con = ob->constraints.last; con; con = pcon) {
 			pcon = con->prev;
-			if (ELEM3(con->type, CONSTRAINT_TYPE_TRACKTO, CONSTRAINT_TYPE_LOCKTRACK, CONSTRAINT_TYPE_DAMPTRACK))
+			if (ELEM(con->type, CONSTRAINT_TYPE_TRACKTO, CONSTRAINT_TYPE_LOCKTRACK, CONSTRAINT_TYPE_DAMPTRACK))
 				BKE_constraint_remove(&ob->constraints, con);
 		}
 		
@@ -1192,7 +1200,7 @@ static int track_set_exec(bContext *C, wmOperator *op)
 				DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 				
 				/* Lamp, Camera and Speaker track differently by default */
-				if (ELEM3(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+				if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
 					data->trackflag = TRACK_nZ;
 				}
 			}
@@ -1213,7 +1221,7 @@ static int track_set_exec(bContext *C, wmOperator *op)
 				DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 				
 				/* Lamp, Camera and Speaker track differently by default */
-				if (ELEM3(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+				if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
 					data->reserved1 = TRACK_nZ;
 					data->reserved2 = UP_Y;
 				}
@@ -1235,7 +1243,7 @@ static int track_set_exec(bContext *C, wmOperator *op)
 				DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 				
 				/* Lamp, Camera and Speaker track differently by default */
-				if (ELEM3(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+				if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
 					data->trackflag = TRACK_nZ;
 					data->lockflag = LOCK_Y;
 				}
@@ -2143,9 +2151,40 @@ static void tag_localizable_objects(bContext *C, int mode)
 	/* TODO(sergey): Drivers targets? */
 }
 
+/**
+ * Instance indirectly referenced zero user objects,
+ * otherwise they're lost on reload, see T40595.
+ */
+static bool make_local_all__instance_indirect_unused(Main *bmain, Scene *scene)
+{
+	Object *ob;
+	bool changed = false;
+
+	for (ob = bmain->object.first; ob; ob = ob->id.next) {
+		if (ob->id.lib && (ob->id.us == 0)) {
+			Base *base;
+
+			ob->id.us = 1;
+
+			/* not essential, but for correctness */
+			id_lib_extern(&ob->id);
+
+			base = BKE_scene_base_add(scene, ob);
+			base->flag |= SELECT;
+			base->object->flag = base->flag;
+			DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+
+			changed = true;
+		}
+	}
+
+	return changed;
+}
+
 static int make_local_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
 	AnimData *adt;
 	ParticleSystem *psys;
 	Material *ma, ***matarar;
@@ -2154,6 +2193,14 @@ static int make_local_exec(bContext *C, wmOperator *op)
 	int a, b, mode = RNA_enum_get(op->ptr, "type");
 	
 	if (mode == MAKE_LOCAL_ALL) {
+		/* de-select so the user can differentiate newly instanced from existing objects */
+		BKE_scene_base_deselect_all(scene);
+
+		if (make_local_all__instance_indirect_unused(bmain, scene)) {
+			BKE_report(op->reports, RPT_INFO,
+			           "Orphan library objects added to the current scene to avoid loss");
+		}
+
 		BKE_library_make_local(bmain, NULL, false); /* NULL is all libs */
 		WM_event_add_notifier(C, NC_WINDOW, NULL);
 		return OPERATOR_FINISHED;
@@ -2372,10 +2419,13 @@ static int drop_named_material_invoke(bContext *C, wmOperator *op, const wmEvent
 		return OPERATOR_CANCELLED;
 	
 	assign_material(base->object, ma, 1, BKE_MAT_ASSIGN_USERPREF);
-	
+
+	DAG_id_tag_update(&base->object->id, OB_RECALC_OB);
+
+	WM_event_add_notifier(C, NC_OBJECT | ND_OB_SHADING, base->object);
 	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, CTX_wm_view3d(C));
 	WM_event_add_notifier(C, NC_MATERIAL | ND_SHADING_LINKS, ma);
-	
+
 	return OPERATOR_FINISHED;
 }
 
@@ -2398,4 +2448,56 @@ void OBJECT_OT_drop_named_material(wmOperatorType *ot)
 	
 	/* properties */
 	RNA_def_string(ot->srna, "name", "Material", MAX_ID_NAME - 2, "Name", "Material name to assign");
+}
+
+static int object_unlink_data_exec(bContext *C, wmOperator *op)
+{
+	ID *id;
+	PropertyPointerRNA pprop;
+
+	uiIDContextProperty(C, &pprop.ptr, &pprop.prop);
+
+	if (pprop.prop == NULL) {
+		BKE_report(op->reports, RPT_ERROR, "Incorrect context for running object data unlink");
+		return OPERATOR_CANCELLED;
+	}
+
+	id = pprop.ptr.id.data;
+
+	if (GS(id->name) == ID_OB) {
+		Object *ob = (Object *)id;
+		if (ob->data) {
+			ID *id_data = ob->data;
+
+			if (GS(id_data->name) == ID_IM) {
+				id_us_min(id_data);
+				ob->data = NULL;
+			}
+			else {
+				BKE_report(op->reports, RPT_ERROR, "Can't unlink this object data");
+				return OPERATOR_CANCELLED;
+			}
+		}
+	}
+
+	RNA_property_update(C, &pprop.ptr, pprop.prop);
+
+	return OPERATOR_FINISHED;
+}
+
+/**
+ * \note Only for empty-image objects, this operator is needed
+ */
+void OBJECT_OT_unlink_data(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Unlink";
+	ot->idname = "OBJECT_OT_unlink_data";
+	ot->description = "";
+
+	/* api callbacks */
+	ot->exec = object_unlink_data_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_INTERNAL;
 }

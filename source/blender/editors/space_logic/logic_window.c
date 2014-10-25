@@ -1144,15 +1144,30 @@ static void draw_sensor_message(uiLayout *layout, PointerRNA *ptr)
 	uiItemR(layout, ptr, "subject", 0, NULL, ICON_NONE);
 }
 
-static void draw_sensor_mouse(uiLayout *layout, PointerRNA *ptr)
+static void draw_sensor_mouse(uiLayout *layout, PointerRNA *ptr, bContext *C)
 {
-	uiLayout *split;
+	uiLayout *split, *split2;
+	PointerRNA main_ptr;
 
 	split = uiLayoutSplit(layout, 0.8f, false);
 	uiItemR(split, ptr, "mouse_event", 0, NULL, ICON_NONE);
 
-	if (RNA_enum_get(ptr, "mouse_event") == BL_SENS_MOUSE_MOUSEOVER_ANY)
+	if (RNA_enum_get(ptr, "mouse_event") == BL_SENS_MOUSE_MOUSEOVER_ANY) {
 		uiItemR(split, ptr, "use_pulse", UI_ITEM_R_TOGGLE, NULL, ICON_NONE);
+
+		split = uiLayoutSplit(layout, 0.3f, false);
+		uiItemR(split, ptr, "use_material", 0, "", ICON_NONE);
+
+		split2 = uiLayoutSplit(split, 0.7f, false);
+		if (RNA_enum_get(ptr, "use_material") == SENS_RAY_PROPERTY) {
+			uiItemR(split2, ptr, "property", 0, "", ICON_NONE);
+		}
+		else {
+			RNA_main_pointer_create(CTX_data_main(C), &main_ptr);
+			uiItemPointerR(split2, ptr, "material", &main_ptr, "materials", "", ICON_MATERIAL_DATA);
+		}
+		uiItemR(split2, ptr, "use_x_ray", UI_ITEM_R_TOGGLE, NULL, ICON_NONE);
+	}
 }
 
 static void draw_sensor_near(uiLayout *layout, PointerRNA *ptr)
@@ -1273,7 +1288,7 @@ static void draw_brick_sensor(uiLayout *layout, PointerRNA *ptr, bContext *C)
 			draw_sensor_message(box, ptr);
 			break;
 		case SENS_MOUSE:
-			draw_sensor_mouse(box, ptr);
+			draw_sensor_mouse(box, ptr, C);
 			break;
 		case SENS_NEAR:
 			draw_sensor_near(box, ptr);
@@ -1817,7 +1832,7 @@ static void draw_actuator_motion(uiLayout *layout, PointerRNA *ptr)
 			uiItemR(row, ptr, "offset_rotation", 0, NULL, ICON_NONE);
 			uiItemR(split, ptr, "use_local_rotation", UI_ITEM_R_TOGGLE, NULL, ICON_NONE);
 			
-			if (ELEM3(physics_type, OB_BODY_TYPE_DYNAMIC, OB_BODY_TYPE_RIGID, OB_BODY_TYPE_SOFT)) {
+			if (ELEM(physics_type, OB_BODY_TYPE_DYNAMIC, OB_BODY_TYPE_RIGID, OB_BODY_TYPE_SOFT)) {
 				uiItemL(layout, IFACE_("Dynamic Object Settings:"), ICON_NONE);
 				split = uiLayoutSplit(layout, 0.9, false);
 				row = uiLayoutRow(split, false);
@@ -1939,6 +1954,7 @@ static void draw_actuator_property(uiLayout *layout, PointerRNA *ptr)
 
 	switch (RNA_enum_get(ptr, "mode")) {
 		case ACT_PROP_TOGGLE:
+		case ACT_PROP_LEVEL:
 			break;
 		case ACT_PROP_ADD:
 			uiItemR(layout, ptr, "value", 0, NULL, ICON_NONE);

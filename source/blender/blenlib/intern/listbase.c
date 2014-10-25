@@ -354,7 +354,7 @@ int BLI_countlist(const ListBase *listbase)
 }
 
 /**
- * Returns the nth element of \a listbase, numbering from 1.
+ * Returns the nth element of \a listbase, numbering from 0.
  */
 void *BLI_findlink(const ListBase *listbase, int number)
 {
@@ -372,7 +372,7 @@ void *BLI_findlink(const ListBase *listbase, int number)
 }
 
 /**
- * Returns the nth-last element of \a listbase, numbering from 1.
+ * Returns the nth-last element of \a listbase, numbering from 0.
  */
 void *BLI_rfindlink(const ListBase *listbase, int number)
 {
@@ -390,7 +390,7 @@ void *BLI_rfindlink(const ListBase *listbase, int number)
 }
 
 /**
- * Returns the position of \a vlink within \a listbase, numbering from 1, or -1 if not found.
+ * Returns the position of \a vlink within \a listbase, numbering from 0, or -1 if not found.
  */
 int BLI_findindex(const ListBase *listbase, const void *vlink)
 {
@@ -599,7 +599,7 @@ void BLI_listbase_reverse(ListBase *lb)
 /**
  * \param vlink Link to make first.
  */
-void BLI_rotatelist_first(ListBase *lb, void *vlink)
+void BLI_listbase_rotate_first(ListBase *lb, void *vlink)
 {
 	/* make circular */
 	((Link *)lb->first)->prev = lb->last;
@@ -615,7 +615,7 @@ void BLI_rotatelist_first(ListBase *lb, void *vlink)
 /**
  * \param vlink Link to make last.
  */
-void BLI_rotatelist_last(ListBase *lb, void *vlink)
+void BLI_listbase_rotate_last(ListBase *lb, void *vlink)
 {
 	/* make circular */
 	((Link *)lb->first)->prev = lb->last;

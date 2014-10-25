@@ -257,26 +257,15 @@ Editing *BKE_sequencer_editing_get(Scene *scene, bool alloc)
 	return scene->ed;
 }
 
-static void seq_free_clipboard_recursive(Sequence *seq_parent)
-{
-	Sequence *seq, *nseq;
-
-	for (seq = seq_parent->seqbase.first; seq; seq = nseq) {
-		nseq = seq->next;
-		seq_free_clipboard_recursive(seq);
-	}
-
-	BKE_sequence_clipboard_pointers_free(seq_parent);
-	BKE_sequence_free_ex(NULL, seq_parent, false);
-}
-
 void BKE_sequencer_free_clipboard(void)
 {
 	Sequence *seq, *nseq;
 
+	BKE_sequencer_base_clipboard_pointers_free(&seqbase_clipboard);
+
 	for (seq = seqbase_clipboard.first; seq; seq = nseq) {
 		nseq = seq->next;
-		seq_free_clipboard_recursive(seq);
+		seq_free_sequence_recurse(NULL, seq);
 	}
 	BLI_listbase_clear(&seqbase_clipboard);
 }
@@ -373,6 +362,33 @@ void BKE_sequence_clipboard_pointers_restore(Sequence *seq, Main *bmain)
 	seqclipboard_ptr_restore(bmain, (ID **)&seq->mask);
 	seqclipboard_ptr_restore(bmain, (ID **)&seq->sound);
 }
+
+/* recursive versions of funcions above */
+void BKE_sequencer_base_clipboard_pointers_free(ListBase *seqbase)
+{
+	Sequence *seq;
+	for (seq = seqbase->first; seq; seq = seq->next) {
+		BKE_sequence_clipboard_pointers_free(seq);
+		BKE_sequencer_base_clipboard_pointers_free(&seq->seqbase);
+	}
+}
+void BKE_sequencer_base_clipboard_pointers_store(ListBase *seqbase)
+{
+	Sequence *seq;
+	for (seq = seqbase->first; seq; seq = seq->next) {
+		BKE_sequence_clipboard_pointers_store(seq);
+		BKE_sequencer_base_clipboard_pointers_store(&seq->seqbase);
+	}
+}
+void BKE_sequencer_base_clipboard_pointers_restore(ListBase *seqbase, Main *bmain)
+{
+	Sequence *seq;
+	for (seq = seqbase->first; seq; seq = seq->next) {
+		BKE_sequence_clipboard_pointers_restore(seq, bmain);
+		BKE_sequencer_base_clipboard_pointers_restore(&seq->seqbase, bmain);
+	}
+}
+
 /* end clipboard pointer mess */
 
 
@@ -758,7 +774,7 @@ void BKE_sequence_reload_new_file(Scene *scene, Sequence *seq, const bool lock_r
 	int prev_startdisp = 0, prev_enddisp = 0;
 	/* note: don't rename the strip, will break animation curves */
 
-	if (ELEM7(seq->type,
+	if (ELEM(seq->type,
 	          SEQ_TYPE_MOVIE, SEQ_TYPE_IMAGE, SEQ_TYPE_SOUND_RAM,
 	          SEQ_TYPE_SCENE, SEQ_TYPE_META, SEQ_TYPE_MOVIECLIP, SEQ_TYPE_MASK) == 0)
 	{
@@ -994,28 +1010,29 @@ void BKE_sequence_base_unique_name_recursive(ListBase *seqbasep, Sequence *seq)
 static const char *give_seqname_by_type(int type)
 {
 	switch (type) {
-		case SEQ_TYPE_META:       return "Meta";
-		case SEQ_TYPE_IMAGE:      return "Image";
-		case SEQ_TYPE_SCENE:      return "Scene";
-		case SEQ_TYPE_MOVIE:      return "Movie";
-		case SEQ_TYPE_MOVIECLIP:  return "Clip";
-		case SEQ_TYPE_MASK:       return "Mask";
-		case SEQ_TYPE_SOUND_RAM:  return "Audio";
-		case SEQ_TYPE_CROSS:      return "Cross";
-		case SEQ_TYPE_GAMCROSS:   return "Gamma Cross";
-		case SEQ_TYPE_ADD:        return "Add";
-		case SEQ_TYPE_SUB:        return "Sub";
-		case SEQ_TYPE_MUL:        return "Mul";
-		case SEQ_TYPE_ALPHAOVER:  return "Alpha Over";
-		case SEQ_TYPE_ALPHAUNDER: return "Alpha Under";
-		case SEQ_TYPE_OVERDROP:   return "Over Drop";
-		case SEQ_TYPE_WIPE:       return "Wipe";
-		case SEQ_TYPE_GLOW:       return "Glow";
-		case SEQ_TYPE_TRANSFORM:  return "Transform";
-		case SEQ_TYPE_COLOR:      return "Color";
-		case SEQ_TYPE_MULTICAM:   return "Multicam";
-		case SEQ_TYPE_ADJUSTMENT: return "Adjustment";
-		case SEQ_TYPE_SPEED:      return "Speed";
+		case SEQ_TYPE_META:          return "Meta";
+		case SEQ_TYPE_IMAGE:         return "Image";
+		case SEQ_TYPE_SCENE:         return "Scene";
+		case SEQ_TYPE_MOVIE:         return "Movie";
+		case SEQ_TYPE_MOVIECLIP:     return "Clip";
+		case SEQ_TYPE_MASK:          return "Mask";
+		case SEQ_TYPE_SOUND_RAM:     return "Audio";
+		case SEQ_TYPE_CROSS:         return "Cross";
+		case SEQ_TYPE_GAMCROSS:      return "Gamma Cross";
+		case SEQ_TYPE_ADD:           return "Add";
+		case SEQ_TYPE_SUB:           return "Sub";
+		case SEQ_TYPE_MUL:           return "Mul";
+		case SEQ_TYPE_ALPHAOVER:     return "Alpha Over";
+		case SEQ_TYPE_ALPHAUNDER:    return "Alpha Under";
+		case SEQ_TYPE_OVERDROP:      return "Over Drop";
+		case SEQ_TYPE_WIPE:          return "Wipe";
+		case SEQ_TYPE_GLOW:          return "Glow";
+		case SEQ_TYPE_TRANSFORM:     return "Transform";
+		case SEQ_TYPE_COLOR:         return "Color";
+		case SEQ_TYPE_MULTICAM:      return "Multicam";
+		case SEQ_TYPE_ADJUSTMENT:    return "Adjustment";
+		case SEQ_TYPE_SPEED:         return "Speed";
+		case SEQ_TYPE_GAUSSIAN_BLUR: return "Gaussian Blur";
 		default:
 			return NULL;
 	}
@@ -2224,7 +2241,7 @@ static ImBuf *seq_render_effect_execute_threaded(struct SeqEffectHandle *sh, con
 	init_data.out = out;
 
 	IMB_processor_apply_threaded(out->y, sizeof(RenderEffectThread), &init_data,
-                                 render_effect_execute_init_handle, render_effect_execute_do_thread);
+	                             render_effect_execute_init_handle, render_effect_execute_do_thread);
 
 	return out;
 }
@@ -2808,7 +2825,7 @@ static ImBuf *seq_render_strip(const SeqRenderData *context, Sequence *seq, floa
 	float nr = give_stripelem_index(seq, cfra);
 	/* all effects are handled similarly with the exception of speed effect */
 	int type = (seq->type & SEQ_TYPE_EFFECT && seq->type != SEQ_TYPE_SPEED) ? SEQ_TYPE_EFFECT : seq->type;
-	bool is_preprocessed = !ELEM3(type, SEQ_TYPE_IMAGE, SEQ_TYPE_MOVIE, SEQ_TYPE_SCENE);
+	bool is_preprocessed = !ELEM(type, SEQ_TYPE_IMAGE, SEQ_TYPE_MOVIE, SEQ_TYPE_SCENE);
 
 	ibuf = BKE_sequencer_cache_get(context, seq, cfra, SEQ_STRIPELEM_IBUF);
 
@@ -2875,7 +2892,7 @@ static bool seq_must_swap_input_in_blend_mode(Sequence *seq)
 	/* bad hack, to fix crazy input ordering of 
 	 * those two effects */
 
-	if (ELEM3(seq->blend_mode, SEQ_TYPE_ALPHAOVER, SEQ_TYPE_ALPHAUNDER, SEQ_TYPE_OVERDROP)) {
+	if (ELEM(seq->blend_mode, SEQ_TYPE_ALPHAOVER, SEQ_TYPE_ALPHAUNDER, SEQ_TYPE_OVERDROP)) {
 		swap_input = true;
 	}
 	
@@ -2960,7 +2977,7 @@ static ImBuf *seq_render_strip_stack(const SeqRenderData *context, ListBase *seq
 		/* Some of the blend modes are unclear how to apply with only single input,
 		 * or some of them will just produce an empty result..
 		 */
-		if (ELEM3(seq->blend_mode, SEQ_BLEND_REPLACE, SEQ_TYPE_CROSS, SEQ_TYPE_ALPHAOVER)) {
+		if (ELEM(seq->blend_mode, SEQ_BLEND_REPLACE, SEQ_TYPE_CROSS, SEQ_TYPE_ALPHAOVER)) {
 			int early_out;
 			if (seq->blend_mode == SEQ_BLEND_REPLACE) {
 				early_out = EARLY_NO_INPUT;
@@ -3512,16 +3529,28 @@ bool BKE_sequence_single_check(Sequence *seq)
 }
 
 /* check if the selected seq's reference unselected seq's */
-bool BKE_sequence_base_isolated_sel_check(ListBase *seqbase)
+bool BKE_sequence_base_isolated_sel_check(ListBase *seqbase, bool one_only)
 {
 	Sequence *seq;
-	/* is there more than 1 select */
+	/* is there a valid selection select */
 	bool ok = false;
+	/* is there one selected already? */
+	bool first = false;
 
 	for (seq = seqbase->first; seq; seq = seq->next) {
 		if (seq->flag & SELECT) {
-			ok = true;
-			break;
+			if (one_only) {
+				ok = true;
+				break;
+			}
+			else {
+				if (first) {
+					ok = true;
+					break;
+				} 
+				else
+					first = true;
+			}
 		}
 	}
 
@@ -3688,7 +3717,7 @@ Sequence *BKE_sequencer_foreground_frame_get(Scene *scene, int frame)
 		if (seq->flag & SEQ_MUTE || seq->startdisp > frame || seq->enddisp <= frame)
 			continue;
 		/* only use elements you can see - not */
-		if (ELEM5(seq->type, SEQ_TYPE_IMAGE, SEQ_TYPE_META, SEQ_TYPE_SCENE, SEQ_TYPE_MOVIE, SEQ_TYPE_COLOR)) {
+		if (ELEM(seq->type, SEQ_TYPE_IMAGE, SEQ_TYPE_META, SEQ_TYPE_SCENE, SEQ_TYPE_MOVIE, SEQ_TYPE_COLOR)) {
 			if (seq->machine > best_machine) {
 				best_seq = seq;
 				best_machine = seq->machine;
@@ -4603,11 +4632,15 @@ Sequence *BKE_sequence_dupli_recursive(Scene *scene, Scene *scene_to, Sequence *
 	return seqn;
 }
 
-void BKE_sequence_base_dupli_recursive(Scene *scene, Scene *scene_to, ListBase *nseqbase, ListBase *seqbase, int dupe_flag)
+void BKE_sequence_base_dupli_recursive(
+        Scene *scene, Scene *scene_to, ListBase *nseqbase, ListBase *seqbase,
+        int dupe_flag)
 {
 	Sequence *seq;
 	Sequence *seqn = NULL;
 	Sequence *last_seq = BKE_sequencer_active_get(scene);
+	/* always include meta's strips */
+	int dupe_flag_recursive = dupe_flag | SEQ_DUPE_ALL;
 
 	for (seq = seqbase->first; seq; seq = seq->next) {
 		seq->tmp = NULL;
@@ -4620,8 +4653,11 @@ void BKE_sequence_base_dupli_recursive(Scene *scene, Scene *scene_to, ListBase *
 				}
 
 				BLI_addtail(nseqbase, seqn);
-				if (seq->type == SEQ_TYPE_META)
-					BKE_sequence_base_dupli_recursive(scene, scene_to, &seqn->seqbase, &seq->seqbase, dupe_flag);
+				if (seq->type == SEQ_TYPE_META) {
+					BKE_sequence_base_dupli_recursive(
+					        scene, scene_to, &seqn->seqbase, &seq->seqbase,
+					        dupe_flag_recursive);
+				}
 
 				if (dupe_flag & SEQ_DUPE_CONTEXT) {
 					if (seq == last_seq) {

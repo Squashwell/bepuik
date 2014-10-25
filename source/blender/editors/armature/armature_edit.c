@@ -296,7 +296,9 @@ static int armature_calc_roll_exec(bContext *C, wmOperator *op)
 				float cursor_rel[3];
 				sub_v3_v3v3(cursor_rel, cursor_local, ebone->head);
 				if (axis_flip) negate_v3(cursor_rel);
-				ebone->roll = ED_rollBoneToVector(ebone, cursor_rel, axis_only);
+				if (normalize_v3(cursor_rel) != 0.0f) {
+					ebone->roll = ED_rollBoneToVector(ebone, cursor_rel, axis_only);
+				}
 			}
 		}
 	}
@@ -1343,7 +1345,9 @@ static int armature_reveal_exec(bContext *C, wmOperator *UNUSED(op))
 	for (ebone = arm->edbo->first; ebone; ebone = ebone->next) {
 		if (arm->layer & ebone->layer) {
 			if (ebone->flag & BONE_HIDDEN_A) {
-				ebone->flag |= (BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL);
+				if (!(ebone->flag & BONE_UNSELECTABLE)) {
+					ebone->flag |= (BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL);
+				}
 				ebone->flag &= ~BONE_HIDDEN_A;
 			}
 		}

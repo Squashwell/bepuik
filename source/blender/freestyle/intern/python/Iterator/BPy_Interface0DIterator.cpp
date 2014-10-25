@@ -124,14 +124,15 @@ static PyObject *Interface0DIterator_iternext(BPy_Interface0DIterator *self)
 			PyErr_SetNone(PyExc_StopIteration);
 			return NULL;
 		}
-		if (self->at_start)
+		else if (self->at_start) {
 			self->at_start = false;
+		}
+		else if (self->if0D_it->atLast()) {
+			PyErr_SetNone(PyExc_StopIteration);
+			return NULL;
+		}
 		else {
 			self->if0D_it->increment();
-			if (self->if0D_it->isEnd()) {
-				PyErr_SetNone(PyExc_StopIteration);
-				return NULL;
-			}
 		}
 	}
 	Interface0D *if0D = self->if0D_it->operator->();
@@ -143,8 +144,8 @@ static PyObject *Interface0DIterator_iternext(BPy_Interface0DIterator *self)
 PyDoc_STRVAR(Interface0DIterator_object_doc,
 "The 0D object currently pointed to by this iterator.  Note that the object\n"
 "may be an instance of an Interface0D subclass. For example if the iterator\n"
-"has been created from :method:`Stroke.vertices_begin`, the .object property\n"
-"refers to a :class:`StrokeVertex` object.\n"
+"has been created from the `vertices_begin()` method of the :class:`Stroke`\n"
+"class, the .object property refers to a :class:`StrokeVertex` object.\n"
 "\n"
 ":type: :class:`Interface0D` or one of its subclasses.");
 
@@ -177,11 +178,24 @@ static PyObject *Interface0DIterator_u_get(BPy_Interface0DIterator *self, void *
 	return PyFloat_FromDouble(self->if0D_it->u());
 }
 
+PyDoc_STRVAR(Interface0DIterator_at_last_doc,
+"True if the interator points to the last valid element.\n"
+"For its counterpart (pointing to the first valid element), use it.is_begin.\n"
+"\n"
+":type: bool");
+
+static PyObject *Interface0DIterator_at_last_get(BPy_Interface0DIterator *self, void *UNUSED(closure))
+{
+	return PyBool_from_bool(self->if0D_it->atLast());
+}
+
 static PyGetSetDef BPy_Interface0DIterator_getseters[] = {
 	{(char *)"object", (getter)Interface0DIterator_object_get, (setter)NULL,
 	                   (char *)Interface0DIterator_object_doc, NULL},
 	{(char *)"t", (getter)Interface0DIterator_t_get, (setter)NULL, (char *)Interface0DIterator_t_doc, NULL},
 	{(char *)"u", (getter)Interface0DIterator_u_get, (setter)NULL, (char *)Interface0DIterator_u_doc, NULL},
+	{(char *)"at_last", (getter)Interface0DIterator_at_last_get, (setter)NULL,
+	                    (char *)Interface0DIterator_at_last_doc, NULL},
 	{NULL, NULL, NULL, NULL, NULL}  /* Sentinel */
 };
 
