@@ -289,9 +289,11 @@ static bPose *g_posebuf = NULL;
 
 void ED_clipboard_posebuf_free(void)
 {
-	BKE_pose_free(g_posebuf);
+	if(g_posebuf) {
+		BKE_pose_free_ex(g_posebuf, false);
+	}
 	/* TODO:BEPUIK is there a reason to do specialized freeing when constraints were copied too because of bepuik ?
-	 * seems like BKE_pose_free gets the job done propertly... */
+	 * seems like BKE_pose_free gets the job done properly... */
 #if 0
 	if (g_posebuf) {
 		bPoseChannel *pchan;
@@ -786,6 +788,7 @@ static int pose_clear_transform_generic_exec(bContext *C, wmOperator *op,
 		}
 		else {
 			/* add unkeyed tags */
+
 			if (pchan->bone)
 				pchan->bone->flag |= BONE_UNKEYED;
 		}
