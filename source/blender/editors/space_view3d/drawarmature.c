@@ -2186,7 +2186,7 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 			if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
 
 #ifdef WITH_BEPUIK
-			if (arm->flag & ARM_POSEMODE) {
+			if ((arm->flag & ARM_POSEMODE) && !(arm->flag & ARM_RESTPOS)) {
 				for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 					bone = pchan->bone;
 				
