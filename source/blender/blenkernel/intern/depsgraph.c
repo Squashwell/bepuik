@@ -2911,14 +2911,13 @@ void DAG_pose_sort(Object *ob)
 			ListBase targets = {NULL, NULL};
 			bConstraintTarget *ct;
 			
-			/* exclude all bepuik constraints from depsgraph (except for bepuik targets)? err... uh*/
-			if((con->flag & CONSTRAINT_BEPUIK) && (con->type != CONSTRAINT_TYPE_BEPUIK_CONTROL))
-				continue;
-				
 			if (cti && cti->get_constraint_targets) {
 				cti->get_constraint_targets(con, &targets);
 				
 				for (ct = targets.first; ct; ct = ct->next) {
+					/* It's okay for BEPUik constraints to be cyclical, (except for controls) so don't add them */
+					if((con->flag & CONSTRAINT_BEPUIK) && (con->type != CONSTRAINT_TYPE_BEPUIK_CONTROL))
+						continue;
 					if (ct->tar == ob && ct->subtarget[0]) {
 						bPoseChannel *target = BKE_pose_channel_find_name(ob->pose, ct->subtarget);
 						if (target) {

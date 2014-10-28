@@ -2623,11 +2623,11 @@ static EnumPropertyItem axis_items[] = {
 	RNA_def_property_pointer_sdna(prop, NULL, #id "_target"); \
 	RNA_def_property_ui_text(prop, #name, #name " Object"); \
 	RNA_def_property_flag(prop, PROP_EDITABLE); \
-	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); \
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_dependency_update"); \
 	\
 	prop = RNA_def_property(srna, #id "_subtarget", PROP_STRING, PROP_NONE); \
 	RNA_def_property_ui_text(prop, #name " Sub-Target", #description); \
-	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_dependency_update");
 
 #define BEPUIK_CONNECTION \
 	BEPUIK_TARGET(connection,Target B,The other bone the constraint affects)
@@ -2637,7 +2637,7 @@ static EnumPropertyItem axis_items[] = {
 	\
 	prop = RNA_def_property(srna, #id "_head_tail", PROP_FLOAT, PROP_FACTOR); \
 	RNA_def_property_ui_text(prop, #name " Head/Tail", "Target along length of bone: Head=0, Tail=1"); \
-	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update");
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_dependency_update");
 
 #define BEPUIK_AXIS(id,name,description) \
 	BEPUIK_TARGET(id,name,description) \
@@ -2647,7 +2647,7 @@ static EnumPropertyItem axis_items[] = {
 	RNA_def_property_enum_items(prop, axis_items); \
 	RNA_def_property_enum_default(prop,TRACK_Y); \
 	RNA_def_property_ui_text(prop, "Axis", "Axis of the bone used for reference"); \
-	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_update"); 
+	RNA_def_property_update(prop, NC_OBJECT | ND_CONSTRAINT, "rna_Constraint_dependency_update");
 
 
 	
