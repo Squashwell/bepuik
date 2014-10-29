@@ -1474,77 +1474,6 @@ static bool scene_need_update_objects(Main *bmain)
 }
 
 /* TODO:BEPUIK XXX include for hack below */
-#include "MOD_modifiertypes.h"
-#include "DNA_constraint_types.h"
-static bool bepuik_is_valid_dynamic_poseob(Object * ob)
-{
-	return 	(ob && (ob->type == OB_ARMATURE) && (ob->pose) && (ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC));
-}
-
-static bool bepuik_is_ob_or_proxy_valid(Object * ob)
-{
-	if(ob)
-	{
-		if (bepuik_is_valid_dynamic_poseob(ob))
-			return true;
-
-		if(bepuik_is_valid_dynamic_poseob(ob->proxy_from))
-			return true;
-	}
-
-	return false;
-}
-
-#define CHECKCON(struct_name,type) case type: \
-{ \
-	struct_name * cdata = con->data; \
-	if(bepuik_is_ob_or_proxy_valid(cdata->tar)) { \
-		return true; \
-	} \
-	break; \
-}
-static bool is_deformed_by_dynamic_bepuik_armature(Object * ob)
-{
-	ModifierData * mod;
-	bConstraint * con;
-	for (mod = ob->modifiers.first; mod; mod = mod->next) {
-		if (mod->type == eModifierType_Armature) {
-			Object * ob_armature = ((ArmatureModifierData *)mod)->object;
-			if(bepuik_is_ob_or_proxy_valid(ob_armature)) {
-				return true;
-			}
-		}
-	}
-
-	for (con = ob->constraints.first; con; con = con->next)
-	{
-		switch(con->type)
-		{
-			CHECKCON(bLocateLikeConstraint,CONSTRAINT_TYPE_LOCLIKE)
-			CHECKCON(bRotateLikeConstraint,CONSTRAINT_TYPE_ROTLIKE)
-			CHECKCON(bSizeLikeConstraint,CONSTRAINT_TYPE_SIZELIKE)
-			CHECKCON(bTransLikeConstraint,CONSTRAINT_TYPE_TRANSLIKE)
-
-			CHECKCON(bDistLimitConstraint,CONSTRAINT_TYPE_DISTLIMIT)
-
-			CHECKCON(bTransformConstraint, CONSTRAINT_TYPE_TRANSFORM)
-
-			CHECKCON(bDampTrackConstraint, CONSTRAINT_TYPE_DAMPTRACK)
-			CHECKCON(bLockTrackConstraint, CONSTRAINT_TYPE_LOCKTRACK)
-
-			CHECKCON(bStretchToConstraint, CONSTRAINT_TYPE_STRETCHTO)
-			CHECKCON(bTrackToConstraint, CONSTRAINT_TYPE_TRACKTO)
-
-			CHECKCON(bActionConstraint, CONSTRAINT_TYPE_ACTION)
-			CHECKCON(bChildOfConstraint,CONSTRAINT_TYPE_CHILDOF)
-			CHECKCON(bMinMaxConstraint, CONSTRAINT_TYPE_MINMAX)
-			CHECKCON(bPivotConstraint, CONSTRAINT_TYPE_PIVOT)
-		}
-	}
-
-	return false;
-}
-
 static void bepuik_tag(Object * ob)
 {
 	if(ob) DAG_id_tag_update(&ob->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
@@ -1552,15 +1481,13 @@ static void bepuik_tag(Object * ob)
 
 static void bepuik_update_hack(Main * bmain)
 {
-	Object * ob;
-	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if(bepuik_is_valid_dynamic_poseob(ob)) {
+	if(G.bepuik_modal_dynamic_solving)
+	{
+		Object * ob;
+		for (ob = bmain->object.first; ob; ob = ob->id.next) {
 			bepuik_tag(ob);
 			bepuik_tag(ob->proxy);
 		}
-		else if(ob->type == OB_MESH)
-			if(is_deformed_by_dynamic_bepuik_armature(ob))
-				bepuik_tag(ob);
 	}
 }
 
