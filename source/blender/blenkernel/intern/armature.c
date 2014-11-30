@@ -2739,40 +2739,45 @@ void BKE_pose_set_bepuik_constraint_flags(Object * ob, bool first_controls_only,
 }
 
 
-void BKE_pose_bepuik_visual_transform_apply(Scene * scene, Object * ob, bool visual_transform_apply, bool bepuik_solve, int bepuik_pose_flags)
+void BKE_pose_bepuik_feedback(Object * ob)
 {
-	int previous_bepuikflags = ob->pose->bepuikflag;
 	bPoseChannel * pchan;
 
+	if(!(ob && ob->pose)) return;
+
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+		if(pchan->bepuikflag & BONE_BEPUIK_FEEDBACK) {
+			copy_v3_v3(pchan->loc,pchan->bepuik_loc);
+			copy_v3_v3(pchan->eul,pchan->bepuik_eul);
+			copy_qt_qt(pchan->quat,pchan->bepuik_quat);
+			copy_v3_v3(pchan->rotAxis,pchan->bepuik_rotAxis);
+			pchan->rotAngle = pchan->bepuik_rotAngle;
+			pchan->bepuikflag &= ~BONE_BEPUIK_FEEDBACK;
+			/* don't need size because size is never changed by bepuik*/
+		}
+	}
+}
+
+void BKE_pose_bepuik_visual_transform_apply(Object * ob)
+{
+	bPoseChannel * pchan;
+
+	for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+		float delta_mat[4][4];
+		float size[3];
+		copy_v3_v3(size,pchan->size);
+		BKE_armature_mat_pose_to_bone(pchan, pchan->pose_mat, delta_mat);
+
+		BKE_pchan_apply_mat4(pchan, delta_mat, true);
+		copy_v3_v3(pchan->size,size);
+	}
+}
+
+void BKE_pose_bepuik_where_is(Scene * scene, Object * ob, int bepuik_pose_flags)
+{
+	int previous_bepuikflags = ob->pose->bepuikflag;
 	ob->pose->bepuikflag = bepuik_pose_flags;
-
-	if(visual_transform_apply) {
-		for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-			float delta_mat[4][4];
-			float size[3];
-			copy_v3_v3(size,pchan->size);
-			BKE_armature_mat_pose_to_bone(pchan, pchan->pose_mat, delta_mat);
-
-			BKE_pchan_apply_mat4(pchan, delta_mat, true);
-			copy_v3_v3(pchan->size,size);
-		}
-	}
-
-	if(bepuik_solve) {
-		BKE_pose_where_is(scene,ob);
-
-		for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-			if(pchan->bepuikflag & BONE_BEPUIK_FEEDBACK) {
-				copy_v3_v3(pchan->loc,pchan->bepuik_loc);
-				copy_v3_v3(pchan->eul,pchan->bepuik_eul);
-				copy_qt_qt(pchan->quat,pchan->bepuik_quat);
-				copy_v3_v3(pchan->rotAxis,pchan->bepuik_rotAxis);
-				pchan->rotAngle = pchan->bepuik_rotAngle;
-				pchan->bepuikflag &= ~BONE_BEPUIK_FEEDBACK;
-				/* don't need size because size is never changed by bepuik*/
-			}
-		}
-	}
-
+	BKE_pose_where_is(scene,ob);
+	BKE_pose_bepuik_feedback(ob);
 	ob->pose->bepuikflag = previous_bepuikflags;
 }

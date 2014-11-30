@@ -1017,7 +1017,6 @@ void bepu_solve(Object * ob)
 				if(ob->pose->bepuikflag & POSE_BEPUIK_DYNAMIC)
 				{
 					pchan->bepuikflag |= BONE_BEPUIK_FEEDBACK;
-					ob->pose->bepuikflag |= POSE_BEPUIK_FEEDBACK;
 				}
 
 			}
@@ -1076,7 +1075,6 @@ void bepu_solve(Object * ob)
 				BKE_pchan_apply_mat4(pchan,pchan->chan_mat,true);
 
 				pchan->bepuikflag |= BONE_BEPUIK_FEEDBACK;
-				ob->pose->bepuikflag |= POSE_BEPUIK_FEEDBACK;
 			}
 			else
 			{

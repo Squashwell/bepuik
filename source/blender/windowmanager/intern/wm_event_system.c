@@ -237,6 +237,9 @@ static void wm_notifier_clear(wmNotifier *note)
 	memset(((char *)note) + sizeof(Link), 0, sizeof(*note) - sizeof(Link));
 }
 
+#include "DNA_object_types.h"
+#include "BKE_depsgraph.h"
+#include "BKE_armature.h"
 /* called in mainloop */
 void wm_event_do_notifiers(bContext *C)
 {
@@ -375,6 +378,23 @@ void wm_event_do_notifiers(bContext *C)
 			/* XXX, hack so operators can enforce datamasks [#26482], gl render */
 			win->screen->scene->customdata_mask |= win->screen->scene->customdata_mask_modal;
 
+			if (G.bepuik_modal_dynamic_solving)
+			{
+				Object * ob = CTX_data_active_object(C);
+				if(ob)
+				{
+					/* TODO:BEPUIK XXX Ensures that BEPUik objects will be updated continuously in dynamic mode
+					 * during modal operators.
+				     */
+					DAG_id_tag_update(&ob->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
+
+
+					/* TODO:BEPUIK XXX During dynamic mode, feed the previous bepuik solution into the locrotsize
+					 * of the pchans
+				     */
+					BKE_pose_bepuik_feedback(ob);
+				}
+			}
 			BKE_scene_update_tagged(bmain->eval_ctx, bmain, win->screen->scene);
 		}
 	}

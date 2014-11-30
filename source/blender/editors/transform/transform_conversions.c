@@ -835,7 +835,7 @@ static void bepu_transpose_data_setup(TransInfo *t)
 		if(t->bepuikflag & T_BEPUIK_DYNAMIC)
 		{
 			G.bepuik_modal_dynamic_solving = true;
-			BKE_pose_bepuik_visual_transform_apply(t->scene,ob,true,false,0);
+			BKE_pose_bepuik_visual_transform_apply(ob);
 
 			pose->bepuikflag |= POSE_BEPUIK_DYNAMIC;
 			pose->bepuikflag |= POSE_BEPUIK_UPDATE_DYNAMIC_STIFFNESS_MAT;

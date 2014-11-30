@@ -2356,7 +2356,10 @@ static void bepuik_match_finished(TransInfo * t)
 	}
 
 	bepuikflags &= ~POSE_BEPUIK_DYNAMIC;
-	BKE_pose_bepuik_visual_transform_apply(t->scene,ob,do_visual_transform_apply,true,bepuikflags);
+	if(do_visual_transform_apply)
+		BKE_pose_bepuik_visual_transform_apply(ob);
+
+	BKE_pose_bepuik_where_is(t->scene,ob,bepuikflags);
 }
 
 

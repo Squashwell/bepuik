@@ -1476,65 +1476,12 @@ static bool scene_need_update_objects(Main *bmain)
 		DAG_id_type_tagged(bmain, ID_AR);     /* Armature */
 }
 
-/* TODO:BEPUIK XXX include for hack below */
-static void bepuik_tag(Object * ob)
-{
-	if(ob) DAG_id_tag_update(&ob->id,OB_RECALC_DATA | OB_RECALC_OB | OB_RECALC_TIME);
-}
-
-static void bepuik_update_hack(Main * bmain)
-{
-	if(G.bepuik_modal_dynamic_solving)
-	{
-		Object * ob;
-		for (ob = bmain->object.first; ob; ob = ob->id.next) {
-			bepuik_tag(ob);
-			bepuik_tag(ob->proxy);
-		}
-	}
-}
-
-static void bepuik_feedback_hack(Main * bmain)
-{
-	Object * ob;
-	bPoseChannel * pchan;
-	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-
-		if(ob->pose) {
-			if(ob->pose->bepuikflag & POSE_BEPUIK_FEEDBACK) {
-				for(pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-					if(pchan->bepuikflag & BONE_BEPUIK_FEEDBACK) {
-						copy_v3_v3(pchan->loc,pchan->bepuik_loc);
-						copy_v3_v3(pchan->eul,pchan->bepuik_eul);
-						copy_qt_qt(pchan->quat,pchan->bepuik_quat);
-						copy_v3_v3(pchan->rotAxis,pchan->bepuik_rotAxis);
-						pchan->rotAngle = pchan->bepuik_rotAngle;
-						pchan->bepuikflag &= ~BONE_BEPUIK_FEEDBACK;
-						/* don't need size because size is never changed by bepuik*/
-					}
-				}
-				ob->pose->bepuikflag &= ~POSE_BEPUIK_FEEDBACK;
-			}
-		}
-	}
-}
-
 static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Scene *scene_parent)
 {
 	TaskScheduler *task_scheduler = BLI_task_scheduler_get();
 	TaskPool *task_pool;
 	ThreadedObjectUpdateState state;
 	bool need_singlethread_pass;
-
-	/* TODO:BEPUIK XXX During dynamic mode, feed the previous bepuik solution into the locrotsize
-	 * of the pchans
-     */
-	bepuik_feedback_hack(bmain);
-
-	/* TODO:BEPUIK XXX Ensures that BEPUik objects will be updated continuously in dynamic mode
-	 * during modal operators.
-     */
-	bepuik_update_hack(bmain);
 
 	/* Early check for whether we need to invoke all the task-based
 	 * things (spawn new ppol, traverse dependency graph and so on).
