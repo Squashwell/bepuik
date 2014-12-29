@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2013 Blender Foundation
+ * Copyright 2014 Blender Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,20 @@
  * limitations under the License
  */
 
-#ifndef __UTIL_DYNLIB_H__
-#define __UTIL_DYNLIB_H__
+#ifndef __UTIL_ATOMIC_H__
+#define __UTIL_ATOMIC_H__
 
-CCL_NAMESPACE_BEGIN
+/* Using atomic ops header from Blender. */
+#include "atomic_ops.h"
 
-struct DynamicLibrary;
+ATOMIC_INLINE void atomic_update_max_z(size_t *maximum_value, size_t value)
+{
+	size_t prev_value = *maximum_value;
+	while (prev_value < value) {
+		if (atomic_cas_z(maximum_value, prev_value, value) != prev_value) {
+			break;
+		}
+	}
+}
 
-DynamicLibrary *dynamic_library_open(const char *name);
-void *dynamic_library_find(DynamicLibrary *lib, const char *name);
-void dynamic_library_close(DynamicLibrary *lib);
-
-CCL_NAMESPACE_END
-
-#endif /* __UTIL_DYNLIB_H__ */
-
+#endif /* __UTIL_ATOMIC_H__ */

@@ -844,7 +844,7 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 	/* bone defmats are already in the channels, chan_mat */
 
 	/* initialize B_bone matrices and dual quaternions */
-	totchan = BLI_countlist(&armOb->pose->chanbase);
+	totchan = BLI_listbase_count(&armOb->pose->chanbase);
 
 	if (use_quaternion) {
 		dualquats = MEM_callocN(sizeof(DualQuat) * totchan, "dualquats");
@@ -870,7 +870,7 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 	armature_def_nr = defgroup_name_index(target, defgrp_name);
 
 	if (ELEM(target->type, OB_MESH, OB_LATTICE)) {
-		defbase_tot = BLI_countlist(&target->defbase);
+		defbase_tot = BLI_listbase_count(&target->defbase);
 
 		if (target->type == OB_MESH) {
 			Mesh *me = target->data;
@@ -1658,6 +1658,7 @@ static void pose_proxy_synchronize(Object *ob, Object *from, int layer_protected
 			pchanw.next = pchan->next;
 			pchanw.parent = pchan->parent;
 			pchanw.child = pchan->child;
+			pchanw.custom_tx = pchan->custom_tx;
 
 			pchanw.mpath = pchan->mpath;
 			pchan->mpath = NULL;
@@ -1666,7 +1667,7 @@ static void pose_proxy_synchronize(Object *ob, Object *from, int layer_protected
 			if (pchanw.prop) {
 				pchanw.prop = IDP_CopyProperty(pchanw.prop);
 				
-				/* use the values from the the existing props */
+				/* use the values from the existing props */
 				if (pchan->prop) {
 					IDP_SyncGroupValues(pchanw.prop, pchan->prop);
 				}
@@ -1944,12 +1945,12 @@ static void splineik_init_tree_from_pchan(Scene *scene, Object *UNUSED(ob), bPos
 			}
 		}
 
-		/* disallow negative values (happens with float precision) */
-		CLAMP_MIN(ikData->points[segcount], 0.0f);
-
 		/* spline has now been bound */
 		ikData->flag |= CONSTRAINT_SPLINEIK_BOUND;
 	}
+
+	/* disallow negative values (happens with float precision) */
+	CLAMP_MIN(ikData->points[segcount], 0.0f);
 
 	/* apply corrections for sensitivity to scaling on a copy of the bind points,
 	 * since it's easier to determine the positions of all the joints beforehand this way

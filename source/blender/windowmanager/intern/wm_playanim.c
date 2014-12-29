@@ -69,8 +69,6 @@
 #include "GHOST_C-api.h"
 #include "BLF_api.h"
 
-#include "wm_event_types.h"
-
 #include "WM_api.h"  /* only for WM_main_playanim */
 
 struct PlayState;
@@ -298,8 +296,8 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 	glRasterPos2f(offs_x + (ps->draw_flip[0] ? span_x : 0.0f),
 	              offs_y + (ps->draw_flip[1] ? span_y : 0.0f));
 
-	glPixelZoom(ps->zoom * ps->draw_flip[0] ? -1.0f : 1.0f,
-	            ps->zoom * ps->draw_flip[1] ? -1.0f : 1.0f);
+	glPixelZoom(ps->zoom * (ps->draw_flip[0] ? -1.0f : 1.0f),
+	            ps->zoom * (ps->draw_flip[1] ? -1.0f : 1.0f));
 
 	glDrawPixels(ibuf->x, ibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, ibuf->rect);
 

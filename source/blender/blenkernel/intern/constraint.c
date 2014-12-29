@@ -1971,7 +1971,7 @@ static void pycon_get_tarmat(bConstraint *con, bConstraintOb *cob, bConstraintTa
 static void pycon_evaluate(bConstraint *con, bConstraintOb *cob, ListBase *targets)
 {
 #ifndef WITH_PYTHON
-	(void)con; (void)cob; (void)targets; /* unused */
+	UNUSED_VARS(con, cob, targets);
 	return;
 #else
 	bPythonConstraint *data = con->data;
@@ -3461,10 +3461,16 @@ static void shrinkwrap_get_tarmat(bConstraint *con, bConstraintOb *cob, bConstra
 					}
 					
 					/* transform normal into requested space */
-					unit_m4(mat);
-					BKE_constraint_mat_convertspace(cob->ob, cob->pchan, mat, CONSTRAINT_SPACE_LOCAL, scon->projAxisSpace);
-					invert_m4(mat);
-					mul_mat3_m4_v3(mat, no);
+					/* We cannot use BKE_constraint_mat_convertspace here, it does not take into account scaling...
+					 * In theory we would not need it, but in this case we'd have to tweak SpaceTransform to also
+					 * optionally ignore scaling when handling normals - simpler to directly call BKE_object_to_mat4
+					 * if needed! See T42447. */
+					if (scon->projAxisSpace == CONSTRAINT_SPACE_WORLD) {
+						BKE_object_to_mat4(cob->ob, mat);
+						invert_m4(mat);
+						mul_mat3_m4_v3(mat, no);
+					}
+					/* Else, we remain in local space, nothing to do. */
 
 					if (normalize_v3(no) < FLT_EPSILON) {
 						fail = true;
@@ -4776,10 +4782,10 @@ bool BKE_constraint_remove(ListBase *list, bConstraint *con)
 	if (con) {
 		BKE_constraint_free_data(con);
 		BLI_freelinkN(list, con);
-		return 1;
+		return true;
 	}
 	else
-		return 0;
+		return false;
 }
 
 /* ......... */
@@ -5050,15 +5056,15 @@ bool BKE_constraints_proxylocked_owner(Object *ob, bPoseChannel *pchan)
 			
 			/* On bone-level, check if bone is on proxy-protected layer */
 			if ((pchan->bone) && (pchan->bone->layer & arm->layer_protected))
-				return 1;
+				return true;
 		}
 		else {
 			/* FIXME: constraints on object-level are not handled well yet */
-			return 1;
+			return true;
 		}
 	}
 	
-	return 0;
+	return false;
 }
 
 /* -------- Target-Matrix Stuff ------- */

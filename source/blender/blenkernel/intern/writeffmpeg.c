@@ -57,7 +57,6 @@
 #include "BKE_sound.h"
 #include "BKE_writeffmpeg.h"
 
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
 
 #include "ffmpeg_compat.h"
@@ -484,7 +483,6 @@ static void set_ffmpeg_properties(RenderData *rd, AVCodecContext *c, const char 
                                   AVDictionary **dictionary)
 {
 	IDProperty *prop;
-	void *iter;
 	IDProperty *curr;
 
 	/* TODO(sergey): This is actually rather stupid, because changing
@@ -495,7 +493,7 @@ static void set_ffmpeg_properties(RenderData *rd, AVCodecContext *c, const char 
 	 *
 	 * For as long we don't allow editing properties in the interface
 	 * it's all good. bug if we allow editing them, we'll need to
-	 * repace it with some smarter code which would port settings
+	 * replace it with some smarter code which would port settings
 	 * from deprecated to new one.
 	 */
 	ffmpeg_set_expert_options(rd);
@@ -509,9 +507,7 @@ static void set_ffmpeg_properties(RenderData *rd, AVCodecContext *c, const char 
 		return;
 	}
 
-	iter = IDP_GetGroupIterator(prop);
-
-	while ((curr = IDP_GroupIterNext(iter)) != NULL) {
+	for (curr = prop->data.group.first; curr; curr = curr->next) {
 		if (ffmpeg_proprty_valid(c, prop_name, curr))
 			set_ffmpeg_property_option(c, curr, dictionary);
 	}

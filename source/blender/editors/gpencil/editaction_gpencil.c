@@ -49,8 +49,6 @@
 #include "ED_keyframes_edit.h"
 #include "ED_markers.h"
 
-#include "gpencil_intern.h"
-
 /* ***************************************** */
 /* NOTE ABOUT THIS FILE:
  *  This file contains code for editing Grease Pencil data in the Action Editor
@@ -249,6 +247,23 @@ void ED_gplayer_frames_duplicate(bGPDlayer *gpl)
 			gpf->flag &= ~GP_FRAME_SELECT;
 			
 			BLI_insertlinkafter(&gpl->frames, gpf, gpfd);
+		}
+	}
+}
+
+/* Set keyframe type for selected frames from given gp-layer 
+ * \param type The type of keyframe (eBezTriple_KeyframeType) to set selected frames to
+ */
+void ED_gplayer_frames_keytype_set(bGPDlayer *gpl, short type)
+{
+	bGPDframe *gpf;
+	
+	if (gpl == NULL)
+		return;
+	
+	for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+		if (gpf->flag & GP_FRAME_SELECT) {
+			gpf->key_type = type;
 		}
 	}
 }

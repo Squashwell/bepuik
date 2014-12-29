@@ -58,6 +58,7 @@ typedef enum eEditKeyframes_Validate {
 	BEZT_OK_VALUERANGE,
 	BEZT_OK_REGION,
 	BEZT_OK_REGION_LASSO,
+	BEZT_OK_REGION_CIRCLE,
 } eEditKeyframes_Validate;
 
 /* ------------ */
@@ -105,6 +106,14 @@ struct KeyframeEdit_LassoData {
 	const rctf *rectf_view;
 	const int (*mcords)[2];
 	int mcords_tot;
+};
+
+/* use with BEZT_OK_REGION_CIRCLE */
+struct KeyframeEdit_CircleData {
+	const rctf *rectf_scaled;
+	const rctf *rectf_view;
+	float mval[2];
+	float radius_squared;
 };
 
 
@@ -233,7 +242,7 @@ short bezt_selmap_flush(KeyframeEditData *ked, struct BezTriple *bezt);
 
 /* ----------- BezTriple Callback (Assorted Utilities) ---------- */
 
-/* used to calculate the the average location of all relevant BezTriples by summing their locations */
+/* used to calculate the average location of all relevant BezTriples by summing their locations */
 short bezt_calc_average(KeyframeEditData *ked, struct BezTriple *bezt);
 
 /* used to extract a set of cfra-elems from the keyframes */

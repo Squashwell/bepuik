@@ -86,6 +86,8 @@ enum {
 - (void)windowDidBecomeKey:(NSNotification *)notification
 {
 	systemCocoa->handleWindowEvent(GHOST_kEventWindowActivate, associatedWindow);
+	// work around for broken appswitching when combining cmd-tab and missioncontrol
+	[(NSWindow*)associatedWindow->getOSWindow() orderFrontRegardless];
 }
 
 - (void)windowDidResignKey:(NSNotification *)notification
@@ -642,6 +644,8 @@ GHOST_WindowCocoa::GHOST_WindowCocoa(
 		// implies we are on >= OSX 10.9
 		m_lionStyleFullScreen = true;
 	}
+	
+	[NSApp activateIgnoringOtherApps:YES]; // raise application to front, important for new blender instance animation play case
 	
 	[pool drain];
 }

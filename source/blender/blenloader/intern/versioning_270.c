@@ -49,13 +49,11 @@
 
 #include "DNA_genfile.h"
 
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
-
 #include "BKE_main.h"
 #include "BKE_node.h"
 
 #include "BLI_math.h"
+#include "BLI_listbase.h"
 #include "BLI_string.h"
 
 #include "BLO_readfile.h"
@@ -310,7 +308,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		{
 			Scene *scene;
 			for (scene = main->scene.first; scene; scene = scene->id.next) {
-				int num_layers = BLI_countlist(&scene->r.layers);
+				int num_layers = BLI_listbase_count(&scene->r.layers);
 				scene->r.actlay = min_ff(scene->r.actlay, num_layers - 1);
 			}
 		}
@@ -403,7 +401,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 	}
-	
+
 	if (!MAIN_VERSION_ATLEAST(main, 272, 1)) {
 		Brush *br;
 		for (br = main->brush.first; br; br = br->id.next) {
@@ -412,25 +410,27 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
-	if (!DNA_struct_elem_find(fd->filesdna, "Image", "float", "gen_color")) {
-		Image *image;
-		for (image = main->image.first; image != NULL; image = image->id.next) {
-			image->gen_color[3] = 1.0f;
+	if (!MAIN_VERSION_ATLEAST(main, 272, 2)) {
+		if (!DNA_struct_elem_find(fd->filesdna, "Image", "float", "gen_color")) {
+			Image *image;
+			for (image = main->image.first; image != NULL; image = image->id.next) {
+				image->gen_color[3] = 1.0f;
+			}
 		}
-	}
 
-	if (!DNA_struct_elem_find(fd->filesdna, "bStretchToConstraint", "float", "bulge_min")) {
-		Object *ob;
+		if (!DNA_struct_elem_find(fd->filesdna, "bStretchToConstraint", "float", "bulge_min")) {
+			Object *ob;
 
-		/* Update Transform constraint (again :|). */
-		for (ob = main->object.first; ob; ob = ob->id.next) {
-			do_version_constraints_stretch_to_limits(&ob->constraints);
+			/* Update Transform constraint (again :|). */
+			for (ob = main->object.first; ob; ob = ob->id.next) {
+				do_version_constraints_stretch_to_limits(&ob->constraints);
 
-			if (ob->pose) {
-				/* Bones constraints! */
-				bPoseChannel *pchan;
-				for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-					do_version_constraints_stretch_to_limits(&pchan->constraints);
+				if (ob->pose) {
+					/* Bones constraints! */
+					bPoseChannel *pchan;
+					for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+						do_version_constraints_stretch_to_limits(&pchan->constraints);
+					}
 				}
 			}
 		}

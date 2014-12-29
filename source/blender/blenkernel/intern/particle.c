@@ -981,14 +981,14 @@ bool psys_render_simplify_params(ParticleSystem *psys, ChildParticle *cpa, float
 	int b;
 
 	if (!(psys->renderdata && (psys->part->simplify_flag & PART_SIMPLIFY_ENABLE)))
-		return 0;
+		return false;
 	
 	data = psys->renderdata;
 	if (!data->do_simplify)
-		return 0;
+		return false;
 	b = (data->index_mf_to_mpoly) ? DM_origindex_mface_mpoly(data->index_mf_to_mpoly, data->index_mp_to_orig, cpa->num) : cpa->num;
 	if (b == ORIGINDEX_NONE) {
-		return 0;
+		return false;
 	}
 
 	elem = &data->elems[b];
@@ -1043,7 +1043,7 @@ static float interpolate_particle_value(float v1, float v2, float v3, float v4, 
 	return value;
 }
 
-void psys_interpolate_particle(short type, ParticleKey keys[4], float dt, ParticleKey *result, int velocity)
+void psys_interpolate_particle(short type, ParticleKey keys[4], float dt, ParticleKey *result, bool velocity)
 {
 	float t[4];
 
@@ -1071,7 +1071,6 @@ void psys_interpolate_particle(short type, ParticleKey keys[4], float dt, Partic
 		}
 	}
 }
-
 
 
 typedef struct ParticleInterpolationData {
@@ -3514,8 +3513,8 @@ ModifierData *object_add_particle_system(Scene *scene, Object *ob, const char *n
 
 	psys->part = psys_new_settings(DATA_("ParticleSettings"), NULL);
 
-	if (BLI_countlist(&ob->particlesystem) > 1)
-		BLI_snprintf(psys->name, sizeof(psys->name), DATA_("ParticleSystem %i"), BLI_countlist(&ob->particlesystem));
+	if (BLI_listbase_count_ex(&ob->particlesystem, 2) > 1)
+		BLI_snprintf(psys->name, sizeof(psys->name), DATA_("ParticleSystem %i"), BLI_listbase_count(&ob->particlesystem));
 	else
 		BLI_strncpy(psys->name, DATA_("ParticleSystem"), sizeof(psys->name));
 
@@ -3524,7 +3523,7 @@ ModifierData *object_add_particle_system(Scene *scene, Object *ob, const char *n
 	if (name)
 		BLI_strncpy_utf8(md->name, name, sizeof(md->name));
 	else
-		BLI_snprintf(md->name, sizeof(md->name), DATA_("ParticleSystem %i"), BLI_countlist(&ob->particlesystem));
+		BLI_snprintf(md->name, sizeof(md->name), DATA_("ParticleSystem %i"), BLI_listbase_count(&ob->particlesystem));
 	modifier_unique_name(&ob->modifiers, md);
 
 	psmd = (ParticleSystemModifierData *) md;
@@ -4564,8 +4563,7 @@ void psys_get_dupli_path_transform(ParticleSimulationData *sim, ParticleData *pa
 		psys_particle_on_emitter(psmd, PART_FROM_FACE, cpa->num, DMCACHE_ISCHILD, cpa->fuv, cpa->foffset, loc, nor, 0, 0, 0, 0);
 
 	if (psys->part->rotmode == PART_ROT_VEL) {
-		copy_m3_m4(nmat, ob->imat);
-		transpose_m3(nmat);
+		transpose_m3_m4(nmat, ob->imat);
 		mul_m3_v3(nmat, nor);
 		normalize_v3(nor);
 

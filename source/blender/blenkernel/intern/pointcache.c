@@ -50,7 +50,6 @@
 #include "BLI_threads.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
-#include "BLI_system.h"
 
 #include "BLF_translation.h"
 
@@ -58,6 +57,7 @@
 
 #include "WM_api.h"
 
+#include "BKE_appdir.h"
 #include "BKE_anim.h"
 #include "BKE_blender.h"
 #include "BKE_cloth.h"
@@ -1043,8 +1043,6 @@ static void ptcache_rigidbody_interpolate(int index, void *rb_v, void **data, fl
 {
 	RigidBodyWorld *rbw = rb_v;
 	Object *ob = NULL;
-	ParticleKey keys[4];
-	float dfra;
 	
 	if (rbw->objects)
 		ob = rbw->objects[index];
@@ -1053,6 +1051,11 @@ static void ptcache_rigidbody_interpolate(int index, void *rb_v, void **data, fl
 		RigidBodyOb *rbo = ob->rigidbody_object;
 		
 		if (rbo->type == RBO_TYPE_ACTIVE) {
+			ParticleKey keys[4];
+			ParticleKey result;
+			float dfra;
+			
+			memset(keys, 0, sizeof(keys));
 			
 			copy_v3_v3(keys[1].co, rbo->pos);
 			copy_qt_qt(keys[1].rot, rbo->orn);
@@ -1062,16 +1065,17 @@ static void ptcache_rigidbody_interpolate(int index, void *rb_v, void **data, fl
 				memcpy(keys[2].rot, data + 3, 4 * sizeof(float));
 			}
 			else {
-				BKE_ptcache_make_particle_key(keys+2, 0, data, cfra2);
+				BKE_ptcache_make_particle_key(&keys[2], 0, data, cfra2);
 			}
 			
 			dfra = cfra2 - cfra1;
 		
-			psys_interpolate_particle(-1, keys, (cfra - cfra1) / dfra, keys, 1);
-			interp_qt_qtqt(keys->rot, keys[1].rot, keys[2].rot, (cfra - cfra1) / dfra);
+			/* note: keys[0] and keys[3] unused for type < 1 (crappy) */
+			psys_interpolate_particle(-1, keys, (cfra - cfra1) / dfra, &result, true);
+			interp_qt_qtqt(result.rot, keys[1].rot, keys[2].rot, (cfra - cfra1) / dfra);
 			
-			copy_v3_v3(rbo->pos, keys->co);
-			copy_qt_qt(rbo->orn, keys->rot);
+			copy_v3_v3(rbo->pos, result.co);
+			copy_qt_qt(rbo->orn, result.rot);
 		}
 	}
 }
@@ -1465,7 +1469,7 @@ static int ptcache_path(PTCacheID *pid, char *filename)
 	
 	/* use the temp path. this is weak but better then not using point cache at all */
 	/* temporary directory is assumed to exist and ALWAYS has a trailing slash */
-	BLI_snprintf(filename, MAX_PTCACHE_PATH, "%s"PTCACHE_PATH, BLI_temp_dir_session());
+	BLI_snprintf(filename, MAX_PTCACHE_PATH, "%s"PTCACHE_PATH, BKE_tempdir_session());
 	
 	return BLI_add_slash(filename); /* new strlen() */
 }
@@ -2567,12 +2571,19 @@ void BKE_ptcache_id_clear(PTCacheID *pid, int mode, unsigned int cfra)
 		if (pid->cache->flag & PTCACHE_DISK_CACHE) {
 			ptcache_path(pid, path);
 			
-			len = ptcache_filename(pid, filename, cfra, 0, 0); /* no path */
-			
 			dir = opendir(path);
 			if (dir==NULL)
 				return;
-
+			
+			len = ptcache_filename(pid, filename, cfra, 0, 0); /* no path */
+			/* append underscore terminator to ensure we don't match similar names
+			 * from objects whose names start with the same prefix
+			 */
+			if (len < sizeof(filename) - 2) {
+				BLI_strncpy(filename + len, "_", sizeof(filename) - 2 - len);
+				len += 1;
+			}
+			
 			BLI_snprintf(ext, sizeof(ext), "_%02u"PTCACHE_EXT, pid->stack_index);
 			
 			while ((de = readdir(dir)) != NULL) {

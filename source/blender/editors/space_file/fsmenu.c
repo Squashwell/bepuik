@@ -367,7 +367,7 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
 
 		/* As 10.4 doesn't provide proper API to retrieve the favorite places,
 		 * assume they are the standard ones 
-		 * TODO : replace hardcoded paths with proper BLI_get_folder calls */
+		 * TODO : replace hardcoded paths with proper BKE_appdir_folder_id calls */
 		home = getenv("HOME");
 		if (read_bookmarks && home) {
 			BLI_snprintf(line, sizeof(line), "%s/", home);
@@ -447,7 +447,7 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
 				/* Exclude "all my files" as it makes no sense in blender fileselector */
 				/* Exclude "airdrop" if wlan not active as it would show "" ) */
 				if (!strstr(line, "myDocuments.cannedSearch") && (*line != '\0')) {
-					fsmenu_insert_entry(fsmenu, FS_CATEGORY_SYSTEM_BOOKMARKS, line, NULL);
+					fsmenu_insert_entry(fsmenu, FS_CATEGORY_SYSTEM_BOOKMARKS, line, FS_APPEND_LAST);
 				}
 				
 				CFRelease(pathString);

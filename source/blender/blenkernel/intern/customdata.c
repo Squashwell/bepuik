@@ -1798,7 +1798,8 @@ bool CustomData_free_layer(CustomData *data, int type, int totelem, int index)
 	const int n = index - CustomData_get_layer_index(data, type);
 	int i;
 	
-	if (index < 0) return 0;
+	if (index < 0)
+		return false;
 
 	customData_free_layer__internal(&data->layers[index], totelem);
 
@@ -1828,14 +1829,15 @@ bool CustomData_free_layer(CustomData *data, int type, int totelem, int index)
 
 	customData_update_offsets(data);
 
-	return 1;
+	return true;
 }
 
 bool CustomData_free_layer_active(CustomData *data, int type, int totelem)
 {
 	int index = 0;
 	index = CustomData_get_active_layer_index(data, type);
-	if (index == -1) return 0;
+	if (index == -1)
+		return false;
 	return CustomData_free_layer(data, type, totelem, index);
 }
 
@@ -1873,14 +1875,13 @@ int CustomData_number_of_layers_typemask(const CustomData *data, CustomDataMask 
 	return number;
 }
 
-void *CustomData_duplicate_referenced_layer(struct CustomData *data, const int type, const int totelem)
+static void *customData_duplicate_referenced_layer_index(CustomData *data, const int layer_index, const int totelem)
 {
 	CustomDataLayer *layer;
-	int layer_index;
 
-	/* get the layer index of the first layer of type */
-	layer_index = CustomData_get_active_layer_index(data, type);
-	if (layer_index == -1) return NULL;
+	if (layer_index == -1) {
+		return NULL;
+	}
 
 	layer = &data->layers[layer_index];
 
@@ -1896,8 +1897,9 @@ void *CustomData_duplicate_referenced_layer(struct CustomData *data, const int t
 			typeInfo->copy(layer->data, dest_data, totelem);
 			layer->data = dest_data;
 		}
-		else
+		else {
 			layer->data = MEM_dupallocN(layer->data);
+		}
 
 		layer->flag &= ~CD_FLAG_NOFREE;
 	}
@@ -1905,37 +1907,34 @@ void *CustomData_duplicate_referenced_layer(struct CustomData *data, const int t
 	return layer->data;
 }
 
-void *CustomData_duplicate_referenced_layer_named(struct CustomData *data,
-                                                  const int type, const char *name, const int totelem)
+void *CustomData_duplicate_referenced_layer(CustomData *data, const int type, const int totelem)
 {
-	CustomDataLayer *layer;
+	int layer_index;
+
+	/* get the layer index of the first layer of type */
+	layer_index = CustomData_get_active_layer_index(data, type);
+
+	return customData_duplicate_referenced_layer_index(data, layer_index, totelem);
+}
+
+void *CustomData_duplicate_referenced_layer_n(CustomData *data, const int type, const int n, const int totelem)
+{
+	int layer_index;
+
+	/* get the layer index of the desired layer */
+	layer_index = CustomData_get_layer_index_n(data, type, n);
+
+	return customData_duplicate_referenced_layer_index(data, layer_index, totelem);
+}
+
+void *CustomData_duplicate_referenced_layer_named(CustomData *data, const int type, const char *name, const int totelem)
+{
 	int layer_index;
 
 	/* get the layer index of the desired layer */
 	layer_index = CustomData_get_named_layer_index(data, type, name);
-	if (layer_index == -1) return NULL;
 
-	layer = &data->layers[layer_index];
-
-	if (layer->flag & CD_FLAG_NOFREE) {
-		/* MEM_dupallocN won't work in case of complex layers, like e.g.
-		 * CD_MDEFORMVERT, which has pointers to allocated data...
-		 * So in case a custom copy function is defined, use it!
-		 */
-		const LayerTypeInfo *typeInfo = layerType_getInfo(layer->type);
-
-		if (typeInfo->copy) {
-			char *dest_data = MEM_mallocN(typeInfo->size * totelem, "CD duplicate ref layer");
-			typeInfo->copy(layer->data, dest_data, totelem);
-			layer->data = dest_data;
-		}
-		else
-			layer->data = MEM_dupallocN(layer->data);
-
-		layer->flag &= ~CD_FLAG_NOFREE;
-	}
-
-	return layer->data;
+	return customData_duplicate_referenced_layer_index(data, layer_index, totelem);
 }
 
 bool CustomData_is_referenced_layer(struct CustomData *data, int type)
@@ -1945,7 +1944,8 @@ bool CustomData_is_referenced_layer(struct CustomData *data, int type)
 
 	/* get the layer index of the first layer of type */
 	layer_index = CustomData_get_active_layer_index(data, type);
-	if (layer_index == -1) return 0;
+	if (layer_index == -1)
+		return false;
 
 	layer = &data->layers[layer_index];
 
@@ -2263,8 +2263,8 @@ bool CustomData_set_layer_name(const CustomData *data, int type, int n, const ch
 	/* get the layer index of the first layer of type */
 	int layer_index = CustomData_get_layer_index_n(data, type, n);
 
-	if (layer_index == -1) return false;
-	if (!name) return false;
+	if ((layer_index == -1) || !name)
+		return false;
 	
 	BLI_strncpy(data->layers[layer_index].name, name, sizeof(data->layers[layer_index].name));
 	

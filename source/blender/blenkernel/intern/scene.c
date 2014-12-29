@@ -63,12 +63,14 @@
 #include "BKE_anim.h"
 #include "BKE_animsys.h"
 #include "BKE_action.h"
+#include "BKE_armature.h"
 #include "BKE_colortools.h"
 #include "BKE_depsgraph.h"
 #include "BKE_editmesh.h"
 #include "BKE_fcurve.h"
 #include "BKE_freestyle.h"
 #include "BKE_global.h"
+#include "BKE_gpencil.h"
 #include "BKE_group.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
@@ -98,6 +100,10 @@
 #else
 #  include <sys/time.h>
 #endif
+
+const char *RE_engine_id_BLENDER_RENDER = "BLENDER_RENDER";
+const char *RE_engine_id_BLENDER_GAME = "BLENDER_GAME";
+const char *RE_engine_id_CYCLES = "CYCLES";
 
 void free_avicodecdata(AviCodecData *acd)
 {
@@ -302,6 +308,19 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 			scen->ed = MEM_callocN(sizeof(Editing), "addseq");
 			scen->ed->seqbasep = &scen->ed->seqbase;
 			BKE_sequence_base_dupli_recursive(sce, scen, &scen->ed->seqbase, &sce->ed->seqbase, SEQ_DUPE_ALL);
+		}
+	}
+	
+	/* grease pencil */
+	if (scen->gpd) {
+		if (type == SCE_COPY_FULL) {
+			scen->gpd = gpencil_data_duplicate(scen->gpd, false);
+		}
+		else if (type == SCE_COPY_EMPTY) {
+			scen->gpd = NULL;
+		}
+		else {
+			id_us_plus((ID *)scen->gpd);
 		}
 	}
 
@@ -596,7 +615,7 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 	sce->r.ffcodecdata.audio_bitrate = 192;
 	sce->r.ffcodecdata.audio_channels = 2;
 
-	BLI_strncpy(sce->r.engine, "BLENDER_RENDER", sizeof(sce->r.engine));
+	BLI_strncpy(sce->r.engine, RE_engine_id_BLENDER_RENDER, sizeof(sce->r.engine));
 
 	sce->audio.distance_model = 2.0f;
 	sce->audio.doppler_factor = 1.0f;
@@ -1093,27 +1112,24 @@ void BKE_scene_base_select(Scene *sce, Base *selbase)
 }
 
 /* checks for cycle, returns 1 if it's all OK */
-int BKE_scene_validate_setscene(Main *bmain, Scene *sce)
+bool BKE_scene_validate_setscene(Main *bmain, Scene *sce)
 {
-	Scene *scene;
+	Scene *sce_iter;
 	int a, totscene;
+
+	if (sce->set == NULL) return true;
+	totscene = BLI_listbase_count(&bmain->scene);
 	
-	if (sce->set == NULL) return 1;
-	
-	totscene = 0;
-	for (scene = bmain->scene.first; scene; scene = scene->id.next)
-		totscene++;
-	
-	for (a = 0, scene = sce; scene->set; scene = scene->set, a++) {
+	for (a = 0, sce_iter = sce; sce_iter->set; sce_iter = sce_iter->set, a++) {
 		/* more iterations than scenes means we have a cycle */
 		if (a > totscene) {
 			/* the tested scene gets zero'ed, that's typically current scene */
 			sce->set = NULL;
-			return 0;
+			return false;
 		}
 	}
 
-	return 1;
+	return true;
 }
 
 /* This function is needed to cope with fractional frames - including two Blender rendering features
@@ -1243,8 +1259,35 @@ static void scene_depsgraph_hack(EvaluationContext *eval_ctx, Scene *scene, Scen
 			}
 		}
 	}
-
 }
+
+/* That's like really a bummer, because currently animation data for armatures
+ * might want to use pose, and pose might be missing on the object.
+ * This happens when changing visible layers, which leads to situations when
+ * pose is missing or marked for recalc, animation will change it and then
+ * object update will restore the pose.
+ *
+ * This could be solved by the new dependency graph, but for until then we'll
+ * do an extra pass on the objects to ensure it's all fine.
+ */
+#define POSE_ANIMATION_WORKAROUND
+
+#ifdef POSE_ANIMATION_WORKAROUND
+static void scene_armature_depsgraph_workaround(Main *bmain)
+{
+	Object *ob;
+	if (BLI_listbase_is_empty(&bmain->armature) || !DAG_id_type_tagged(bmain, ID_OB)) {
+		return;
+	}
+	for (ob = bmain->object.first; ob; ob = ob->id.next) {
+		if (ob->type == OB_ARMATURE && ob->adt && ob->adt->recalc & ADT_RECALC_ANIM) {
+			if (ob->pose == NULL || (ob->pose->flag & POSE_RECALC)) {
+				BKE_pose_rebuild(ob, ob->data);
+			}
+		}
+	}
+}
+#endif
 
 static void scene_rebuild_rbw_recursive(Scene *scene, float ctime)
 {
@@ -1739,6 +1782,10 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 
 	BKE_mask_evaluate_all_masks(bmain, ctime, true);
 
+#ifdef POSE_ANIMATION_WORKAROUND
+	scene_armature_depsgraph_workaround(bmain);
+#endif
+
 	/* All 'standard' (i.e. without any dependencies) animation is handled here,
 	 * with an 'local' to 'macro' order of evaluation. This should ensure that
 	 * settings stored nestled within a hierarchy (i.e. settings in a Texture block
@@ -1808,13 +1855,13 @@ bool BKE_scene_remove_render_layer(Main *bmain, Scene *scene, SceneRenderLayer *
 	Scene *sce;
 
 	if (act == -1) {
-		return 0;
+		return false;
 	}
 	else if ( (scene->r.layers.first == scene->r.layers.last) &&
 	          (scene->r.layers.first == srl))
 	{
 		/* ensure 1 layer is kept */
-		return 0;
+		return false;
 	}
 
 	BLI_remlink(&scene->r.layers, srl);
@@ -1836,7 +1883,7 @@ bool BKE_scene_remove_render_layer(Main *bmain, Scene *scene, SceneRenderLayer *
 		}
 	}
 
-	return 1;
+	return true;
 }
 
 /* render simplification */
@@ -1905,12 +1952,12 @@ bool BKE_scene_use_new_shading_nodes(Scene *scene)
 
 bool BKE_scene_uses_blender_internal(struct Scene *scene)
 {
-	return strcmp("BLENDER_RENDER", scene->r.engine) == 0;
+	return STREQ(scene->r.engine, RE_engine_id_BLENDER_RENDER);
 }
 
 bool BKE_scene_uses_blender_game(struct Scene *scene)
 {
-	return strcmp("BLENDER_GAME", scene->r.engine) == 0;
+	return STREQ(scene->r.engine, RE_engine_id_BLENDER_GAME);
 }
 
 void BKE_scene_base_flag_to_objects(struct Scene *scene)

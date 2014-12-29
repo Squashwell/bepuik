@@ -289,7 +289,8 @@ static char *rna_ParticleBrush_path(PointerRNA *UNUSED(ptr))
 
 static void rna_Paint_brush_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	Brush *br = (Brush *)ptr->data;
+	Paint *paint = ptr->data;
+	Brush *br = paint->brush;
 	BKE_paint_invalidate_overlay_all();
 	WM_main_add_notifier(NC_BRUSH | NA_EDITED, br);
 }
@@ -342,9 +343,11 @@ static void rna_ImaPaint_canvas_update(Main *bmain, Scene *scene, PointerRNA *UN
 		}
 	}
 	
-	GPU_drawobject_free(ob->derivedFinal);
-	BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
-	WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
+	if (ob && ob->type == OB_MESH) {
+		GPU_drawobject_free(ob->derivedFinal);
+		BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
+		WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
+	}
 }
 
 static int rna_ImaPaint_detect_data(ImagePaintSettings *imapaint)

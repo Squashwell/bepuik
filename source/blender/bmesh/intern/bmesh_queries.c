@@ -202,6 +202,26 @@ bool BM_vert_pair_share_face_check(
 	return false;
 }
 
+bool BM_vert_pair_share_face_check_cb(
+        BMVert *v_a, BMVert *v_b,
+        bool (*test_fn)(BMFace *, void *user_data), void *user_data)
+{
+	if (v_a->e && v_b->e) {
+		BMIter iter;
+		BMFace *f;
+
+		BM_ITER_ELEM (f, &iter, v_a, BM_FACES_OF_VERT) {
+			if (test_fn(f, user_data)) {
+				if (BM_vert_in_face(f, v_b)) {
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 /**
  * Given 2 verts, find the smallest face they share and give back both loops.
  */
@@ -247,6 +267,36 @@ static float bm_face_calc_split_dot(BMLoop *l_a, BMLoop *l_b)
 	else {
 		return -1.0f;
 	}
+}
+
+/**
+ * Check if a point is inside the corner defined by a loop
+ * (within the 2 planes defined by the loops corner & face normal).
+ *
+ * \return less than 0.0 when inside.
+ */
+float BM_loop_point_side_of_loop_test(const BMLoop *l, const float co[3])
+{
+	const float *axis = l->f->no;
+	return (angle_signed_on_axis_v3v3v3_v3(l->prev->v->co, l->v->co, co,             axis) -
+	        angle_signed_on_axis_v3v3v3_v3(l->prev->v->co, l->v->co, l->next->v->co, axis));
+}
+
+/**
+ * Check if a point is inside the edge defined by a loop
+ * (within the plane defined by the loops edge & face normal).
+ *
+ * \return less than 0.0 when inside.
+ */
+float BM_loop_point_side_of_edge_test(const BMLoop *l, const float co[3])
+{
+	const float *axis = l->f->no;
+	float dir[3];
+	float plane[3];
+	sub_v3_v3v3(dir, l->v->co, l->next->v->co);
+	cross_v3_v3v3(plane, axis, dir);
+	return (dot_v3v3(plane, co) -
+	        dot_v3v3(plane, l->v->co));
 }
 
 /**
@@ -448,7 +498,7 @@ bool BM_verts_in_face(BMFace *f, BMVert **varr, int len)
 }
 
 /**
- * Returns whether or not a given edge is is part of a given face.
+ * Returns whether or not a given edge is part of a given face.
  */
 bool BM_edge_in_face(BMEdge *e, BMFace *f)
 {
@@ -1353,7 +1403,7 @@ float BM_vert_calc_shell_factor(BMVert *v)
 }
 /* alternate version of #BM_vert_calc_shell_factor which only
  * uses 'hflag' faces, but falls back to all if none found. */
-float BM_vert_calc_shell_factor_ex(BMVert *v, const char hflag)
+float BM_vert_calc_shell_factor_ex(BMVert *v, const float no[3], const char hflag)
 {
 	BMIter iter;
 	BMLoop *l;
@@ -1364,7 +1414,7 @@ float BM_vert_calc_shell_factor_ex(BMVert *v, const char hflag)
 	BM_ITER_ELEM (l, &iter, v, BM_LOOPS_OF_VERT) {
 		if (BM_elem_flag_test(l->f, hflag)) {  /* <-- main difference to BM_vert_calc_shell_factor! */
 			const float face_angle = BM_loop_calc_face_angle(l);
-			accum_shell += shell_v3v3_normalized_to_dist(v->no, l->f->no) * face_angle;
+			accum_shell += shell_v3v3_normalized_to_dist(no, l->f->no) * face_angle;
 			accum_angle += face_angle;
 			tot_sel++;
 		}
@@ -1777,7 +1827,7 @@ bool BM_face_exists_multi_edge(BMEdge **earr, int len)
  *
  * \note The face may contain other verts \b not in \a varr.
  *
- * \note Its possible there are more then one overlapping faces,
+ * \note Its possible there are more than one overlapping faces,
  * in this case the first one found will be assigned to \a r_f_overlap.
  *
  * \param varr  Array of unordered verts.

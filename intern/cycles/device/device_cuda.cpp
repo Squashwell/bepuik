@@ -76,7 +76,7 @@ public:
 	{
 		if(first_error) {
 			fprintf(stderr, "\nRefer to the Cycles GPU rendering documentation for possible solutions:\n");
-			fprintf(stderr, "http://wiki.blender.org/index.php/Doc:2.6/Manual/Render/Cycles/GPU_Rendering\n\n");
+			fprintf(stderr, "http://www.blender.org/manual/render/cycles/gpu_rendering.html\n\n");
 			first_error = false;
 		}
 	}
@@ -202,13 +202,9 @@ public:
 		/* compute cubin name */
 		int major, minor;
 		cuDeviceComputeCapability(&major, &minor, cuDevId);
-		
-		/* workaround to make sm_52 cards work, until we bundle kernel */
-		if(major == 5 && minor == 2)
-			minor = 0;
+		string cubin;
 
 		/* attempt to use kernel provided with blender */
-		string cubin;
 		if(experimental)
 			cubin = path_get(string_printf("lib/kernel_experimental_sm_%d%d.cubin", major, minor));
 		else

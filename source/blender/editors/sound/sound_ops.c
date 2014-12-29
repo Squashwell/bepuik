@@ -72,7 +72,6 @@
 #include "ED_sound.h"
 #include "ED_util.h"
 
-#include "sound_intern.h"
 
 /******************** open sound operator ********************/
 
@@ -87,7 +86,7 @@ static void sound_open_init(bContext *C, wmOperator *op)
 	PropertyPointerRNA *pprop;
 
 	op->customdata = pprop = MEM_callocN(sizeof(PropertyPointerRNA), "OpenPropertyPointerRNA");
-	uiIDContextProperty(C, &pprop->ptr, &pprop->prop);
+	UI_context_active_but_prop_get_templateID(C, &pprop->ptr, &pprop->prop);
 }
 
 #ifdef WITH_AUDASPACE

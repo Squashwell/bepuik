@@ -96,6 +96,7 @@
 #include "BKE_editmesh.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
+#include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
@@ -107,6 +108,7 @@
 #include "BKE_sequencer.h"
 #include "BKE_speaker.h"
 #include "BKE_softbody.h"
+#include "BKE_subsurf.h"
 #include "BKE_material.h"
 #include "BKE_camera.h"
 #include "BKE_image.h"
@@ -118,6 +120,8 @@
 #ifdef WITH_PYTHON
 #include "BPY_extern.h"
 #endif
+
+#include "CCGSubSurf.h"
 
 #include "GPU_material.h"
 
@@ -432,6 +436,7 @@ void BKE_object_unlink(Object *ob)
 	Scene *sce;
 	SceneRenderLayer *srl;
 	FreestyleLineSet *lineset;
+	bNodeTree *ntree;
 	Curve *cu;
 	Tex *tex;
 	Group *group;
@@ -633,17 +638,22 @@ void BKE_object_unlink(Object *ob)
 	}
 	
 	/* materials */
-	mat = bmain->mat.first;
-	while (mat) {
-	
+	for (mat = bmain->mat.first; mat; mat = mat->id.next) {
+		if (mat->nodetree) {
+			ntreeSwitchID(mat->nodetree, &ob->id, NULL);
+		}
 		for (a = 0; a < MAX_MTEX; a++) {
 			if (mat->mtex[a] && ob == mat->mtex[a]->object) {
 				/* actually, test for lib here... to do */
 				mat->mtex[a]->object = NULL;
 			}
 		}
+	}
 
-		mat = mat->id.next;
+	/* node trees */
+	for (ntree = bmain->nodetree.first; ntree; ntree = ntree->id.next) {
+		if (ntree->type == NTREE_SHADER)
+			ntreeSwitchID(ntree, &ob->id, NULL);
 	}
 	
 	/* textures */
@@ -1080,14 +1090,14 @@ static int lod_cmp(const void *a, const void *b)
 
 void BKE_object_lod_sort(Object *ob)
 {
-	BLI_sortlist(&ob->lodlevels, lod_cmp);
+	BLI_listbase_sort(&ob->lodlevels, lod_cmp);
 }
 
 bool BKE_object_lod_remove(Object *ob, int level)
 {
 	LodLevel *rem;
 
-	if (level < 1 || level > BLI_countlist(&ob->lodlevels) - 1)
+	if (level < 1 || level > BLI_listbase_count(&ob->lodlevels) - 1)
 		return false;
 
 	rem = BLI_findlink(&ob->lodlevels, level);
@@ -1100,7 +1110,7 @@ bool BKE_object_lod_remove(Object *ob, int level)
 	MEM_freeN(rem);
 
 	/* If there are no user defined lods, remove the base lod as well */
-	if (BLI_countlist(&ob->lodlevels) == 1) {
+	if (BLI_listbase_is_single(&ob->lodlevels)) {
 		LodLevel *base = ob->lodlevels.first;
 		BLI_remlink(&ob->lodlevels, base);
 		MEM_freeN(base);
@@ -1138,7 +1148,7 @@ static LodLevel *lod_level_select(Object *ob, const float camera_position[3])
 
 bool BKE_object_lod_is_usable(Object *ob, Scene *scene)
 {
-	bool active = (scene) ? ob == OBACT : 0;
+	bool active = (scene) ? ob == OBACT : false;
 	return (ob->mode == OB_MODE_OBJECT || !active);
 }
 
@@ -1404,10 +1414,10 @@ bool BKE_object_pose_context_check(Object *ob)
 	    (ob->pose) &&
 	    (ob->mode & OB_MODE_POSE))
 	{
-		return 1;
+		return true;
 	}
 	else {
-		return 0;
+		return false;
 	}
 }
 
@@ -2163,26 +2173,60 @@ static void give_parvert(Object *par, int nr, float vec[3])
 			int numVerts = dm->getNumVerts(dm);
 
 			if (nr < numVerts) {
-				/* avoid dm->getVertDataArray() since it allocates arrays in the dm (not thread safe) */
-				int i;
+				bool use_special_ss_case = false;
 
-				if (em && dm->type == DM_TYPE_EDITBMESH) {
-					if (em->bm->elem_table_dirty & BM_VERT) {
-#ifdef VPARENT_THREADING_HACK
-						BLI_mutex_lock(&vparent_lock);
-						if (em->bm->elem_table_dirty & BM_VERT) {
-							BM_mesh_elem_table_ensure(em->bm, BM_VERT);
+				if (dm->type == DM_TYPE_CCGDM) {
+					ModifierData *md;
+					VirtualModifierData virtualModifierData;
+					use_special_ss_case = true;
+					for (md = modifiers_getVirtualModifierList(par, &virtualModifierData);
+					     md != NULL;
+					     md = md->next)
+					{
+						ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+						/* TODO(sergey): Check for disabled modifiers. */
+						if (mti->type != eModifierTypeType_OnlyDeform && md->next != NULL) {
+							use_special_ss_case = false;
+							break;
 						}
-						BLI_mutex_unlock(&vparent_lock);
-#else
-						BLI_assert(!"Not safe for threading");
-						BM_mesh_elem_table_ensure(em->bm, BM_VERT);
-#endif
 					}
 				}
 
-				/* get the average of all verts with (original index == nr) */
-				if (CustomData_has_layer(&dm->vertData, CD_ORIGINDEX)) {
+				if (!use_special_ss_case) {
+					/* avoid dm->getVertDataArray() since it allocates arrays in the dm (not thread safe) */
+					if (em && dm->type == DM_TYPE_EDITBMESH) {
+						if (em->bm->elem_table_dirty & BM_VERT) {
+#ifdef VPARENT_THREADING_HACK
+							BLI_mutex_lock(&vparent_lock);
+							if (em->bm->elem_table_dirty & BM_VERT) {
+								BM_mesh_elem_table_ensure(em->bm, BM_VERT);
+							}
+							BLI_mutex_unlock(&vparent_lock);
+#else
+							BLI_assert(!"Not safe for threading");
+							BM_mesh_elem_table_ensure(em->bm, BM_VERT);
+#endif
+						}
+					}
+				}
+
+				if (use_special_ss_case) {
+					/* Special case if the last modifier is SS and no constructive modifier are in front of it. */
+					CCGDerivedMesh *ccgdm = (CCGDerivedMesh *)dm;
+					CCGVert *ccg_vert = ccgSubSurf_getVert(ccgdm->ss, SET_INT_IN_POINTER(nr));
+					/* In case we deleted some verts, nr may refer to inexistent one now, see T42557. */
+					if (ccg_vert) {
+						float *co = ccgSubSurf_getVertData(ccgdm->ss, ccg_vert);
+						add_v3_v3(vec, co);
+						count++;
+					}
+				}
+				else if (CustomData_has_layer(&dm->vertData, CD_ORIGINDEX) &&
+				         !(em && dm->type == DM_TYPE_EDITBMESH))
+				{
+					int i;
+
+					/* Get the average of all verts with (original index == nr). */
 					for (i = 0; i < numVerts; i++) {
 						const int *index = dm->getVertData(dm, i, CD_ORIGINDEX);
 						if (*index == nr) {
@@ -2369,7 +2413,7 @@ static bool where_is_object_parslow(Object *ob, float obmat[4][4], float slowmat
 
 	/* include framerate */
 	fac1 = (1.0f / (1.0f + fabsf(ob->sf)));
-	if (fac1 >= 1.0f) return 0;
+	if (fac1 >= 1.0f) return false;
 	fac2 = 1.0f - fac1;
 
 	fp1 = obmat[0];
@@ -2378,7 +2422,7 @@ static bool where_is_object_parslow(Object *ob, float obmat[4][4], float slowmat
 		fp1[0] = fac1 * fp1[0] + fac2 * fp2[0];
 	}
 
-	return 1;
+	return true;
 }
 
 /* note, scene is the active scene while actual_scene is the scene the object resides in */
@@ -3268,7 +3312,7 @@ int BKE_object_insert_ptcache(Object *ob)
 	LinkData *link = NULL;
 	int i = 0;
 
-	BLI_sortlist(&ob->pc_ids, pc_cmp);
+	BLI_listbase_sort(&ob->pc_ids, pc_cmp);
 
 	for (link = ob->pc_ids.first, i = 0; link; link = link->next, i++) {
 		int index = GET_INT_FROM_POINTER(link->data);
@@ -3329,7 +3373,7 @@ static KeyBlock *insert_meshkey(Scene *scene, Object *ob, const char *name, cons
 	if (newkey || from_mix == false) {
 		/* create from mesh */
 		kb = BKE_keyblock_add_ctime(key, name, false);
-		BKE_key_convert_from_mesh(me, kb);
+		BKE_keyblock_convert_from_mesh(me, kb);
 	}
 	else {
 		/* copy from current values */
@@ -3366,7 +3410,7 @@ static KeyBlock *insert_lattkey(Scene *scene, Object *ob, const char *name, cons
 			kb->totelem = basekb->totelem;
 		}
 		else {
-			BKE_key_convert_from_lattice(lt, kb);
+			BKE_keyblock_convert_from_lattice(lt, kb);
 		}
 	}
 	else {
@@ -3406,7 +3450,7 @@ static KeyBlock *insert_curvekey(Scene *scene, Object *ob, const char *name, con
 			kb->totelem = basekb->totelem;
 		}
 		else {
-			BKE_key_convert_from_curve(cu, kb, lb);
+			BKE_keyblock_convert_from_curve(cu, kb, lb);
 		}
 	}
 	else {

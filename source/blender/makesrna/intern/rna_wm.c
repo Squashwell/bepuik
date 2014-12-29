@@ -429,6 +429,7 @@ EnumPropertyItem operator_return_items[] = {
 	{OPERATOR_FINISHED, "FINISHED", 0, "Finished", "When the operator is complete, operator exits"},
 	/* used as a flag */
 	{OPERATOR_PASS_THROUGH, "PASS_THROUGH", 0, "Pass Through", "Do nothing and pass the event on"},
+	{OPERATOR_INTERFACE, "INTERFACE", 0, "Interface", "Handled but not executed (popup menus)"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -586,7 +587,7 @@ static void rna_Event_tilt_get(PointerRNA *ptr, float *values)
 static PointerRNA rna_PopupMenu_layout_get(PointerRNA *ptr)
 {
 	struct uiPopupMenu *pup = ptr->data;
-	uiLayout *layout = uiPupMenuLayout(pup);
+	uiLayout *layout = UI_popup_menu_layout(pup);
 
 	PointerRNA rptr;
 	RNA_pointer_create(ptr->id.data, &RNA_UILayout, layout, &rptr);
@@ -597,7 +598,7 @@ static PointerRNA rna_PopupMenu_layout_get(PointerRNA *ptr)
 static PointerRNA rna_PieMenu_layout_get(PointerRNA *ptr)
 {
 	struct uiPieMenu *pie = ptr->data;
-	uiLayout *layout = uiPieMenuLayout(pie);
+	uiLayout *layout = UI_pie_menu_layout(pie);
 
 	PointerRNA rptr;
 	RNA_pointer_create(ptr->id.data, &RNA_UILayout, layout, &rptr);

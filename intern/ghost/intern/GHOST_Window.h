@@ -295,6 +295,22 @@ public:
 		return 1.0f;
 	}
 
+#ifdef WITH_INPUT_IME
+	virtual void beginIME(GHOST_TInt32 x,
+	                      GHOST_TInt32 y,
+	                      GHOST_TInt32 w,
+	                      GHOST_TInt32 h,
+	                      int completed)
+	{
+		/* do nothing temporarily if not in windows */
+	}
+
+	virtual void endIME()
+	{
+		/* do nothing temporarily if not in windows */
+	}
+#endif /* WITH_INPUT_IME */
+
 protected:
 	/**
 	 * Tries to install a rendering context in this window.
@@ -336,7 +352,7 @@ protected:
 
 	GHOST_TSuccess releaseNativeHandles();
 
-	/** The the of drawing context installed in this window. */
+	/** The drawing context installed in this window. */
 	GHOST_TDrawingContextType m_drawingContextType;
 	
 	/** The window user data */

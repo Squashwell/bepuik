@@ -38,7 +38,6 @@
 #include "BLI_math.h"
 #include "BLI_rand.h"
 #include "BLI_array.h"
-#include "BLI_smallhash.h"
 
 #include "BKE_context.h"
 #include "BKE_report.h"
@@ -61,8 +60,6 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
-
-#include "GPU_extensions.h"
 
 #include "UI_resources.h"
 
@@ -384,8 +381,6 @@ static void findnearestvert__doClosest(void *userData, BMVert *eve, const float 
 		}
 	}
 }
-
-
 
 
 static bool findnearestvert__backbufIndextest(void *handle, unsigned int index)
@@ -2473,12 +2468,13 @@ void MESH_OT_select_mirror(wmOperatorType *ot)
 
 /* ******************** **************** */
 
-static int edbm_select_more_exec(bContext *C, wmOperator *UNUSED(op))
+static int edbm_select_more_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	const bool use_face_step = RNA_boolean_get(op->ptr, "use_face_step");
 
-	EDBM_select_more(em);
+	EDBM_select_more(em, use_face_step);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit);
 	return OPERATOR_FINISHED;
@@ -2497,14 +2493,17 @@ void MESH_OT_select_more(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "use_face_step", true, "Face Step", "Connected faces (instead of edges)");
 }
 
-static int edbm_select_less_exec(bContext *C, wmOperator *UNUSED(op))
+static int edbm_select_less_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	const bool use_face_step = RNA_boolean_get(op->ptr, "use_face_step");
 
-	EDBM_select_less(em);
+	EDBM_select_less(em, use_face_step);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit);
 	return OPERATOR_FINISHED;
@@ -2523,6 +2522,8 @@ void MESH_OT_select_less(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "use_face_step", true, "Face Step", "Connected faces (instead of edges)");
 }
 
 /**

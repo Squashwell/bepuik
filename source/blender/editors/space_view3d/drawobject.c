@@ -1331,7 +1331,7 @@ static void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 		/* draw the circle/square representing spotbl */
 		if (la->type == LA_SPOT) {
-			float spotblcirc = fabsf(z) * (1.0f - powf(la->spotblend, 2));
+			float spotblcirc = fabsf(z) * (1.0f - pow2f(la->spotblend));
 			/* hide line if it is zero size or overlaps with outer border,
 			 * previously it adjusted to always to show it but that seems
 			 * confusing because it doesn't show the actual blend size */
@@ -2153,8 +2153,7 @@ static void calcDrawDMNormalScale(Object *ob, drawDMNormal_userData *data)
 		invert_m3_m3(data->imat, obmat);
 
 		/* transposed inverted matrix */
-		copy_m3_m3(data->tmat, data->imat);
-		transpose_m3(data->tmat);
+		transpose_m3_m3(data->tmat, data->imat);
 	}
 }
 
@@ -2497,7 +2496,7 @@ static void draw_dm_edges_weight_interp(BMEditMesh *em, DerivedMesh *dm, const c
 
 	data.bm = em->bm;
 	data.cd_dvert_offset = CustomData_get_offset(&em->bm->vdata, CD_MDEFORMVERT);
-	data.defgroup_tot = BLI_countlist(&ob->defbase);
+	data.defgroup_tot = BLI_listbase_count(&ob->defbase);
 	data.vgroup_index = ob->actdef - 1;
 	data.weight_user = weight_user;
 	UI_GetThemeColor3fv(TH_VERTEX_UNREFERENCED, data.alert_color);
@@ -3375,7 +3374,6 @@ static DMDrawOption draw_em_fancy__setFaceOpts(void *userData, int index)
 
 	efa = BM_face_at_index(em->bm, index);
 	if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-		GPU_enable_material(efa->mat_nr + 1, NULL);
 		return DM_DRAW_OPTION_NORMAL;
 	}
 	else {
@@ -3773,7 +3771,7 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 			glFrontFace(GL_CCW);
 
 			if (draw_flags & DRAW_FACE_SELECT)
-				draw_mesh_face_select(rv3d, me, dm);
+				draw_mesh_face_select(rv3d, me, dm, false);
 		}
 		else {
 			draw_mesh_textured(scene, v3d, rv3d, ob, dm, draw_flags);
@@ -6859,14 +6857,17 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	glDepthMask(0);
 	
 	if (ELEM(ob->type, OB_FONT, OB_CURVE, OB_SURF)) {
-		DerivedMesh *dm = ob->derivedFinal;
+		DerivedMesh *dm;
 		bool has_faces = false;
 
-		if (dm)
-			DM_update_materials(dm, ob);
 #ifdef SEQUENCER_DAG_WORKAROUND
 		ensure_curve_cache(scene, ob);
 #endif
+
+		dm = ob->derivedFinal;
+		if (dm) {
+			DM_update_materials(dm, ob);
+		}
 
 		if (dm) {
 			has_faces = dm->getNumTessFaces(dm) > 0;

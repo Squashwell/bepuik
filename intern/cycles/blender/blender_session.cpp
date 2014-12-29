@@ -92,6 +92,7 @@ void BlenderSession::create_session()
 
 	/* reset status/progress */
 	last_status = "";
+	last_error = "";
 	last_progress = -1.0f;
 	start_resize_time = 0.0;
 
@@ -826,10 +827,8 @@ void BlenderSession::update_status_progress()
 	get_status(status, substatus);
 	get_progress(progress, total_time);
 
-	
-
 	if(background) {
-		if(progress>0)
+		if(progress > 0)
 			remaining_time = (1.0 - (double)progress) * (total_time / (double)progress);
 
 		scene += " | " + b_scene.name();
@@ -843,12 +842,12 @@ void BlenderSession::update_status_progress()
 		if(samples > 0 && total_samples != USHRT_MAX)
 			remaining_time = (total_samples - samples) * (total_time / samples);
 	}
-	
-	if(remaining_time>0) {
+
+	if(remaining_time > 0) {
 		BLI_timestr(remaining_time, time_str, sizeof(time_str));
 		timestatus += "Remaining:" + string(time_str) + " | ";
 	}
-	
+
 	timestatus += string_printf("Mem:%.2fM, Peak:%.2fM", (double)mem_used, (double)mem_peak);
 
 	if(status.size() > 0)
@@ -864,6 +863,21 @@ void BlenderSession::update_status_progress()
 	if(progress != last_progress) {
 		b_engine.update_progress(progress);
 		last_progress = progress;
+	}
+
+	if (session->progress.get_error()) {
+		string error = session->progress.get_error_message();
+		if(error != last_error) {
+			/* TODO(sergey): Currently C++ RNA API doesn't let us to
+			 * use mnemonic name for the variable. Would be nice to
+			 * have this figured out.
+			 *
+			 * For until then, 1 << 5 means RPT_ERROR.
+			 */
+			b_engine.report(1 << 5, error.c_str());
+			b_engine.error_set(error.c_str());
+			last_error = error;
+		}
 	}
 }
 

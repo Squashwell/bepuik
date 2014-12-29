@@ -45,6 +45,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
 
+#include "BKE_appdir.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
@@ -619,6 +620,9 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					cp = ts->nla_sound_sel;
 					break;
 					
+				case TH_WIDGET_EMBOSS:
+					cp = btheme->tui.widget_emboss; break;
+
 				case TH_AXIS_X:
 					cp = btheme->tui.xaxis; break;
 				case TH_AXIS_Y:
@@ -815,6 +819,10 @@ void ui_theme_init_default(void)
 	btheme->tui.panel.show_header = false;
 	rgba_char_args_set(btheme->tui.panel.header, 0, 0, 0, 25);
 	
+	rgba_char_args_set(btheme->tui.wcol_tooltip.text, 255, 255, 255, 255);
+	
+	rgba_char_args_set_fl(btheme->tui.widget_emboss, 1.0f, 1.0f, 1.0f, 0.02f);
+
 	rgba_char_args_set(btheme->tui.xaxis, 220,   0,   0, 255);
 	rgba_char_args_set(btheme->tui.yaxis,   0, 220,   0, 255);
 	rgba_char_args_set(btheme->tui.zaxis,   0,   0, 220, 255);
@@ -1527,7 +1535,7 @@ void init_userdef_do_versions(void)
 	}
 	if (U.mixbufsize == 0) U.mixbufsize = 2048;
 	if (strcmp(U.tempdir, "/") == 0) {
-		BLI_system_temporary_dir(U.tempdir);
+		BKE_tempdir_system_init(U.tempdir);
 	}
 	if (U.autokey_mode == 0) {
 		/* 'add/replace' but not on */
@@ -2488,6 +2496,13 @@ void init_userdef_do_versions(void)
 			if (btheme->tv3d.loop_normal[3] == 0) {
 				rgba_char_args_set(btheme->tv3d.loop_normal, 0xDD, 0x23, 0xDD, 255);
 			}
+		}
+	}
+
+	if (U.versionfile < 272 || (U.versionfile == 272 && U.subversionfile < 3)) {
+		bTheme *btheme;
+		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			rgba_char_args_set_fl(btheme->tui.widget_emboss, 1.0f, 1.0f, 1.0f, 0.02f);
 		}
 	}
 

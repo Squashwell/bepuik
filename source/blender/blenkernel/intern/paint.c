@@ -316,7 +316,7 @@ void BKE_paint_curve_set(Brush *br, PaintCurve *pc)
 void BKE_palette_color_remove(Palette *palette, PaletteColor *color)
 {
 	if (color) {
-		int numcolors = BLI_countlist(&palette->colors);
+		int numcolors = BLI_listbase_count(&palette->colors);
 		if ((numcolors == palette->active_color + 1) && (numcolors != 1))
 			palette->active_color--;
 		
@@ -352,7 +352,7 @@ PaletteColor *BKE_palette_color_add(Palette *palette)
 {
 	PaletteColor *color = MEM_callocN(sizeof(*color), "Pallete Color");
 	BLI_addtail(&palette->colors, color);
-	palette->active_color = BLI_countlist(&palette->colors) - 1;
+	palette->active_color = BLI_listbase_count(&palette->colors) - 1;
 	return color;
 }
 
@@ -644,11 +644,11 @@ static bool sculpt_modifiers_active(Scene *scene, Sculpt *sd, Object *ob)
 	VirtualModifierData virtualModifierData;
 
 	if (mmd || ob->sculpt->bm)
-		return 0;
+		return false;
 
 	/* non-locked shape keys could be handled in the same way as deformed mesh */
 	if ((ob->shapeflag & OB_SHAPE_LOCK) == 0 && me->key && ob->shapenr)
-		return 1;
+		return true;
 
 	md = modifiers_getVirtualModifierList(ob, &virtualModifierData);
 
@@ -658,11 +658,11 @@ static bool sculpt_modifiers_active(Scene *scene, Sculpt *sd, Object *ob)
 		if (!modifier_isEnabled(scene, md, eModifierMode_Realtime)) continue;
 		if (ELEM(md->type, eModifierType_ShapeKey, eModifierType_Multires)) continue;
 
-		if (mti->type == eModifierTypeType_OnlyDeform) return 1;
-		else if ((sd->flags & SCULPT_ONLY_DEFORM) == 0) return 1;
+		if (mti->type == eModifierTypeType_OnlyDeform) return true;
+		else if ((sd->flags & SCULPT_ONLY_DEFORM) == 0) return true;
 	}
 
-	return 0;
+	return false;
 }
 
 /**
@@ -740,7 +740,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 
 			BKE_free_sculptsession_deformMats(ss);
 
-			ss->orig_cos = (ss->kb) ? BKE_key_convert_to_vertcos(ob, ss->kb) : BKE_mesh_vertexCos_get(me, NULL);
+			ss->orig_cos = (ss->kb) ? BKE_keyblock_convert_to_vertcos(ob, ss->kb) : BKE_mesh_vertexCos_get(me, NULL);
 
 			BKE_crazyspace_build_sculpt(scene, ob, &ss->deform_imats, &ss->deform_cos);
 			BKE_pbvh_apply_vertCos(ss->pbvh, ss->deform_cos);
@@ -755,14 +755,14 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 	}
 
 	if (ss->kb != NULL && ss->deform_cos == NULL) {
-		ss->deform_cos = BKE_key_convert_to_vertcos(ob, ss->kb);
+		ss->deform_cos = BKE_keyblock_convert_to_vertcos(ob, ss->kb);
 	}
 
 	/* if pbvh is deformed, key block is already applied to it */
 	if (ss->kb) {
 		bool pbvh_deformd = BKE_pbvh_isDeformed(ss->pbvh);
 		if (!pbvh_deformd || ss->deform_cos == NULL) {
-			float (*vertCos)[3] = BKE_key_convert_to_vertcos(ob, ss->kb);
+			float (*vertCos)[3] = BKE_keyblock_convert_to_vertcos(ob, ss->kb);
 
 			if (vertCos) {
 				if (!pbvh_deformd) {

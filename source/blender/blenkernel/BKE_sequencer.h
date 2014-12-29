@@ -312,7 +312,7 @@ void BKE_sequencer_offset_animdata(struct Scene *scene, struct Sequence *seq, in
 void BKE_sequencer_dupe_animdata(struct Scene *scene, const char *name_src, const char *name_dst);
 bool BKE_sequence_base_shuffle(struct ListBase *seqbasep, struct Sequence *test, struct Scene *evil_scene);
 bool BKE_sequence_base_shuffle_time(ListBase *seqbasep, struct Scene *evil_scene);
-bool BKE_sequence_base_isolated_sel_check(struct ListBase *seqbase, bool one_only);
+bool BKE_sequence_base_isolated_sel_check(struct ListBase *seqbase);
 void BKE_sequencer_free_imbuf(struct Scene *scene, struct ListBase *seqbasep, bool for_render);
 struct Sequence *BKE_sequence_dupli_recursive(struct Scene *scene, struct Scene *scene_to, struct Sequence *seq, int dupe_flag);
 int BKE_sequence_swap(struct Sequence *seq_a, struct Sequence *seq_b, const char **error_str);
@@ -377,12 +377,23 @@ struct Sequence *BKE_sequence_alloc(ListBase *lb, int cfra, int machine);
 void BKE_sequence_alpha_mode_from_extension(struct Sequence *seq);
 void BKE_sequence_init_colorspace(struct Sequence *seq);
 
+/* RNA enums, just to be more readable */
+enum {
+	SEQ_SIDE_NONE = 0,
+	SEQ_SIDE_LEFT,
+	SEQ_SIDE_RIGHT,
+	SEQ_SIDE_BOTH
+};
+int BKE_sequencer_find_next_prev_edit(
+        struct Scene *scene, int cfra, const short side,
+        const bool do_skip_mute, const bool do_center, const bool do_unselected);
+
 struct Sequence *BKE_sequencer_add_image_strip(struct bContext *C, ListBase *seqbasep, struct SeqLoadInfo *seq_load);
 struct Sequence *BKE_sequencer_add_sound_strip(struct bContext *C, ListBase *seqbasep, struct SeqLoadInfo *seq_load);
 struct Sequence *BKE_sequencer_add_movie_strip(struct bContext *C, ListBase *seqbasep, struct SeqLoadInfo *seq_load);
 
 /* view3d draw callback, run when not in background view */
-typedef struct ImBuf *(*SequencerDrawView)(struct Scene *, struct Object *, int, int, unsigned int, int, bool, bool, int, char[256]);
+typedef struct ImBuf *(*SequencerDrawView)(struct Scene *, struct Object *, int, int, unsigned int, int, bool, bool, bool, int, char[256]);
 extern SequencerDrawView sequencer_view3d_cb;
 
 /* copy/paste */
