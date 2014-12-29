@@ -7802,7 +7802,7 @@ void bepu_store_pchans(TransInfo * t)
 	if(t->customData) return;
 	if(!t->poseobj) return;
 	
-	t->customData = MEM_callocN(BLI_countlist(&t->poseobj->pose->chanbase)*sizeof(BEPUikUndoData), "BEPUik BEPUikUndoData");
+	t->customData = MEM_callocN(BLI_listbase_count(&t->poseobj->pose->chanbase)*sizeof(BEPUikUndoData), "BEPUik BEPUikUndoData");
 	ud = t->customData;
 	for (pchan = t->poseobj->pose->chanbase.first; pchan; pchan = pchan->next)
 	{
