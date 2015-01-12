@@ -1,9 +1,9 @@
 #include "PermutationMapper.hpp"
-
+#include "BLI_sys_types.h"
 namespace BEPUik
 {
 
-    __INT64_TYPE__ primes[] = {
+	int64_t primes[] = {
     
                                         818660357, 878916037, 844828463, 706609493, 478906601, 707908823, 938052293, 630235027, 984165979, 522311087, 
                                         533822657, 647031821, 756030427, 649614073, 988123237, 367570499, 906500941, 996040853, 783408599, 547916219, 
@@ -59,7 +59,7 @@ namespace BEPUik
     
     
                                    };   
-    __INT64_TYPE__ primesLength = 503;
+	int64_t primesLength = 503;
 
 /// <summary>
 /// Constructs a new permutation mapper.
@@ -73,12 +73,12 @@ PermutationMapper::PermutationMapper()
 /// Gets or sets the permutation index used by the solver.  If the simulation is restarting from a given frame,
 /// setting this index to be consistent is required for deterministic results.
 /// </summary>
-__INT64_TYPE__ PermutationMapper::GetPermutationIndex()
+int64_t PermutationMapper::GetPermutationIndex()
 {
     return permutationIndex;
 }
 
-void PermutationMapper::SetPermutationIndex(__INT64_TYPE__ value)
+void PermutationMapper::SetPermutationIndex(int64_t value)
 {
         permutationIndex = value < 0 ? value + 0x8000000000000000 : value;
         currentPrime = primes[permutationIndex % primesLength];
@@ -95,7 +95,7 @@ void PermutationMapper::SetPermutationIndex(__INT64_TYPE__ value)
 /// <param name="index">Original index of an element in the set to be redirected to a shuffled position.</param>
 /// <param name="setSize">Size of the set being permuted. Must be smaller than 350000041.</param>
 /// <returns>The remapped index.</returns>
-__INT64_TYPE__ PermutationMapper::GetMappedIndex(__INT64_TYPE__ index, int setSize)
+int64_t PermutationMapper::GetMappedIndex(int64_t index, int setSize)
 {
     return (index * currentPrime + currentOffset) % setSize;
 }
