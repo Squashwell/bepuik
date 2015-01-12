@@ -123,7 +123,7 @@ BLI_INLINE bool is_boundary_edge(unsigned int i_a, unsigned int i_b, const unsig
  *
  * \return (negative number means the edge can be rotated, lager == better).
  */
-static float quad_v2_rotate_beauty_calc(
+float BLI_polyfill_beautify_quad_rotate_calc(
         const float v1[2], const float v2[2], const float v3[2], const float v4[2])
 {
 	/* not a loop (only to be able to break out) */
@@ -150,24 +150,16 @@ static float quad_v2_rotate_beauty_calc(
 			}
 		}
 
-		if (is_zero_a == false && is_zero_b == false) {
-			/* both tri's are valid, check we make a concave quad */
-			if (!is_quad_convex_v2(v1, v2, v3, v4)) {
-				break;
-			}
+		/* one of the tri's was degenerate, check we're not rotating
+		 * into a different degenerate shape or flipping the face */
+		if ((fabsf(area_2x_123) <= FLT_EPSILON) || (fabsf(area_2x_134) <= FLT_EPSILON)) {
+			/* one of the new rotations is degenerate */
+			break;
 		}
-		else {
-			/* one of the tri's was degenerate, chech we're not rotating
-			 * into a different degenerate shape or flipping the face */
-			if ((fabsf(area_2x_123) <= FLT_EPSILON) || (fabsf(area_2x_134) <= FLT_EPSILON)) {
-				/* one of the new rotations is degenerate */
-				break;
-			}
 
-			if ((area_2x_123 >= 0.0f) != (area_2x_134 >= 0.0f)) {
-				/* rotation would cause flipping */
-				break;
-			}
+		if ((area_2x_123 >= 0.0f) != (area_2x_134 >= 0.0f)) {
+			/* rotation would cause flipping */
+			break;
 		}
 
 		{
@@ -179,8 +171,6 @@ static float quad_v2_rotate_beauty_calc(
 
 			float len_12, len_23, len_34, len_41, len_24, len_13;
 
-#define AREA_FROM_CROSS(val) (fabsf(val) / 2.0f)
-
 			/* edges around the quad */
 			len_12 = len_v2v2(v1, v2);
 			len_23 = len_v2v2(v2, v3);
@@ -190,21 +180,22 @@ static float quad_v2_rotate_beauty_calc(
 			len_13 = len_v2v2(v1, v3);
 			len_24 = len_v2v2(v2, v4);
 
+			/* note, area is in fact (area * 2),
+			 * but in this case its OK, since we're comparing ratios */
+
 			/* edge (2-4), current state */
-			area_a = AREA_FROM_CROSS(area_2x_234);
-			area_b = AREA_FROM_CROSS(area_2x_241);
+			area_a = fabsf(area_2x_234);
+			area_b = fabsf(area_2x_241);
 			prim_a = len_23 + len_34 + len_24;
-			prim_b = len_24 + len_41 + len_12;
+			prim_b = len_41 + len_12 + len_24;
 			fac_24 = (area_a / prim_a) + (area_b / prim_b);
 
 			/* edge (1-3), new state */
-			area_a = AREA_FROM_CROSS(area_2x_123);
-			area_b = AREA_FROM_CROSS(area_2x_134);
+			area_a = fabsf(area_2x_123);
+			area_b = fabsf(area_2x_134);
 			prim_a = len_12 + len_23 + len_13;
 			prim_b = len_34 + len_41 + len_13;
 			fac_13 = (area_a / prim_a) + (area_b / prim_b);
-
-#undef AREA_FROM_CROSS
 
 			/* negative number if (1-3) is an improved state */
 			return fac_24 - fac_13;
@@ -226,7 +217,7 @@ static float polyedge_rotate_beauty_calc(
 	v2 = coords[e->verts[0]];
 	v4 = coords[e->verts[1]];
 
-	return quad_v2_rotate_beauty_calc(v1, v2, v3, v4);
+	return BLI_polyfill_beautify_quad_rotate_calc(v1, v2, v3, v4);
 }
 
 static void polyedge_beauty_cost_update_single(

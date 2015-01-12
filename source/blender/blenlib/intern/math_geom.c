@@ -50,6 +50,21 @@ void cent_quad_v3(float cent[3], const float v1[3], const float v2[3], const flo
 	cent[2] = 0.25f * (v1[2] + v2[2] + v3[2] + v4[2]);
 }
 
+void cross_tri_v3(float n[3], const float v1[3], const float v2[3], const float v3[3])
+{
+	float n1[3], n2[3];
+
+	n1[0] = v1[0] - v2[0];
+	n2[0] = v2[0] - v3[0];
+	n1[1] = v1[1] - v2[1];
+	n2[1] = v2[1] - v3[1];
+	n1[2] = v1[2] - v2[2];
+	n2[2] = v2[2] - v3[2];
+	n[0] = n1[1] * n2[2] - n1[2] * n2[1];
+	n[1] = n1[2] * n2[0] - n1[0] * n2[2];
+	n[2] = n1[0] * n2[1] - n1[1] * n2[0];
+}
+
 float normal_tri_v3(float n[3], const float v1[3], const float v2[3], const float v3[3])
 {
 	float n1[3], n2[3];
@@ -2350,15 +2365,15 @@ bool barycentric_coords_v2(const float v1[2], const float v2[2], const float v3[
 }
 
 /**
- * \note: using #area_tri_signed_v2 means locations outside the triangle are correctly weighted
+ * \note: using #cross_tri_v2 means locations outside the triangle are correctly weighted
  */
 void barycentric_weights_v2(const float v1[2], const float v2[2], const float v3[2], const float co[2], float w[3])
 {
 	float wtot;
 
-	w[0] = area_tri_signed_v2(v2, v3, co);
-	w[1] = area_tri_signed_v2(v3, v1, co);
-	w[2] = area_tri_signed_v2(v1, v2, co);
+	w[0] = cross_tri_v2(v2, v3, co);
+	w[1] = cross_tri_v2(v3, v1, co);
+	w[2] = cross_tri_v2(v1, v2, co);
 	wtot = w[0] + w[1] + w[2];
 
 	if (wtot != 0.0f) {
@@ -2377,9 +2392,9 @@ void barycentric_weights_v2_persp(const float v1[4], const float v2[4], const fl
 {
 	float wtot;
 
-	w[0] = area_tri_signed_v2(v2, v3, co) / v1[3];
-	w[1] = area_tri_signed_v2(v3, v1, co) / v2[3];
-	w[2] = area_tri_signed_v2(v1, v2, co) / v3[3];
+	w[0] = cross_tri_v2(v2, v3, co) / v1[3];
+	w[1] = cross_tri_v2(v3, v1, co) / v2[3];
+	w[2] = cross_tri_v2(v1, v2, co) / v3[3];
 	wtot = w[0] + w[1] + w[2];
 
 	if (wtot != 0.0f) {
