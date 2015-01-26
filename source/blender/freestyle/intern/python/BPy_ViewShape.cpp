@@ -220,7 +220,6 @@ static PyObject *ViewShape_vertices_get(BPy_ViewShape *self, void *UNUSED(closur
 
 static int ViewShape_vertices_set(BPy_ViewShape *self, PyObject *value, void *UNUSED(closure))
 {
-	PyObject *list = 0;
 	PyObject *item;
 	vector< ViewVertex *> v;
 	
@@ -228,8 +227,10 @@ static int ViewShape_vertices_set(BPy_ViewShape *self, PyObject *value, void *UN
 		PyErr_SetString(PyExc_TypeError, "value must be a list of ViewVertex objects");
 		return -1;
 	}
-	for (int i = 0; i < PyList_Size(list); i++) {
-		item = PyList_GetItem(list, i);
+
+	v.reserve(PyList_GET_SIZE(value));
+	for (unsigned int i = 0; i < PyList_GET_SIZE(value); i++) {
+		item = PyList_GET_ITEM(value, i);
 		if (BPy_ViewVertex_Check(item)) {
 			v.push_back(((BPy_ViewVertex *)item)->vv);
 		}
@@ -262,7 +263,6 @@ static PyObject *ViewShape_edges_get(BPy_ViewShape *self, void *UNUSED(closure))
 
 static int ViewShape_edges_set(BPy_ViewShape *self, PyObject *value, void *UNUSED(closure))
 {
-	PyObject *list = 0;
 	PyObject *item;
 	vector<ViewEdge *> v;
 
@@ -270,8 +270,10 @@ static int ViewShape_edges_set(BPy_ViewShape *self, PyObject *value, void *UNUSE
 		PyErr_SetString(PyExc_TypeError, "value must be a list of ViewEdge objects");
 		return -1;
 	}
-	for (int i = 0; i < PyList_Size(list); i++) {
-		item = PyList_GetItem(list, i);
+
+	v.reserve(PyList_GET_SIZE(value));
+	for (int i = 0; i < PyList_GET_SIZE(value); i++) {
+		item = PyList_GET_ITEM(value, i);
 		if (BPy_ViewEdge_Check(item)) {
 			v.push_back(((BPy_ViewEdge *)item)->ve);
 		}
