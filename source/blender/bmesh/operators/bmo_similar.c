@@ -245,6 +245,13 @@ void bmo_similar_faces_exec(BMesh *bm, BMOperator *op)
 							cont = false;
 						}
 						break;
+
+					case SIMFACE_SMOOTH:
+						if (BM_elem_flag_test(fm, BM_ELEM_SMOOTH) == BM_elem_flag_test(fs, BM_ELEM_SMOOTH)) {
+							BMO_elem_flag_enable(bm, fm, FACE_MARK);
+							cont = false;
+						}
+						break;
 #ifdef WITH_FREESTYLE
 					case SIMFACE_FREESTYLE:
 						if (CustomData_has_layer(&bm->pdata, CD_FREESTYLE_FACE)) {
@@ -405,10 +412,10 @@ void bmo_similar_edges_exec(BMesh *bm, BMOperator *op)
 						/* compute the angle between the two edges */
 						angle = angle_normalized_v3v3(e_ext[i].dir, e_ext[indices[idx]].dir);
 
-						if (angle > (float)(M_PI / 2.0)) /* use the smallest angle between the edges */
+						if (angle > (float)M_PI_2) /* use the smallest angle between the edges */
 							angle = fabsf(angle - (float)M_PI);
 
-						if (angle / (float)(M_PI / 2.0) <= thresh) {
+						if (angle / (float)M_PI_2 <= thresh) {
 							BMO_elem_flag_enable(bm, e, EDGE_MARK);
 							cont = false;
 						}

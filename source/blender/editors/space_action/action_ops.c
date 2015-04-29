@@ -77,7 +77,11 @@ void action_operatortypes(void)
 	WM_operatortype_append(ACTION_OT_keyframe_insert);
 	WM_operatortype_append(ACTION_OT_copy);
 	WM_operatortype_append(ACTION_OT_paste);
+	
 	WM_operatortype_append(ACTION_OT_new);
+	WM_operatortype_append(ACTION_OT_push_down);
+	WM_operatortype_append(ACTION_OT_stash);
+	WM_operatortype_append(ACTION_OT_stash_and_create);
 	
 	WM_operatortype_append(ACTION_OT_previewrange_set);
 	WM_operatortype_append(ACTION_OT_view_all);
@@ -205,9 +209,13 @@ static void action_keymap_keyframes(wmKeyConfig *keyconf, wmKeyMap *keymap)
 	/* copy/paste */
 	WM_keymap_add_item(keymap, "ACTION_OT_copy", CKEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "ACTION_OT_paste", VKEY, KM_PRESS, KM_CTRL, 0);
+	kmi = WM_keymap_add_item(keymap, "ACTION_OT_paste", VKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "flipped", true);
 #ifdef __APPLE__
 	WM_keymap_add_item(keymap, "ACTION_OT_copy", CKEY, KM_PRESS, KM_OSKEY, 0);
 	WM_keymap_add_item(keymap, "ACTION_OT_paste", VKEY, KM_PRESS, KM_OSKEY, 0);
+	kmi = WM_keymap_add_item(keymap, "ACTION_OT_paste", VKEY, KM_PRESS, KM_OSKEY | KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "flipped", true);
 #endif
 
 	/* auto-set range */

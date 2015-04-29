@@ -730,7 +730,8 @@ static void obstacles_from_derivedmesh(Object *coll_ob, SmokeDomainSettings *sds
 		BVHTreeFromMesh treeData = {NULL};
 		int numverts, i, z;
 
-		float surface_distance = 0.6;
+		/* slightly rounded-up sqrt(3 * (0.5)^2) == max. distance of cell boundary along the diagonal */
+		const float surface_distance = 0.867f;
 
 		float *vert_vel = NULL;
 		int has_velocity = 0;
@@ -2131,6 +2132,9 @@ static void update_flowsfluids(Scene *scene, Object *ob, SmokeDomainSettings *sd
 					if (sfs->source == MOD_SMOKE_FLOW_SOURCE_PARTICLES) {
 						/* emit_from_particles() updates timestep internally */
 						emit_from_particles(collob, sds, sfs, &em_temp, scene, sdt);
+						if (!(sfs->flags & MOD_SMOKE_FLOW_USE_PART_SIZE)) {
+							hires_multiplier = 1;
+						}
 					}
 					else { /* MOD_SMOKE_FLOW_SOURCE_MESH */
 						/* update flow object frame */

@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 #include <stdlib.h>
@@ -206,24 +206,23 @@ public:
 			int start_sample = tile.start_sample;
 			int end_sample = tile.start_sample + tile.num_samples;
 
-				for(int sample = start_sample; sample < end_sample; sample++) {
-					if (task.get_cancel() || task_pool.canceled()) {
-						if(task.need_finish_queue == false)
-							break;
-					}
-
-					for(int y = tile.y; y < tile.y + tile.h; y++) {
-						for(int x = tile.x; x < tile.x + tile.w; x++) {
-							path_trace_kernel(&kg, render_buffer, rng_state,
-								sample, x, y, tile.offset, tile.stride);
-						}
-					}
-
-					tile.sample = sample + 1;
-
-					task.update_progress(&tile);
+			for(int sample = start_sample; sample < end_sample; sample++) {
+				if (task.get_cancel() || task_pool.canceled()) {
+					if(task.need_finish_queue == false)
+						break;
 				}
 
+				for(int y = tile.y; y < tile.y + tile.h; y++) {
+					for(int x = tile.x; x < tile.x + tile.w; x++) {
+						path_trace_kernel(&kg, render_buffer, rng_state,
+						                  sample, x, y, tile.offset, tile.stride);
+					}
+				}
+
+				tile.sample = sample + 1;
+
+				task.update_progress(&tile);
+			}
 
 			task.release_tile(tile);
 
@@ -419,5 +418,17 @@ void device_cpu_info(vector<DeviceInfo>& devices)
 	devices.insert(devices.begin(), info);
 }
 
-CCL_NAMESPACE_END
+string device_cpu_capabilities(void)
+{
+	string capabilities = "";
+	capabilities += system_cpu_support_sse2() ? "SSE2 " : "";
+	capabilities += system_cpu_support_sse3() ? "SSE3 " : "";
+	capabilities += system_cpu_support_sse41() ? "SSE41 " : "";
+	capabilities += system_cpu_support_avx() ? "AVX " : "";
+	capabilities += system_cpu_support_avx2() ? "AVX2" : "";
+	if(capabilities[capabilities.size() - 1] == ' ')
+		capabilities.resize(capabilities.size() - 1);
+	return capabilities;
+}
 
+CCL_NAMESPACE_END

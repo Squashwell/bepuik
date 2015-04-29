@@ -52,6 +52,8 @@ set(SRC
 	intern/BLI_memarena.c
 	intern/BLI_mempool.c
 	intern/DLRB_tree.c
+	intern/array_utils.c
+	intern/astar.c
 	intern/boxpack2d.c
 	intern/buffer.c
 	intern/callbacks.c
@@ -113,6 +115,8 @@ set(SRC
 	BLI_alloca.h
 	BLI_args.h
 	BLI_array.h
+	BLI_array_utils.h
+	BLI_astar.h
 	BLI_bitmap.h
 	BLI_blenlib.h
 	BLI_boxpack2d.h

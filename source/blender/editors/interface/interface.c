@@ -297,7 +297,7 @@ void ui_block_bounds_calc(uiBlock *block)
 
 	/* hardcoded exception... but that one is annoying with larger safety */ 
 	bt = block->buttons.first;
-	if (bt && strncmp(bt->str, "ERROR", 5) == 0) xof = 10;
+	if (bt && STREQLEN(bt->str, "ERROR", 5)) xof = 10;
 	else xof = 40;
 
 	block->safety.xmin = block->rect.xmin - xof;
@@ -716,6 +716,7 @@ static bool ui_but_update_from_old_block(const bContext *C, uiBlock *block, uiBu
 		if (oldbut->poin != (char *)oldbut) {
 			SWAP(char *, oldbut->poin, but->poin);
 			SWAP(void *, oldbut->func_argN, but->func_argN);
+			SWAP(void *, oldbut->tip_argN, but->tip_argN);
 		}
 
 		oldbut->flag = (oldbut->flag & ~flag_copy) | (but->flag & flag_copy);
@@ -2164,6 +2165,32 @@ bool ui_but_string_set_eval_num(bContext *C, uiBut *but, const char *str, double
 	return ok;
 }
 
+/* just the assignment/free part */
+static void ui_but_string_set_internal(uiBut *but, const char *str, size_t str_len)
+{
+	BLI_assert(str_len == strlen(str));
+	BLI_assert(but->str == NULL);
+	str_len += 1;
+
+	if (str_len > UI_MAX_NAME_STR) {
+		but->str = MEM_mallocN(str_len, "ui_def_but str");
+	}
+	else {
+		but->str = but->strdata;
+	}
+	memcpy(but->str, str, str_len);
+}
+
+static void ui_but_string_free_internal(uiBut *but)
+{
+	if (but->str) {
+		if (but->str != but->strdata) {
+			MEM_freeN(but->str);
+		}
+		/* must call 'ui_but_string_set_internal' after */
+		but->str = NULL;
+	}
+}
 
 bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 {
@@ -2414,6 +2441,10 @@ static void ui_but_free(const bContext *C, uiBut *but)
 		MEM_freeN(but->func_argN);
 	}
 
+	if (but->tip_argN) {
+		MEM_freeN(but->tip_argN);
+	}
+
 	if (but->active) {
 		/* XXX solve later, buttons should be free-able without context ideally,
 		 * however they may have open tooltips or popup windows, which need to
@@ -2611,9 +2642,13 @@ void ui_but_update(uiBut *but)
 			UI_GET_BUT_VALUE_INIT(but, value);
 			if      (value < (double)but->hardmin) ui_but_value_set(but, but->hardmin);
 			else if (value > (double)but->hardmax) ui_but_value_set(but, but->hardmax);
+
+			/* max must never be smaller than min! Both being equal is allowed though */
+			BLI_assert(but->softmin <= but->softmax &&
+			           but->hardmin <= but->hardmax);
 			break;
 			
-		case UI_BTYPE_ICON_TOGGLE: 
+		case UI_BTYPE_ICON_TOGGLE:
 		case UI_BTYPE_ICON_TOGGLE_N:
 			if (!but->rnaprop || (RNA_property_flag(but->rnaprop) & PROP_ICONS_CONSECUTIVE)) {
 				if (but->flag & UI_SELECT) but->iconadd = 1;
@@ -2643,7 +2678,9 @@ void ui_but_update(uiBut *but)
 						if (RNA_property_enum_name_gettexted(but->block->evil_C,
 						                                     &but->rnapoin, but->rnaprop, value, &buf))
 						{
-							BLI_strncpy(but->str, buf, sizeof(but->strdata));
+							size_t slen = strlen(buf);
+							ui_but_string_free_internal(but);
+							ui_but_string_set_internal(but, buf, slen);
 						}
 					}
 				}
@@ -3051,13 +3088,7 @@ static uiBut *ui_def_but(uiBlock *block, int type, int retval, const char *str,
 	but->retval = retval;
 
 	slen = strlen(str);
-	if (slen >= UI_MAX_NAME_STR) {
-		but->str = MEM_mallocN(slen + 1, "ui_def_but str");
-	}
-	else {
-		but->str = but->strdata;
-	}
-	memcpy(but->str, str, slen + 1);
+	ui_but_string_set_internal(but, str, slen);
 
 	but->rect.xmin = x;
 	but->rect.ymin = y;
@@ -4087,6 +4118,15 @@ void UI_but_func_complete_set(uiBut *but, uiButCompleteFunc func, void *arg)
 	but->autofunc_arg = arg;
 }
 
+void UI_but_func_tooltip_set(uiBut *but, uiButToolTipFunc func, void *argN)
+{
+	but->tip_func = func;
+	if (but->tip_argN) {
+		MEM_freeN(but->tip_argN);
+	}
+	but->tip_argN = argN;
+}
+
 uiBut *uiDefBlockBut(uiBlock *block, uiBlockCreateFunc func, void *arg, const char *str, int x, int y, short width, short height, const char *tip)
 {
 	uiBut *but = ui_def_but(block, UI_BTYPE_BLOCK, 0, str, x, y, width, height, arg, 0.0, 0.0, 0.0, 0.0, tip);
@@ -4357,7 +4397,10 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
 			}
 		}
 		else if (type == BUT_GET_TIP) {
-			if (but->tip && but->tip[0])
+			if (but->tip_func) {
+				tmp = but->tip_func(C, but->tip_argN, but->tip);
+			}
+			else if (but->tip && but->tip[0])
 				tmp = BLI_strdup(but->tip);
 			else
 				type = BUT_GET_RNA_TIP;  /* Fail-safe solution... */

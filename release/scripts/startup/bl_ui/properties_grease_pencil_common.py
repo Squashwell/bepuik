@@ -41,7 +41,7 @@ def gpencil_stroke_placement_settings(context, layout, gpd):
         row.prop(gpd, "use_stroke_endpoints")
 
 
-class GreasePencilDrawingToolsPanel():
+class GreasePencilDrawingToolsPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Grease Pencil"
@@ -89,7 +89,7 @@ class GreasePencilDrawingToolsPanel():
             col.operator("view3d.ruler")
 
 
-class GreasePencilStrokeEditPanel():
+class GreasePencilStrokeEditPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Edit Strokes"
@@ -130,6 +130,11 @@ class GreasePencilStrokeEditPanel():
         col.separator()
 
         col.label(text="Edit:")
+        row = col.row(align=True)
+        row.active = edit_ok
+        row.operator("gpencil.copy", text="Copy")
+        row.operator("gpencil.paste", text="Paste")
+
         subcol = col.column(align=True)
         subcol.active = edit_ok
         subcol.operator("gpencil.delete", text="Delete")
@@ -191,8 +196,8 @@ class GPENCIL_PIE_tool_palette(Menu):
                 col = pie.column()
                 row = col.row(align=True)
                 row.operator("transform.translate", icon='MAN_TRANS').gpencil_strokes = True
-                row.operator("transform.rotate",    icon='MAN_ROT').gpencil_strokes = True
-                row.operator("transform.resize",    text="Scale", icon='MAN_SCALE').gpencil_strokes = True
+                row.operator("transform.rotate", icon='MAN_ROT').gpencil_strokes = True
+                row.operator("transform.resize", text="Scale", icon='MAN_SCALE').gpencil_strokes = True
                 row = col.row(align=True)
                 row.label("Proportional Edit:")
                 row.prop(context.tool_settings, "proportional_edit", text="", icon_only=True)
@@ -281,15 +286,20 @@ class GPENCIL_PIE_tools_more(Menu):
         pie = layout.menu_pie()
         # gpd = context.gpencil_data
 
-        pie.operator("gpencil.select_more", icon='ZOOMIN')
-        pie.operator("gpencil.select_less", icon='ZOOMOUT')
+        col = pie.column(align=True)
+        col.operator("gpencil.copy", icon='COPYDOWN', text="Copy")
+        col.operator("gpencil.paste", icon='PASTEDOWN', text="Paste")
+
+        col = pie.column(align=True)
+        col.operator("gpencil.select_more", icon='ZOOMIN')
+        col.operator("gpencil.select_less", icon='ZOOMOUT')
 
         pie.operator("transform.mirror", icon='MOD_MIRROR').gpencil_strokes = True
         pie.operator("transform.bend", icon='MOD_SIMPLEDEFORM').gpencil_strokes = True
         pie.operator("transform.shear", icon='MOD_TRIANGULATE').gpencil_strokes = True
         pie.operator("transform.tosphere", icon='MOD_MULTIRES').gpencil_strokes = True
 
-        pie.operator("gpencil.convert", icon='OUTLINER_OB_CURVE')
+        pie.operator("gpencil.convert", icon='OUTLINER_OB_CURVE', text="Convert...")
         pie.operator("wm.call_menu_pie", text="Back to Main Palette...").name = "GPENCIL_PIE_tool_palette"
 
 
@@ -302,8 +312,10 @@ class GPENCIL_UL_layer(UIList):
             if gpl.lock:
                 layout.active = False
 
-            split = layout.split(percentage=0.2)
-            split.prop(gpl, "color", text="")
+            split = layout.split(percentage=0.25)
+            row = split.row(align=True)
+            row.prop(gpl, "color", text="", emboss=gpl.is_stroke_visible)
+            row.prop(gpl, "fill_color", text="", emboss=gpl.is_fill_visible)
             split.prop(gpl, "info", text="", emboss=False)
 
             row = layout.row(align=True)
@@ -314,7 +326,7 @@ class GPENCIL_UL_layer(UIList):
             layout.label(text="", icon_value=icon)
 
 
-class GreasePencilDataPanel():
+class GreasePencilDataPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Grease Pencil"
@@ -349,7 +361,11 @@ class GreasePencilDataPanel():
         row = layout.row()
 
         col = row.column()
-        col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index", rows=5)
+        if len(gpd.layers) >= 2:
+            layer_rows = 5
+        else:
+            layer_rows = 2
+        col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index", rows=layer_rows)
 
         col = row.column()
 
@@ -359,11 +375,14 @@ class GreasePencilDataPanel():
 
         gpl = context.active_gpencil_layer
         if gpl:
-            col.separator()
+            sub.operator("gpencil.layer_duplicate", icon='COPY_ID', text="")  # XXX: needs a dedicated icon
 
-            sub = col.column(align=True)
-            sub.operator("gpencil.layer_move", icon='TRIA_UP', text="").type = 'UP'
-            sub.operator("gpencil.layer_move", icon='TRIA_DOWN', text="").type = 'DOWN'
+            if len(gpd.layers) > 1:
+                col.separator()
+
+                sub = col.column(align=True)
+                sub.operator("gpencil.layer_move", icon='TRIA_UP', text="").type = 'UP'
+                sub.operator("gpencil.layer_move", icon='TRIA_DOWN', text="").type = 'DOWN'
 
         if gpl:
             self.draw_layer(layout, gpl)
@@ -441,7 +460,7 @@ class GreasePencilDataPanel():
         sub.prop(gpl, "ghost_after_range", text="After")
 
 
-class GreasePencilToolsPanel():
+class GreasePencilToolsPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     # bl_options = {'DEFAULT_CLOSED'}

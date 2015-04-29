@@ -118,6 +118,19 @@ macro(target_link_libraries_debug TARGET LIBS)
 	unset(_LIB)
 endmacro()
 
+macro(target_link_libraries_decoupled target libraries_var)
+	if(NOT MSVC)
+		target_link_libraries(${target} ${${libraries_var}})
+	else()
+		# For MSVC we link to different libraries depending whether
+		# release or debug target is being built.
+		file_list_suffix(_libraries_debug "${${libraries_var}}" "_d")
+		target_link_libraries_debug(${target} "${_libraries_debug}")
+		target_link_libraries_optimized(${target} "${${libraries_var}}")
+		unset(_libraries_debug)
+	endif()
+endmacro()
+
 # Nicer makefiles with -I/1/foo/ instead of -I/1/2/3/../../foo/
 # use it instead of include_directories()
 macro(blender_include_dirs
@@ -283,8 +296,13 @@ macro(setup_liblinks
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINKFLAGS}")
 	set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} ${PLATFORM_LINKFLAGS_DEBUG}")
 
+	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${PLATFORM_LINKFLAGS}")
+	set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} ${PLATFORM_LINKFLAGS_DEBUG}")
+
+	set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${PLATFORM_LINKFLAGS}")
+	set(CMAKE_MODULE_LINKER_FLAGS_DEBUG "${CMAKE_MODULE_LINKER_FLAGS_DEBUG} ${PLATFORM_LINKFLAGS_DEBUG}")
+
 	target_link_libraries(${target}
-			${BLENDER_GL_LIBRARIES}
 			${PNG_LIBRARIES}
 			${ZLIB_LIBRARIES}
 			${FREETYPE_LIBRARY})
@@ -336,6 +354,9 @@ macro(setup_liblinks
 	if(WITH_OPENCOLORIO)
 		target_link_libraries(${target} ${OPENCOLORIO_LIBRARIES})
 	endif()
+	if(WITH_CYCLES_OSL)
+		target_link_libraries(${target} ${OSL_LIBRARIES})
+	endif()
 	if(WITH_BOOST)
 		target_link_libraries(${target} ${BOOST_LIBRARIES})
 		if(Boost_USE_STATIC_LIBS AND Boost_USE_ICU)
@@ -357,14 +378,6 @@ macro(setup_liblinks
 		target_link_libraries(${target} ${OPENJPEG_LIBRARIES})
 	endif()
 	if(WITH_CODEC_FFMPEG)
-
-		# Strange! Without this ffmpeg gives linking errors (on linux),
-		# even though it's linked above.
-		# XXX: Does FFMPEG depend on GLU?
-		if(WITH_GLU)
-			target_link_libraries(${target} ${OPENGL_glu_LIBRARY})
-		endif()
-
 		target_link_libraries(${target} ${FFMPEG_LIBRARIES})
 	endif()
 	if(WITH_OPENCOLLADA)
@@ -402,9 +415,6 @@ macro(setup_liblinks
 	if(WITH_MOD_CLOTH_ELTOPO)
 		target_link_libraries(${target} ${LAPACK_LIBRARIES})
 	endif()
-	if(WITH_CYCLES_OSL)
-		target_link_libraries(${target} ${OSL_LIBRARIES})
-	endif()
 	if(WITH_LLVM)
 		target_link_libraries(${target} ${LLVM_LIBRARY})
 	endif()
@@ -412,13 +422,17 @@ macro(setup_liblinks
 		target_link_libraries(${target} ${PTHREADS_LIBRARIES})
 	endif()
 
-	target_link_libraries(${target} ${PLATFORM_LINKLIBS} ${CMAKE_DL_LIBS})
-
 	# We put CLEW and CUEW here because OPENSUBDIV_LIBRARIES dpeends on them..
 	if(WITH_CYCLES OR WITH_COMPOSITOR OR WITH_OPENSUBDIV)
 		target_link_libraries(${target} "extern_clew")
 		target_link_libraries(${target} "extern_cuew")
 	endif()
+
+	#system libraries with no dependencies such as platform link libs or opengl should go last
+	target_link_libraries(${target}
+			${BLENDER_GL_LIBRARIES})
+
+	target_link_libraries(${target} ${PLATFORM_LINKLIBS} ${CMAKE_DL_LIBS})
 endmacro()
 
 macro(SETUP_BLENDER_SORTED_LIBS)
@@ -500,6 +514,7 @@ macro(SETUP_BLENDER_SORTED_LIBS)
 		bf_modifiers
 		bf_bmesh
 		bf_blenkernel
+		bf_physics
 		bf_nodes
 		bf_rna
 		bf_gpu
@@ -910,6 +925,7 @@ macro(remove_strict_flags)
 		remove_cc_flag("-Wstrict-prototypes")
 		remove_cc_flag("-Wmissing-prototypes")
 		remove_cc_flag("-Wunused-parameter")
+		remove_cc_flag("-Wunused-macros")
 		remove_cc_flag("-Wwrite-strings")
 		remove_cc_flag("-Wredundant-decls")
 		remove_cc_flag("-Wundef")
@@ -1000,6 +1016,15 @@ macro(ADD_CHECK_CXX_COMPILER_FLAG
 endmacro()
 
 function(get_blender_version)
+	# extracts header vars and defines them in the parent scope:
+	#
+	# - BLENDER_VERSION (major.minor)
+	# - BLENDER_VERSION_MAJOR
+	# - BLENDER_VERSION_MINOR
+	# - BLENDER_SUBVERSION (used for internal versioning mainly)
+	# - BLENDER_VERSION_CHAR (a, b, c, ...or empty string)
+	# - BLENDER_VERSION_CYCLE (alpha, beta, rc, release)
+
 	# So cmake depends on BKE_blender.h, beware of inf-loops!
 	CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender.h
 	               ${CMAKE_BINARY_DIR}/source/blender/blenkernel/BKE_blender.h.done)
@@ -1032,25 +1057,28 @@ function(get_blender_version)
 		message(FATAL_ERROR "Version parsing failed for BLENDER_VERSION_CYCLE")
 	endif()
 
-	math(EXPR BLENDER_VERSION_MAJOR "${_out_version} / 100")
-	math(EXPR BLENDER_VERSION_MINOR "${_out_version} % 100")
-	set(BLENDER_VERSION "${BLENDER_VERSION_MAJOR}.${BLENDER_VERSION_MINOR}" PARENT_SCOPE)
-
-	set(BLENDER_SUBVERSION ${_out_subversion} PARENT_SCOPE)
-	set(BLENDER_VERSION_CHAR ${_out_version_char} PARENT_SCOPE)
-	set(BLENDER_VERSION_CYCLE ${_out_version_cycle} PARENT_SCOPE)
+	math(EXPR _out_version_major "${_out_version} / 100")
+	math(EXPR _out_version_minor "${_out_version} % 100")
 
 	# for packaging, alpha to numbers
-	string(COMPARE EQUAL "${BLENDER_VERSION_CHAR}" "" _out_version_char_empty)
+	string(COMPARE EQUAL "${_out_version_char}" "" _out_version_char_empty)
 	if(${_out_version_char_empty})
-		set(BLENDER_VERSION_CHAR_INDEX "0" PARENT_SCOPE)
+		set(_out_version_char_index "0")
 	else()
 		set(_char_ls a b c d e f g h i j k l m n o p q r s t u v w x y z)
-		list(FIND _char_ls ${BLENDER_VERSION_CHAR} _out_version_char_index)
-		math(EXPR BLENDER_VERSION_CHAR_INDEX "${_out_version_char_index} + 1" PARENT_SCOPE)
+		list(FIND _char_ls ${_out_version_char} _out_version_char_index)
+		math(EXPR _out_version_char_index "${_out_version_char_index} + 1")
 	endif()
 
-	# message(STATUS "Version (Internal): ${BLENDER_VERSION}.${BLENDER_SUBVERSION}, Version (external): ${BLENDER_VERSION}${BLENDER_VERSION_CHAR}-${BLENDER_VERSION_CYCLE}")
+	# output vars
+	set(BLENDER_VERSION "${_out_version_major}.${_out_version_minor}" PARENT_SCOPE)
+	set(BLENDER_VERSION_MAJOR "${_out_version_major}" PARENT_SCOPE)
+	set(BLENDER_VERSION_MINOR "${_out_version_minor}" PARENT_SCOPE)
+	set(BLENDER_SUBVERSION "${_out_subversion}" PARENT_SCOPE)
+	set(BLENDER_VERSION_CHAR "${_out_version_char}" PARENT_SCOPE)
+	set(BLENDER_VERSION_CHAR_INDEX "${_out_version_char_index}" PARENT_SCOPE)
+	set(BLENDER_VERSION_CYCLE "${_out_version_cycle}" PARENT_SCOPE)
+
 endfunction()
 
 
@@ -1088,7 +1116,7 @@ endmacro()
 macro(blender_project_hack_post)
 	# --------------
 	# MINGW HACK END
-	if (_reset_standard_libraries)
+	if(_reset_standard_libraries)
 		# Must come after projecINCt(...)
 		#
 		# MINGW workaround for -ladvapi32 being included which surprisingly causes

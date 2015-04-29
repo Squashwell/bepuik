@@ -40,14 +40,14 @@ set(SRC
 if(WITH_LIBMV OR WITH_GTESTS OR (WITH_CYCLES AND WITH_CYCLES_LOGGING))
 	list(APPEND INC
 		third_party/gflags
+		third_party/gflags/gflags
 		third_party/glog/src
 		third_party/ceres/include
 		third_party/ceres/config
 		../../intern/guardedalloc
 	)
 
-	list(APPEND
-		INC_SYS
+	list(APPEND INC_SYS
 		../Eigen3
 		${PNG_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
@@ -307,6 +307,9 @@ if(WITH_LIBMV OR WITH_GTESTS OR (WITH_CYCLES AND WITH_CYCLES_LOGGING))
 			third_party/glog/src/windows/glog/log_severity.h
 			third_party/glog/src/windows/port.h
 			third_party/glog/src/windows/config.h
+
+			third_party/gflags/windows_port.cc
+			third_party/gflags/windows_port.h
 		)
 	else()
 		list(APPEND GLOG_SRC

@@ -359,7 +359,7 @@ static Scene *preview_prepare_scene(Scene *scene, ID *id, int id_type, ShaderPre
 					for (base = sce->base.first; base; base = base->next) {
 						if (base->object->type == OB_LAMP) {
 							/* if doesn't match 'Lamp.002' --> main key light */
-							if (strcmp(base->object->id.name + 2, "Lamp.002") != 0) {
+							if (!STREQ(base->object->id.name + 2, "Lamp.002")) {
 								if (mat->material_type == MA_TYPE_VOLUME)
 									base->object->restrictflag |= OB_RESTRICT_RENDER;
 								else
@@ -1096,6 +1096,25 @@ static void icon_preview_free(void *customdata)
 
 	BLI_freelistN(&ip->sizes);
 	MEM_freeN(ip);
+}
+
+void ED_preview_icon_render(Scene *scene, ID *id, unsigned int *rect, int sizex, int sizey)
+{
+	IconPreview ip = {NULL};
+	short stop = false, update = false;
+	float progress = 0.0f;
+
+	ip.scene = scene;
+	ip.owner = id;
+	ip.id = id;
+
+	icon_preview_add_size(&ip, rect, sizex, sizey);
+
+	icon_preview_startjob_all_sizes(&ip, &stop, &update, &progress);
+
+	icon_preview_endjob(&ip);
+
+	BLI_freelistN(&ip.sizes);
 }
 
 void ED_preview_icon_job(const bContext *C, void *owner, ID *id, unsigned int *rect, int sizex, int sizey)

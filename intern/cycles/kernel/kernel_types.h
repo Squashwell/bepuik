@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 #ifndef __KERNEL_TYPES_H__
@@ -57,6 +57,9 @@ CCL_NAMESPACE_BEGIN
 
 /* device capabilities */
 #ifdef __KERNEL_CPU__
+#ifdef __KERNEL_SSE2__
+#  define __QBVH__
+#endif
 #define __KERNEL_SHADING__
 #define __KERNEL_ADV_SHADING__
 #define __BRANCHED_PATH__
@@ -478,7 +481,12 @@ typedef enum PrimitiveType {
 	PRIMITIVE_ALL_TRIANGLE = (PRIMITIVE_TRIANGLE|PRIMITIVE_MOTION_TRIANGLE),
 	PRIMITIVE_ALL_CURVE = (PRIMITIVE_CURVE|PRIMITIVE_MOTION_CURVE),
 	PRIMITIVE_ALL_MOTION = (PRIMITIVE_MOTION_TRIANGLE|PRIMITIVE_MOTION_CURVE),
-	PRIMITIVE_ALL = (PRIMITIVE_ALL_TRIANGLE|PRIMITIVE_ALL_CURVE)
+	PRIMITIVE_ALL = (PRIMITIVE_ALL_TRIANGLE|PRIMITIVE_ALL_CURVE),
+
+	/* Total number of different primitives.
+	 * NOTE: This is an actual value, not a bitflag.
+	 */
+	PRIMITIVE_NUM_TOTAL = 4,
 } PrimitiveType;
 
 #define PRIMITIVE_PACK_SEGMENT(type, segment) ((segment << 16) | type)
@@ -526,6 +534,7 @@ typedef enum AttributeStandard {
 	ATTR_STD_VOLUME_FLAME,
 	ATTR_STD_VOLUME_HEAT,
 	ATTR_STD_VOLUME_VELOCITY,
+	ATTR_STD_POINTINESS,
 	ATTR_STD_NUM,
 
 	ATTR_STD_NOT_FOUND = ~0
@@ -586,7 +595,6 @@ enum ShaderDataFlag {
 	SD_EMISSION       = (1 << 1),   /* have emissive closure? */
 	SD_BSDF           = (1 << 2),   /* have bsdf closure? */
 	SD_BSDF_HAS_EVAL  = (1 << 3),   /* have non-singular bsdf closure? */
-	SD_PHASE_HAS_EVAL = (1 << 3),   /* have non-singular phase closure? */
 	SD_BSSRDF         = (1 << 4),   /* have bssrdf */
 	SD_HOLDOUT        = (1 << 5),   /* have holdout closure? */
 	SD_ABSORPTION     = (1 << 6),   /* have volume absorption closure? */
@@ -621,7 +629,7 @@ enum ShaderDataFlag {
 	SD_NEGATIVE_SCALE_APPLIED   = (1 << 23),  /* vertices have negative scale applied */
 	SD_OBJECT_HAS_VOLUME        = (1 << 24),  /* object has a volume shader */
 	SD_OBJECT_INTERSECTS_VOLUME = (1 << 25),  /* object intersects AABB of an object with volume shader */
-	SD_OBJECT_HAS_VERTEX_MOTION = (1 << 21),  /* has position for motion vertices */
+	SD_OBJECT_HAS_VERTEX_MOTION = (1 << 26),  /* has position for motion vertices */
 
 	SD_OBJECT_FLAGS = (SD_HOLDOUT_MASK|SD_OBJECT_MOTION|SD_TRANSFORM_APPLIED|
 	                   SD_NEGATIVE_SCALE_APPLIED|SD_OBJECT_HAS_VOLUME|
@@ -759,6 +767,7 @@ typedef struct KernelCamera {
 	int panorama_type;
 	float fisheye_fov;
 	float fisheye_lens;
+	float4 equirectangular_range;
 
 	/* matrices */
 	Transform cameratoworld;
@@ -947,8 +956,8 @@ typedef struct KernelBVH {
 	int have_motion;
 	int have_curves;
 	int have_instancing;
-
-	int pad1, pad2, pad3;
+	int use_qbvh;
+	int pad1, pad2;
 } KernelBVH;
 
 typedef enum CurveFlag {

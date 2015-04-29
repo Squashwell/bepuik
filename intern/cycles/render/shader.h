@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 #ifndef __SHADER_H__
@@ -106,6 +106,7 @@ public:
 	bool has_converter_blackbody;
 	bool has_bssrdf_bump;
 	bool has_heterogeneous_volume;
+	bool has_object_dependency;
 
 	/* requested mesh attributes */
 	AttributeRequestSet attributes;
@@ -169,6 +170,9 @@ protected:
 
 	typedef unordered_map<ustring, uint, ustringHash> AttributeIDMap;
 	AttributeIDMap unique_attribute_id;
+
+	vector<float> blackbody_table;
+	vector<float> beckmann_table;
 
 	size_t blackbody_table_offset;
 	size_t beckmann_table_offset;

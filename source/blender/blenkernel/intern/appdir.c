@@ -17,7 +17,7 @@
  *
  */
 
-/** \file blender/blenlib/intern/appdir.c
+/** \file blender/blenkernel/intern/appdir.c
  *  \ingroup bke
  *
  * Access to application level directories.
@@ -442,7 +442,7 @@ const char *BKE_appdir_folder_id_user_notest(const int folder_id, const char *su
 /**
  * Returns the path to a folder in the user area, creating it if it doesn't exist.
  */
-const char *BKE_appdir_folder_id_create(int folder_id, const char *subfolder)
+const char *BKE_appdir_folder_id_create(const int folder_id, const char *subfolder)
 {
 	const char *path;
 
@@ -641,7 +641,7 @@ static void bli_where_am_i(char *fullname, const size_t maxlen, const char *name
 			}
 		}
 #if defined(DEBUG)
-		if (strcmp(name, fullname)) {
+		if (!STREQ(name, fullname)) {
 			printf("guessing '%s' == '%s'\n", name, fullname);
 		}
 #endif

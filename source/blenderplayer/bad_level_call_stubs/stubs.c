@@ -163,6 +163,7 @@ struct wmWindowManager;
 #include "../blender/editors/include/ED_render.h"
 #include "../blender/editors/include/ED_screen.h"
 #include "../blender/editors/include/ED_space_api.h"
+#include "../blender/editors/include/ED_text.h"
 #include "../blender/editors/include/ED_transform.h"
 #include "../blender/editors/include/ED_uvedit.h"
 #include "../blender/editors/include/ED_view3d.h"
@@ -238,8 +239,8 @@ bool ED_texture_context_check_linestyle(const struct bContext *C) RET_ZERO
 void FRS_free_view_map_cache(void) RET_NONE
 
 /* texture.c */
-int multitex_ext(struct Tex *tex, float texvec[3], float dxt[3], float dyt[3], int osatex, struct TexResult *texres, struct ImagePool *pool, bool scene_color_manage) RET_ZERO
-int multitex_ext_safe(struct Tex *tex, float texvec[3], struct TexResult *texres, struct ImagePool *pool, bool scene_color_manage) RET_ZERO
+int	multitex_ext(struct Tex *tex, float texvec[3], float dxt[3], float dyt[3], int osatex, struct TexResult *texres, struct ImagePool *pool, bool scene_color_manage, const bool skip_load_image) RET_ZERO
+int multitex_ext_safe(struct Tex *tex, float texvec[3], struct TexResult *texres, struct ImagePool *pool, bool scene_color_manage, const bool skip_load_image) RET_ZERO
 int multitex_nodes(struct Tex *tex, float texvec[3], float dxt[3], float dyt[3], int osatex, struct TexResult *texres, const short thread, short which_output, struct ShadeInput *shi, struct MTex *mtex, struct ImagePool *pool) RET_ZERO
 
 struct Material *RE_init_sample_material(struct Material *orig_mat, struct Scene *scene) RET_NULL
@@ -262,7 +263,7 @@ struct Scene *RE_GetScene(struct Render *re) RET_NULL
 void RE_Database_Free(struct Render *re) RET_NONE
 void RE_FreeRender(struct Render *re) RET_NONE
 void RE_DataBase_GetView(struct Render *re, float mat[4][4]) RET_NONE
-int externtex(struct MTex *mtex, const float vec[3], float *tin, float *tr, float *tg, float *tb, float *ta, const int thread, struct ImagePool *poold) RET_ZERO
+int	externtex(struct MTex *mtex, const float vec[3], float *tin, float *tr, float *tg, float *tb, float *ta, const int thread, struct ImagePool *pool, const bool skip_load_image) RET_ZERO
 float texture_value_blend(float tex, float out, float fact, float facg, int blendtype) RET_ZERO
 void texture_rgb_blend(float in[3], const float tex[3], const float out[3], float fact, float facg, int blendtype) RET_NONE
 const unsigned char stipple_quarttone[128];
@@ -340,6 +341,7 @@ bool ED_space_image_show_paint(struct SpaceImage *sima) RET_ZERO
 void ED_space_image_paint_update(struct wmWindowManager *wm, struct ToolSettings *settings) RET_NONE
 void ED_space_image_set(struct SpaceImage *sima, struct Scene *scene, struct Object *obedit, struct Image *ima) RET_NONE
 void ED_space_image_uv_sculpt_update(struct wmWindowManager *wm, struct ToolSettings *settings) RET_NONE
+void ED_space_image_scopes_update(const struct bContext *C, struct SpaceImage *sima, struct ImBuf *ibuf, bool use_view_settings) RET_NONE
 
 void ED_uvedit_get_aspect(struct Scene *scene, struct Object *ob, struct BMesh *em, float *aspx, float *aspy) RET_NONE
 
@@ -353,7 +355,16 @@ void ED_area_tag_redraw_regiontype(struct ScrArea *sa, int regiontype) RET_NONE
 void ED_render_engine_changed(struct Main *bmain) RET_NONE
 
 void ED_file_read_bookmarks(void) RET_NONE
+void ED_file_change_dir(struct bContext *C, const bool checkdir) RET_NONE
 void ED_preview_kill_jobs(struct wmWindowManager *wm, struct Main *bmain) RET_NONE
+struct FSMenu *ED_fsmenu_get(void) RET_NULL
+struct FSMenuEntry *ED_fsmenu_get_category(struct FSMenu *fsmenu, FSMenuCategory category) RET_NULL
+int ED_fsmenu_get_nentries(struct FSMenu *fsmenu, FSMenuCategory category) RET_ZERO
+struct FSMenuEntry *ED_fsmenu_get_entry(struct FSMenu *fsmenu, FSMenuCategory category, int index) RET_NULL
+char *ED_fsmenu_entry_get_path(struct FSMenuEntry *fsentry) RET_NULL
+void ED_fsmenu_entry_set_path(struct FSMenuEntry *fsentry, const char *name) RET_NONE
+char *ED_fsmenu_entry_get_name(struct FSMenuEntry *fsentry) RET_NULL
+void ED_fsmenu_entry_set_name(struct FSMenuEntry *fsentry, const char *name) RET_NONE
 
 struct PTCacheEdit *PE_get_current(struct Scene *scene, struct Object *ob) RET_NULL
 void PE_current_changed(struct Scene *scene, struct Object *ob) RET_NONE
@@ -482,6 +493,8 @@ bool ED_texture_context_check_lamp(const struct bContext *C) RET_ZERO
 bool ED_texture_context_check_particles(const struct bContext *C) RET_ZERO
 bool ED_texture_context_check_others(const struct bContext *C) RET_ZERO
 
+bool ED_text_region_location_from_cursor(SpaceText *st, ARegion *ar, const int cursor_co[2], int r_pixel_co[2]) RET_ZERO
+
 bool snapObjectsRayEx(struct Scene *scene, struct Base *base_act, struct View3D *v3d, struct ARegion *ar, struct Object *obedit, short snap_mode,
                       struct Object **r_ob, float r_obmat[4][4],
                       const float ray_start[3], const float ray_normal[3], float *r_ray_dist,
@@ -543,7 +556,7 @@ void uiTemplateLayers(uiLayout *layout, struct PointerRNA *ptr, const char *prop
 void uiTemplateImageLayers(struct uiLayout *layout, struct bContext *C, struct Image *ima, struct ImageUser *iuser) RET_NONE
 void uiTemplateList(struct uiLayout *layout, struct bContext *C, const char *listtype_name, const char *list_id,
                     PointerRNA *dataptr, const char *propname, PointerRNA *active_dataptr, const char *active_propname,
-                    int rows, int maxrows, int layout_type, int columns) RET_NONE
+                    const char *item_dyntip_propname, int rows, int maxrows, int layout_type, int columns) RET_NONE
 void uiTemplateRunningJobs(struct uiLayout *layout, struct bContext *C) RET_NONE
 void uiTemplateOperatorSearch(struct uiLayout *layout) RET_NONE
 void uiTemplateHeader3D(struct uiLayout *layout, struct bContext *C) RET_NONE
@@ -620,6 +633,7 @@ int WM_operator_ui_popup(struct bContext *C, struct wmOperator *op, int width, i
 void update_autoflags_fcurve(struct FCurve *fcu, struct bContext *C, struct ReportList *reports, struct PointerRNA *ptr) RET_NONE
 short insert_keyframe(struct ReportList *reports, struct ID *id, struct bAction *act, const char group[], const char rna_path[], int array_index, float cfra, short flag) RET_ZERO
 short delete_keyframe(struct ReportList *reports, struct ID *id, struct bAction *act, const char group[], const char rna_path[], int array_index, float cfra, short flag) RET_ZERO
+struct bAction *verify_adt_action(struct ID *id, short add) RET_NULL
 char *WM_operator_pystring_ex(struct bContext *C, struct wmOperator *op, const bool all_args, const bool macro_args, struct wmOperatorType *ot, struct PointerRNA *opptr) RET_NULL
 char *WM_operator_pystring(struct bContext *C, struct wmOperator *op, const bool all_args, const bool macro_args) RET_NULL
 struct wmKeyMapItem *WM_modalkeymap_add_item(struct wmKeyMap *km, int type, int val, int modifier, int keymodifier, int value) RET_NULL

@@ -22,7 +22,7 @@ from bpy.types import Panel, Menu
 from rna_prop_ui import PropertyPanel
 
 
-class ObjectButtonsPanel():
+class ObjectButtonsPanel:
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "object"
@@ -367,9 +367,10 @@ class BEPUikSolverSettings():
 class OBJECT_PT_bepuik(BEPUikSolverSettings, ObjectButtonsPanel, Panel):
     bl_label = "BEPUik Solver Settings"
 
-from bl_ui.properties_animviz import (MotionPathButtonsPanel,
-                                      OnionSkinButtonsPanel)
-
+from bl_ui.properties_animviz import (
+        MotionPathButtonsPanel,
+        OnionSkinButtonsPanel,
+        )
 
 class OBJECT_PT_motion_paths(MotionPathButtonsPanel, Panel):
     #bl_label = "Object Motion Paths"

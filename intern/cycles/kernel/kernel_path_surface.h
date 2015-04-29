@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 CCL_NAMESPACE_BEGIN
@@ -280,6 +280,11 @@ ccl_device_inline bool kernel_path_surface_bounce(KernelGlobals *kg, RNG *rng,
 
 		/* update path state, count as transparent */
 		path_state_next(kg, state, LABEL_TRANSPARENT);
+
+		if(state->bounce == 0)
+			ray->t -= sd->ray_length; /* clipping works through transparent */
+		else
+			ray->t = FLT_MAX;
 
 		/* setup ray position, direction stays unchanged */
 		ray->P = ray_offset(sd->P, -sd->Ng);

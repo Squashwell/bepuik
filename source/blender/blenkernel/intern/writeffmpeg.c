@@ -469,8 +469,8 @@ static int ffmpeg_proprty_valid(AVCodecContext *c, const char *prop_name, IDProp
 {
 	int valid = 1;
 
-	if (strcmp(prop_name, "video") == 0) {
-		if (strcmp(curr->name, "bf") == 0) {
+	if (STREQ(prop_name, "video")) {
+		if (STREQ(curr->name, "bf")) {
 			/* flash codec doesn't support b frames */
 			valid &= c->codec_id != AV_CODEC_ID_FLV1;
 		}
@@ -598,8 +598,12 @@ static AVStream *alloc_video_stream(RenderData *rd, int codec_id, AVFormatContex
 	
 	/* Keep lossless encodes in the RGB domain. */
 	if (codec_id == AV_CODEC_ID_HUFFYUV) {
-		/* HUFFYUV was PIX_FMT_YUV422P before */
-		c->pix_fmt = PIX_FMT_RGB32;
+		if (rd->im_format.planes == R_IMF_PLANES_RGBA) {
+			c->pix_fmt = PIX_FMT_BGRA;
+		}
+		else {
+			c->pix_fmt = PIX_FMT_RGB32;
+		}
 	}
 
 	if (codec_id == AV_CODEC_ID_FFV1) {
@@ -620,9 +624,9 @@ static AVStream *alloc_video_stream(RenderData *rd, int codec_id, AVFormatContex
 
 	if ((of->oformat->flags & AVFMT_GLOBALHEADER)
 #if 0
-	    || !strcmp(of->oformat->name, "mp4")
-	    || !strcmp(of->oformat->name, "mov")
-	    || !strcmp(of->oformat->name, "3gp")
+	    || STREQ(of->oformat->name, "mp4")
+	    || STREQ(of->oformat->name, "mov")
+	    || STREQ(of->oformat->name, "3gp")
 #endif
 	    )
 	{
@@ -1626,6 +1630,12 @@ bool BKE_ffmpeg_alpha_channel_is_supported(RenderData *rd)
 		return true;
 
 	if (codec == AV_CODEC_ID_PNG)
+		return true;
+
+	if (codec == AV_CODEC_ID_PNG)
+		return true;
+
+	if (codec == AV_CODEC_ID_HUFFYUV)
 		return true;
 
 #ifdef FFMPEG_FFV1_ALPHA_SUPPORTED

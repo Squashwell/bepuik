@@ -36,6 +36,7 @@ set(INC
 	../bmesh
 	../modifiers
 	../nodes
+	../physics
 	../render/extern/include
 	../../../intern/ghost
 	../../../intern/guardedalloc
@@ -45,8 +46,8 @@ set(INC
 	../../../intern/mikktspace
 	../../../intern/raskter
 	../../../intern/smoke/extern
-	../../../extern/libmv
 	../../../intern/atomic
+	../../../extern/libmv
 
 	# XXX - BAD LEVEL CALL WM_api.h
 	../windowmanager
@@ -85,6 +86,7 @@ set(SRC
 	intern/curve.c
 	intern/customdata.c
 	intern/customdata_file.c
+	intern/data_transfer.c
 	intern/deform.c
 	intern/depsgraph.c
 	intern/displist.c
@@ -105,7 +107,6 @@ set(SRC
 	intern/idprop.c
 	intern/image.c
 	intern/image_gen.c
-	intern/implicit.c
 	intern/ipo.c
 	intern/key.c
 	intern/lamp.c
@@ -121,6 +122,7 @@ set(SRC
 	intern/mesh.c
 	intern/mesh_evaluate.c
 	intern/mesh_mapping.c
+	intern/mesh_remap.c
 	intern/mesh_validate.c
 	intern/modifier.c
 	intern/modifiers_bmesh.c
@@ -135,6 +137,8 @@ set(SRC
 	intern/packedFile.c
 	intern/paint.c
 	intern/particle.c
+	intern/particle_child.c
+	intern/particle_distribute.c
 	intern/particle_system.c
 	intern/pbvh.c
 	intern/pbvh_bmesh.c
@@ -201,6 +205,7 @@ set(SRC
 	BKE_curve.h
 	BKE_customdata.h
 	BKE_customdata_file.h
+	BKE_data_transfer.h
 	BKE_deform.h
 	BKE_depsgraph.h
 	BKE_displist.h
@@ -230,6 +235,7 @@ set(SRC
 	BKE_mball.h
 	BKE_mesh.h
 	BKE_mesh_mapping.h
+	BKE_mesh_remap.h
 	BKE_modifier.h
 	BKE_movieclip.h
 	BKE_multires.h
@@ -275,6 +281,7 @@ set(SRC
 	tracking_private.h
 	intern/CCGSubSurf.h
 	intern/pbvh_intern.h
+	intern/data_transfer_intern.h
 )
 
 if(WITH_BINRELOC)

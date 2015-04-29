@@ -70,7 +70,6 @@ typedef struct Global {
 	bool factory_startup;
 
 	short moving;
-	short winpos, displaymode;  /* used to be in Render */
 
     bool bepuik_modal_dynamic_solving; /* TODO:BEPUIK XXX lame hack: indicate that bepuik is continuously solving, therefore always redraw all 3d views */
 
@@ -91,9 +90,6 @@ typedef struct Global {
 
 	/* this variable is written to / read from FileGlobal->fileflags */
 	int fileflags;
-
-	/* save the allowed windowstate of blender when using -W or -w (GHOST_TWindowState) */
-	int windowstate;
 
 	/* message to use when autoexec fails */
 	char autoexec_fail[200];
@@ -132,6 +128,7 @@ enum {
 	G_DEBUG_JOBS =      (1 << 6), /* jobs time profiling */
 	G_DEBUG_FREESTYLE = (1 << 7), /* freestyle messages */
 	G_DEBUG_DEPSGRAPH = (1 << 8), /* depsgraph messages */
+	G_DEBUG_SIMDATA =   (1 << 9), /* sim debug data display */
 };
 
 #define G_DEBUG_ALL  (G_DEBUG | G_DEBUG_FFMPEG | G_DEBUG_PYTHON | G_DEBUG_EVENTS | G_DEBUG_WM | G_DEBUG_JOBS | \

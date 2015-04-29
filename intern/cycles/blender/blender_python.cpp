@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 #include <Python.h>
@@ -73,8 +73,9 @@ static const char *PyC_UnicodeAsByte(PyObject *py_str, PyObject **coerce)
 static PyObject *init_func(PyObject *self, PyObject *args)
 {
 	PyObject *path, *user_path;
+	int headless;
 
-	if(!PyArg_ParseTuple(args, "OO", &path, &user_path)) {
+	if(!PyArg_ParseTuple(args, "OOi", &path, &user_path, &headless)) {
 		return NULL;
 	}
 
@@ -84,6 +85,8 @@ static PyObject *init_func(PyObject *self, PyObject *args)
 	Py_XDECREF(path_coerce);
 	Py_XDECREF(user_path_coerce);
 
+	BlenderSession::headless = headless;
+
 	Py_RETURN_NONE;
 }
 
@@ -92,8 +95,11 @@ static PyObject *create_func(PyObject *self, PyObject *args)
 	PyObject *pyengine, *pyuserpref, *pydata, *pyscene, *pyregion, *pyv3d, *pyrv3d;
 	int preview_osl;
 
-	if(!PyArg_ParseTuple(args, "OOOOOOOi", &pyengine, &pyuserpref, &pydata, &pyscene, &pyregion, &pyv3d, &pyrv3d, &preview_osl))
+	if(!PyArg_ParseTuple(args, "OOOOOOOi", &pyengine, &pyuserpref, &pydata, &pyscene,
+	                     &pyregion, &pyv3d, &pyrv3d, &preview_osl))
+	{
 		return NULL;
+	}
 
 	/* RNA */
 	PointerRNA engineptr;
@@ -473,6 +479,12 @@ static PyObject *osl_compile_func(PyObject *self, PyObject *args)
 }
 #endif
 
+static PyObject *system_info_func(PyObject *self, PyObject *value)
+{
+	string system_info = Device::device_capabilities();
+	return PyUnicode_FromString(system_info.c_str());
+}
+
 static PyMethodDef methods[] = {
 	{"init", init_func, METH_VARARGS, ""},
 	{"create", create_func, METH_VARARGS, ""},
@@ -487,6 +499,7 @@ static PyMethodDef methods[] = {
 	{"osl_compile", osl_compile_func, METH_VARARGS, ""},
 #endif
 	{"available_devices", available_devices_func, METH_NOARGS, ""},
+	{"system_info", system_info_func, METH_NOARGS, ""},
 	{NULL, NULL, 0, NULL},
 };
 

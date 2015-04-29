@@ -44,6 +44,7 @@
 #include "../mathutils/mathutils.h"
 
 #include "../generic/py_capi_utils.h"
+#include "../generic/python_utildefines.h"
 
 #include "bmesh_py_types.h" /* own include */
 #include "bmesh_py_types_select.h"
@@ -342,7 +343,7 @@ PyDoc_STRVAR(bpy_bmvert_co_doc,
 static PyObject *bpy_bmvert_co_get(BPy_BMVert *self)
 {
 	BPY_BM_CHECK_OBJ(self);
-	return Vector_CreatePyObject(self->v->co, 3, Py_WRAP, NULL);
+	return Vector_CreatePyObject_wrap(self->v->co, 3, NULL);
 }
 
 static int bpy_bmvert_co_set(BPy_BMVert *self, PyObject *value)
@@ -364,7 +365,7 @@ PyDoc_STRVAR(bpy_bmvert_normal_doc,
 static PyObject *bpy_bmvert_normal_get(BPy_BMVert *self)
 {
 	BPY_BM_CHECK_OBJ(self);
-	return Vector_CreatePyObject(self->v->no, 3, Py_WRAP, NULL);
+	return Vector_CreatePyObject_wrap(self->v->no, 3, NULL);
 }
 
 static int bpy_bmvert_normal_set(BPy_BMVert *self, PyObject *value)
@@ -468,7 +469,7 @@ PyDoc_STRVAR(bpy_bmface_normal_doc,
 static PyObject *bpy_bmface_normal_get(BPy_BMFace *self)
 {
 	BPY_BM_CHECK_OBJ(self);
-	return Vector_CreatePyObject(self->f->no, 3, Py_WRAP, NULL);
+	return Vector_CreatePyObject_wrap(self->f->no, 3, NULL);
 }
 
 static int bpy_bmface_normal_set(BPy_BMFace *self, PyObject *value)
@@ -1421,17 +1422,44 @@ static PyObject *bpy_bmvert_copy_from_face_interp(BPy_BMVert *self, PyObject *ar
 
 
 PyDoc_STRVAR(bpy_bmvert_calc_edge_angle_doc,
-".. method:: calc_vert_angle()\n"
+".. method:: calc_edge_angle(fallback=None)\n"
 "\n"
 "   Return the angle between this vert's two connected edges.\n"
 "\n"
+"   :arg fallback: return this when the vert doesn't have 2 edges\n"
+"      (instead of raising a :exc:`ValueError`).\n"
+"   :type fallback: any\n"
 "   :return: Angle between edges in radians.\n"
 "   :rtype: float\n"
 );
-static PyObject *bpy_bmvert_calc_edge_angle(BPy_BMVert *self)
+static PyObject *bpy_bmvert_calc_edge_angle(BPy_BMVert *self, PyObject *args)
 {
+	const float angle_invalid = -1.0f;
+	float angle;
+	PyObject *fallback = NULL;
+
 	BPY_BM_CHECK_OBJ(self);
-	return PyFloat_FromDouble(BM_vert_calc_edge_angle(self->v));
+
+	if (!PyArg_ParseTuple(args, "|O:calc_edge_angle", &fallback))
+		return NULL;
+
+	angle = BM_vert_calc_edge_angle_ex(self->v, angle_invalid);
+
+	if (angle == angle_invalid) {
+		/* avoid exception */
+		if (fallback) {
+			Py_INCREF(fallback);
+			return fallback;
+		}
+		else {
+			PyErr_SetString(PyExc_ValueError,
+			                "BMVert.calc_edge_angle(): "
+			                "vert doesn't use 2 edges");
+			return NULL;
+		}
+	}
+
+	return PyFloat_FromDouble(angle);
 }
 
 PyDoc_STRVAR(bpy_bmvert_calc_shell_factor_doc,
@@ -1481,27 +1509,81 @@ static PyObject *bpy_bmedge_calc_length(BPy_BMEdge *self)
 }
 
 PyDoc_STRVAR(bpy_bmedge_calc_face_angle_doc,
-".. method:: calc_face_angle()\n"
+".. method:: calc_face_angle(fallback=None)\n"
 "\n"
+"   :arg fallback: return this when the edge doesn't have 2 faces\n"
+"      (instead of raising a :exc:`ValueError`).\n"
+"   :type fallback: any\n"
 "   :return: The angle between 2 connected faces in radians.\n"
 "   :rtype: float\n"
 );
-static PyObject *bpy_bmedge_calc_face_angle(BPy_BMEdge *self)
+static PyObject *bpy_bmedge_calc_face_angle(BPy_BMEdge *self, PyObject *args)
 {
+	const float angle_invalid = -1.0f;
+	float angle;
+	PyObject *fallback = NULL;
+
 	BPY_BM_CHECK_OBJ(self);
-	return PyFloat_FromDouble(BM_edge_calc_face_angle(self->e));
+
+	if (!PyArg_ParseTuple(args, "|O:calc_face_angle", &fallback))
+		return NULL;
+
+	angle = BM_edge_calc_face_angle_ex(self->e, angle_invalid);
+
+	if (angle == angle_invalid) {
+		/* avoid exception */
+		if (fallback) {
+			Py_INCREF(fallback);
+			return fallback;
+		}
+		else {
+			PyErr_SetString(PyExc_ValueError,
+			                "BMEdge.calc_face_angle(): "
+			                "edge doesn't use 2 faces");
+			return NULL;
+		}
+	}
+
+	return PyFloat_FromDouble(angle);
 }
 
 PyDoc_STRVAR(bpy_bmedge_calc_face_angle_signed_doc,
-".. method:: calc_face_angle_signed()\n"
+".. method:: calc_face_angle_signed(fallback=None)\n"
 "\n"
+"   :arg fallback: return this when the edge doesn't have 2 faces\n"
+"      (instead of raising a :exc:`ValueError`).\n"
+"   :type fallback: any\n"
 "   :return: The angle between 2 connected faces in radians (negative for concave join).\n"
 "   :rtype: float\n"
 );
-static PyObject *bpy_bmedge_calc_face_angle_signed(BPy_BMEdge *self)
+static PyObject *bpy_bmedge_calc_face_angle_signed(BPy_BMEdge *self, PyObject *args)
 {
+	const float angle_invalid = -FLT_MAX;
+	float angle;
+	PyObject *fallback = NULL;
+
 	BPY_BM_CHECK_OBJ(self);
-	return PyFloat_FromDouble(BM_edge_calc_face_angle_signed(self->e));
+
+	if (!PyArg_ParseTuple(args, "|O:calc_face_angle_signed", &fallback))
+		return NULL;
+
+	angle = BM_edge_calc_face_angle_signed_ex(self->e, angle_invalid);
+
+	if (angle == angle_invalid) {
+		/* avoid exception */
+		if (fallback) {
+			Py_INCREF(fallback);
+			return fallback;
+		}
+		else {
+			PyErr_SetString(PyExc_ValueError,
+			                "BMEdge.calc_face_angle_signed(): "
+			                "edge doesn't use 2 faces");
+			return NULL;
+		}
+	}
+
+	return PyFloat_FromDouble(angle);
 }
 
 PyDoc_STRVAR(bpy_bmedge_calc_tangent_doc,
@@ -1530,7 +1612,7 @@ static PyObject *bpy_bmedge_calc_tangent(BPy_BMEdge *self, PyObject *args)
 		BPY_BM_CHECK_OBJ(py_loop);
 		/* no need to check if they are from the same mesh or even connected */
 		BM_edge_calc_face_tangent(self->e, py_loop->l, vec);
-		return Vector_CreatePyObject(vec, 3, Py_NEW, NULL);
+		return Vector_CreatePyObject(vec, 3, NULL);
 	}
 }
 
@@ -1711,7 +1793,7 @@ static PyObject *bpy_bmface_calc_center_mean(BPy_BMFace *self)
 
 	BPY_BM_CHECK_OBJ(self);
 	BM_face_calc_center_mean(self->f, cent);
-	return Vector_CreatePyObject(cent, 3, Py_NEW, NULL);
+	return Vector_CreatePyObject(cent, 3, NULL);
 }
 
 PyDoc_STRVAR(bpy_bmface_calc_center_mean_weighted_doc,
@@ -1728,7 +1810,7 @@ static PyObject *bpy_bmface_calc_center_mean_weighted(BPy_BMFace *self)
 
 	BPY_BM_CHECK_OBJ(self);
 	BM_face_calc_center_mean_weighted(self->f, cent);
-	return Vector_CreatePyObject(cent, 3, Py_NEW, NULL);
+	return Vector_CreatePyObject(cent, 3, NULL);
 }
 
 PyDoc_STRVAR(bpy_bmface_calc_center_bounds_doc,
@@ -1745,7 +1827,7 @@ static PyObject *bpy_bmface_calc_center_bounds(BPy_BMFace *self)
 
 	BPY_BM_CHECK_OBJ(self);
 	BM_face_calc_center_bounds(self->f, cent);
-	return Vector_CreatePyObject(cent, 3, Py_NEW, NULL);
+	return Vector_CreatePyObject(cent, 3, NULL);
 }
 
 
@@ -1849,7 +1931,7 @@ static PyObject *bpy_bmloop_calc_normal(BPy_BMLoop *self)
 	float vec[3];
 	BPY_BM_CHECK_OBJ(self);
 	BM_loop_calc_face_normal(self->l, vec);
-	return Vector_CreatePyObject(vec, 3, Py_NEW, NULL);
+	return Vector_CreatePyObject(vec, 3, NULL);
 }
 
 PyDoc_STRVAR(bpy_bmloop_calc_tangent_doc,
@@ -1866,7 +1948,7 @@ static PyObject *bpy_bmloop_calc_tangent(BPy_BMLoop *self)
 	float vec[3];
 	BPY_BM_CHECK_OBJ(self);
 	BM_loop_calc_face_tangent(self->l, vec);
-	return Vector_CreatePyObject(vec, 3, Py_NEW, NULL);
+	return Vector_CreatePyObject(vec, 3, NULL);
 }
 
 /* Vert Seq
@@ -2553,7 +2635,7 @@ static struct PyMethodDef bpy_bmvert_methods[] = {
 	{"copy_from_face_interp", (PyCFunction)bpy_bmvert_copy_from_face_interp, METH_VARARGS, bpy_bmvert_copy_from_face_interp_doc},
 	{"copy_from_vert_interp", (PyCFunction)bpy_bmvert_copy_from_vert_interp, METH_VARARGS, bpy_bmvert_copy_from_vert_interp_doc},
 
-	{"calc_vert_angle",   (PyCFunction)bpy_bmvert_calc_edge_angle,   METH_NOARGS, bpy_bmvert_calc_edge_angle_doc},
+	{"calc_edge_angle",   (PyCFunction)bpy_bmvert_calc_edge_angle,   METH_VARARGS, bpy_bmvert_calc_edge_angle_doc},
 	{"calc_shell_factor", (PyCFunction)bpy_bmvert_calc_shell_factor, METH_NOARGS, bpy_bmvert_calc_shell_factor_doc},
 
 	{"normal_update",  (PyCFunction)bpy_bmvert_normal_update,  METH_NOARGS,  bpy_bmvert_normal_update_doc},
@@ -2569,8 +2651,8 @@ static struct PyMethodDef bpy_bmedge_methods[] = {
 	{"other_vert", (PyCFunction)bpy_bmedge_other_vert, METH_O, bpy_bmedge_other_vert_doc},
 
 	{"calc_length",     (PyCFunction)bpy_bmedge_calc_length,     METH_NOARGS,  bpy_bmedge_calc_length_doc},
-	{"calc_face_angle", (PyCFunction)bpy_bmedge_calc_face_angle, METH_NOARGS,  bpy_bmedge_calc_face_angle_doc},
-	{"calc_face_angle_signed", (PyCFunction)bpy_bmedge_calc_face_angle_signed, METH_NOARGS,  bpy_bmedge_calc_face_angle_signed_doc},
+	{"calc_face_angle", (PyCFunction)bpy_bmedge_calc_face_angle, METH_VARARGS,  bpy_bmedge_calc_face_angle_doc},
+	{"calc_face_angle_signed", (PyCFunction)bpy_bmedge_calc_face_angle_signed, METH_VARARGS,  bpy_bmedge_calc_face_angle_signed_doc},
 	{"calc_tangent",    (PyCFunction)bpy_bmedge_calc_tangent,    METH_VARARGS, bpy_bmedge_calc_tangent_doc},
 
 	{"normal_update",  (PyCFunction)bpy_bmedge_normal_update,  METH_NOARGS,  bpy_bmedge_normal_update_doc},
@@ -2796,7 +2878,6 @@ static PyObject *bpy_bmelemseq_subscript_slice(BPy_BMElemSeq *self, Py_ssize_t s
 	bool ok;
 
 	PyObject *list;
-	PyObject *item;
 	BMHeader *ele;
 
 	BPY_BM_CHECK_OBJ(self);
@@ -2821,9 +2902,7 @@ static PyObject *bpy_bmelemseq_subscript_slice(BPy_BMElemSeq *self, Py_ssize_t s
 
 	/* add items until stop */
 	while ((ele = BM_iter_step(&iter))) {
-		item = BPy_BMElem_CreatePyObject(self->bm, ele);
-		PyList_Append(list, item);
-		Py_DECREF(item);
+		PyList_APPEND(list, BPy_BMElem_CreatePyObject(self->bm, ele));
 
 		count++;
 		if (count == stop) {

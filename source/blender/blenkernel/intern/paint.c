@@ -48,6 +48,7 @@
 #include "BLI_listbase.h"
 
 #include "BKE_brush.h"
+#include "BKE_colortools.h"
 #include "BKE_main.h"
 #include "BKE_context.h"
 #include "BKE_crazyspace.h"
@@ -395,7 +396,22 @@ bool BKE_paint_select_elem_test(Object *ob)
 	        BKE_paint_select_face_test(ob));
 }
 
-void BKE_paint_init(Paint *p, const char col[3])
+void BKE_paint_cavity_curve_preset(Paint *p, int preset)
+{
+	CurveMap *cm = NULL;
+
+	if (!p->cavity_curve)
+		p->cavity_curve = curvemapping_add(1, 0, 0, 1, 1);
+
+	cm = p->cavity_curve->cm;
+	cm->flag &= ~CUMA_EXTEND_EXTRAPOLATE;
+
+	p->cavity_curve->preset = preset;
+	curvemap_reset(cm, &p->cavity_curve->clipr, p->cavity_curve->preset, CURVEMAP_SLOPE_POSITIVE);
+	curvemapping_changed(p->cavity_curve, false);
+}
+
+void BKE_paint_init(UnifiedPaintSettings *ups, Paint *p, const char col[3])
 {
 	Brush *brush;
 
@@ -407,12 +423,18 @@ void BKE_paint_init(Paint *p, const char col[3])
 
 	memcpy(p->paint_cursor_col, col, 3);
 	p->paint_cursor_col[3] = 128;
+	ups->last_stroke_valid = false;
+	zero_v3(ups->average_stroke_accum);
+	ups->average_stroke_counter = 0;
+	if (!p->cavity_curve)
+		BKE_paint_cavity_curve_preset(p, CURVE_PRESET_LINE);
 }
 
 void BKE_paint_free(Paint *paint)
 {
 	id_us_min((ID *)paint->brush);
 	id_us_min((ID *)paint->palette);
+	curvemapping_free(paint->cavity_curve);
 }
 
 /* called when copying scene settings, so even if 'src' and 'tar' are the same
@@ -424,6 +446,19 @@ void BKE_paint_copy(Paint *src, Paint *tar)
 	tar->brush = src->brush;
 	id_us_plus((ID *)tar->brush);
 	id_us_plus((ID *)tar->palette);
+	tar->cavity_curve = curvemapping_copy(src->cavity_curve);
+}
+
+void BKE_paint_stroke_get_average(Scene *scene, Object *ob, float stroke[3])
+{
+	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
+	if (ups->last_stroke_valid && ups->average_stroke_counter > 0) {
+		float fac = 1.0f / ups->average_stroke_counter;
+		mul_v3_v3fl(stroke, ups->average_stroke_accum, fac);
+	}
+	else {
+		copy_v3_v3(stroke, ob->obmat[3]);
+	}
 }
 
 /* returns non-zero if any of the face's vertices
@@ -477,19 +512,48 @@ float paint_grid_paint_mask(const GridPaintMask *gpm, unsigned level,
 /* threshold to move before updating the brush rotation */
 #define RAKE_THRESHHOLD 20
 
-void paint_calculate_rake_rotation(UnifiedPaintSettings *ups, const float mouse_pos[2])
+static void update_brush_rake_rotation(UnifiedPaintSettings *ups, Brush *brush, float rotation)
 {
-	const float u = 0.5f;
-	const float r = RAKE_THRESHHOLD;
+	if (brush->mtex.brush_angle_mode & MTEX_ANGLE_RAKE)
+		ups->brush_rotation = rotation;
+	else
+		ups->brush_rotation = 0.0f;
 
-	float dpos[2];
-	sub_v2_v2v2(dpos, ups->last_rake, mouse_pos);
+	if (brush->mask_mtex.brush_angle_mode & MTEX_ANGLE_RAKE)
+		/* here, translation contains the mouse coordinates. */
+		ups->brush_rotation_sec = rotation;
+	else
+		ups->brush_rotation_sec = 0.0f;
+}
 
-	if (len_squared_v2(dpos) >= r * r) {
-		ups->brush_rotation = atan2f(dpos[0], dpos[1]);
+void paint_calculate_rake_rotation(UnifiedPaintSettings *ups, Brush *brush, const float mouse_pos[2])
+{
+	if ((brush->mtex.brush_angle_mode & MTEX_ANGLE_RAKE) || (brush->mask_mtex.brush_angle_mode & MTEX_ANGLE_RAKE)) {
+		const float u = 0.5f;
+		const float r = RAKE_THRESHHOLD;
+		float rotation;
 
-		interp_v2_v2v2(ups->last_rake, ups->last_rake,
-		               mouse_pos, u);
+		float dpos[2];
+		sub_v2_v2v2(dpos, ups->last_rake, mouse_pos);
+
+		if (len_squared_v2(dpos) >= r * r) {
+			rotation = atan2f(dpos[0], dpos[1]);
+
+			interp_v2_v2v2(ups->last_rake, ups->last_rake,
+			               mouse_pos, u);
+
+			ups->last_rake_angle = rotation;
+
+			update_brush_rake_rotation(ups, brush, rotation);
+		}
+		/* make sure we reset here to the last rotation to avoid accumulating
+		 * values in case a random rotation is also added */
+		else {
+			update_brush_rake_rotation(ups, brush, ups->last_rake_angle);
+		}
+	}
+	else {
+		ups->brush_rotation = ups->brush_rotation_sec = 0.0f;
 	}
 }
 

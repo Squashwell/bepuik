@@ -72,7 +72,7 @@ static void ed_keymap_gpencil_general(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 	
 	/* draw - poly lines */
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_ALT, DKEY);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", RIGHTMOUSE, KM_PRESS, KM_CTRL, DKEY);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_POLY);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 	
@@ -116,6 +116,16 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_toggle", TABKEY, KM_PRESS, 0, 0);
 	RNA_string_set(kmi->ptr, "data_path", "gpencil_data.use_stroke_edit_mode");
 	
+	/* Brush Settings */
+	/* NOTE: We cannot expose these in the standard keymap, as they will interfere with regular hotkeys
+	 *       in other modes. However, when we are dealing with Stroke Edit Mode, we know for certain
+	 *       that the only data being edited is that of the Grease Pencil strokes
+	 */
+	
+	/* FKEY = Eraser Radius */
+	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", FKEY, KM_PRESS, 0, 0);
+	RNA_string_set(kmi->ptr, "data_path_primary", "user_preferences.edit.grease_pencil_eraser_radius");
+	
 	/* Selection ------------------------------------- */
 	/* select all */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select_all", AKEY, KM_PRESS, 0, 0);
@@ -148,6 +158,8 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "entire_strokes", true);
 	
 	/* select linked */
+	/* NOTE: While LKEY is redundant, not having it breaks the mode illusion too much */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_select_linked", LKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "GPENCIL_OT_select_linked", LKEY, KM_PRESS, KM_CTRL, 0);
 	
 	/* select more/less */
@@ -162,7 +174,16 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	
 	/* delete */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_delete", XKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "GPENCIL_OT_delete", DELKEY, KM_PRESS, 0, 0);
 	
+	/* copy + paste */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_copy", CKEY, KM_PRESS, KM_CTRL, 0);
+	WM_keymap_add_item(keymap, "GPENCIL_OT_paste", VKEY, KM_PRESS, KM_CTRL, 0);
+	
+#ifdef __APPLE__
+	WM_keymap_add_item(keymap, "GPENCIL_OT_copy", CKEY, KM_PRESS, KM_OSKEY, 0);
+	WM_keymap_add_item(keymap, "GPENCIL_OT_paste", VKEY, KM_PRESS, KM_OSKEY, 0);
+#endif	
 	
 	/* Transform Tools */
 	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_translate", GKEY, KM_PRESS, 0, 0);
@@ -187,6 +208,10 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "gpencil_strokes", true);
 	
 	WM_keymap_add_item(keymap, "TRANSFORM_OT_shear", SKEY, KM_PRESS, KM_ALT | KM_CTRL | KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "gpencil_strokes", true);
+	
+	kmi = WM_keymap_add_item(keymap, "TRANSFORM_OT_transform", SKEY, KM_PRESS, KM_ALT, 0);
+	RNA_enum_set(kmi->ptr, "mode", TFM_GPENCIL_SHRINKFATTEN);
 	RNA_boolean_set(kmi->ptr, "gpencil_strokes", true);
 	
 	/* Proportional Editing */
@@ -224,6 +249,8 @@ void ED_operatortypes_gpencil(void)
 	
 	WM_operatortype_append(GPENCIL_OT_duplicate);
 	WM_operatortype_append(GPENCIL_OT_delete);
+	WM_operatortype_append(GPENCIL_OT_copy);
+	WM_operatortype_append(GPENCIL_OT_paste);
 	
 	/* Editing (Buttons) ------------ */
 	
@@ -233,11 +260,12 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_layer_add);
 	WM_operatortype_append(GPENCIL_OT_layer_remove);
 	WM_operatortype_append(GPENCIL_OT_layer_move);
+	WM_operatortype_append(GPENCIL_OT_layer_duplicate);
 	
 	WM_operatortype_append(GPENCIL_OT_active_frame_delete);
 	
 	WM_operatortype_append(GPENCIL_OT_convert);
-	
+
 	/* Editing (Time) --------------- */
 }
 
@@ -245,7 +273,7 @@ void ED_operatormacros_gpencil(void)
 {
 	wmOperatorType *ot;
 	wmOperatorTypeMacro *otmacro;
-
+	
 	ot = WM_operatortype_append_macro("GPENCIL_OT_duplicate_move", "Duplicate Strokes",
 	                                  "Make copies of the selected Grease Pencil strokes and move them",
 	                                  OPTYPE_UNDO | OPTYPE_REGISTER);

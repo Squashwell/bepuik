@@ -11,8 +11,16 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
+
+/* TODO(sergey): There is a bit of headers dependency hell going on
+ * here, so for now we just put here. In the future it might be better
+ * to have dedicated file for such tweaks.
+ */
+#if defined(__GNUC__) && defined(NDEBUG)
+#  pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 
 #include <string.h>
 

@@ -4161,9 +4161,9 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 		/* only include BezTriples whose 'keyframe' occurs on the same side of the current frame as mouse */
 		for (i = 0, bezt = fcu->bezt; i < fcu->totvert; i++, bezt++) {
 			if (FrameOnMouseSide(t->frame_side, bezt->vec[1][0], cfra)) {
-				const bool sel2 = bezt->f2 & SELECT;
-				const bool sel1 = use_handle ? bezt->f1 & SELECT : sel2;
-				const bool sel3 = use_handle ? bezt->f3 & SELECT : sel2;
+				const bool sel2 = (bezt->f2 & SELECT) != 0;
+				const bool sel1 = use_handle ? (bezt->f1 & SELECT) != 0 : sel2;
+				const bool sel3 = use_handle ? (bezt->f3 & SELECT) != 0 : sel2;
 
 				if (!is_translation_mode || !(sel2)) {
 					if (sel1) {
@@ -4247,9 +4247,9 @@ static void createTransGraphEditData(bContext *C, TransInfo *t)
 		/* only include BezTriples whose 'keyframe' occurs on the same side of the current frame as mouse (if applicable) */
 		for (i = 0, bezt = fcu->bezt; i < fcu->totvert; i++, bezt++) {
 			if (FrameOnMouseSide(t->frame_side, bezt->vec[1][0], cfra)) {
-				const bool sel2 = bezt->f2 & SELECT;
-				const bool sel1 = use_handle ? bezt->f1 & SELECT : sel2;
-				const bool sel3 = use_handle ? bezt->f3 & SELECT : sel2;
+				const bool sel2 = (bezt->f2 & SELECT) != 0;
+				const bool sel1 = use_handle ? (bezt->f1 & SELECT) != 0 : sel2;
+				const bool sel3 = use_handle ? (bezt->f3 & SELECT) != 0 : sel2;
 
 				TransDataCurveHandleFlags *hdata = NULL;
 				/* short h1=1, h2=1; */ /* UNUSED */
@@ -5081,7 +5081,7 @@ static void createTransSeqData(bContext *C, TransInfo *t)
 	TransData2D *td2d = NULL;
 	TransDataSeq *tdsq = NULL;
 	TransSeq *ts = NULL;
-	float xmouse, ymouse;
+	int xmouse;
 
 	int count = 0;
 
@@ -5092,7 +5092,7 @@ static void createTransSeqData(bContext *C, TransInfo *t)
 
 	t->customFree = freeSeqData;
 
-	UI_view2d_region_to_view(v2d, t->imval[0], t->imval[1], &xmouse, &ymouse);
+	xmouse = (int)UI_view2d_region_to_view_x(v2d, t->imval[0]);
 
 	/* which side of the current frame should be allowed */
 	if (t->mode == TFM_TIME_EXTEND) {
@@ -5685,13 +5685,12 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 								/* only insert keyframes for this F-Curve if it affects the current bone */
 								if (strstr(fcu->rna_path, "bones")) {
 									char *pchanName = BLI_str_quoted_substrN(fcu->rna_path, "bones[");
-									
-									/* only insert keyframe if the current rna path pchan is the transformed pchan 
+									/* only if bone name matches too... 
 									 * NOTE: this will do constraints too, but those are ok to do here too?
 									 */
-									if (pchanName && strcmp(pchanName, pchan->name) == 0) 
+									if (pchanName && STREQ(pchanName, pchan->name)) 
 										insert_keyframe(reports, id, act, ((fcu->grp) ? (fcu->grp->name) : (NULL)), fcu->rna_path, fcu->array_index, cfra, flag);
-										
+								
 									if (pchanName) MEM_freeN(pchanName);
 								}
 							}
@@ -5953,6 +5952,12 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
 					 * during cleanup - psy-fi */
 					freeEdgeSlideTempFaces(sld);
 				}
+				else if (t->mode == TFM_VERT_SLIDE) {
+					/* as above */
+					VertSlideData *sld = t->customData;
+					projectVertSlideData(t, true);
+					freeVertSlideTempFaces(sld);
+				}
 
 				if (t->obedit->type == OB_MESH) {
 					special_aftertrans_update__mesh(C, t);
@@ -5964,6 +5969,12 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
 
 					sld->perc = 0.0;
 					projectEdgeSlideData(t, false);
+				}
+				else if (t->mode == TFM_VERT_SLIDE) {
+					VertSlideData *sld = t->customData;
+
+					sld->perc = 0.0;
+					projectVertSlideData(t, false);
 				}
 			}
 		}
@@ -7677,6 +7688,11 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			bGPDstroke *gps;
 			
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
+				/* skip strokes that are invalid for current view */
+				if (ED_gpencil_stroke_can_use(C, gps) == false) {
+					continue;
+				}
+				
 				if (propedit) {
 					/* Proportional Editing... */
 					if (propedit_connected) {
@@ -7780,6 +7796,11 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 				TransData *tail = td;
 				bool stroke_ok;
 				
+				/* skip strokes that are invalid for current view */
+				if (ED_gpencil_stroke_can_use(C, gps) == false) {
+					continue;
+				}
+				
 				/* What we need to include depends on proportional editing settings... */
 				if (propedit) {
 					if (propedit_connected) {
@@ -7836,6 +7857,12 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 							
 							if (pt->flag & GP_SPOINT_SELECT)
 								td->flag |= TD_SELECTED;
+								
+							/* for other transform modes (e.g. shrink-fatten), need to additional data */
+							if (t->mode == TFM_GPENCIL_SHRINKFATTEN) {
+								td->val = &pt->pressure;
+								td->ival = pt->pressure;
+							}
 							
 							/* configure 2D points so that they don't play up... */
 							if (gps->flag & (GP_STROKE_2DSPACE | GP_STROKE_2DIMAGE)) {

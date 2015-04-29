@@ -35,6 +35,20 @@ string SceneHash::toString()
 	 return ss.str();
 }
 
+void SceneHash::visitNodeSceneRenderLayer(NodeSceneRenderLayer& node)
+{
+	struct RenderData *r = &node.scene().r;
+	adler32((unsigned char *)&r->xsch, sizeof(r->xsch));  // resolution_x
+	adler32((unsigned char *)&r->ysch, sizeof(r->ysch));  // resolution_y
+	adler32((unsigned char *)&r->size, sizeof(r->size));  // resolution_percentage
+
+	struct FreestyleConfig *config = &node.sceneRenderLayer().freestyleConfig;
+	adler32((unsigned char *)&config->flags, sizeof(config->flags));
+	adler32((unsigned char *)&config->crease_angle, sizeof(config->crease_angle));
+	adler32((unsigned char *)&config->sphere_radius, sizeof(config->sphere_radius));
+	adler32((unsigned char *)&config->dkr_epsilon, sizeof(config->dkr_epsilon));
+}
+
 void SceneHash::visitNodeCamera(NodeCamera& cam)
 {
 	double *proj = cam.projectionMatrix();

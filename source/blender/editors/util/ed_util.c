@@ -174,7 +174,7 @@ bool ED_editors_flush_edits(const bContext *C, bool for_render)
 			}
 			else {
 				/* Set reorder=false so that saving the file doesn't reorder
-			 * the BMesh's elements */
+				 * the BMesh's elements */
 				BKE_sculptsession_bm_to_me(ob, false);
 			}
 		}
@@ -231,7 +231,7 @@ void unpack_menu(bContext *C, const char *opname, const char *id_name, const cha
 
 		BLI_split_file_part(abs_name, fi, sizeof(fi));
 		BLI_snprintf(local_name, sizeof(local_name), "//%s/%s", folder, fi);
-		if (strcmp(abs_name, local_name) != 0) {
+		if (!STREQ(abs_name, local_name)) {
 			switch (checkPackedFile(local_name, pf)) {
 				case PF_NOFILE:
 					BLI_snprintf(line, sizeof(line), IFACE_("Create %s"), local_name);

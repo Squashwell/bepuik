@@ -81,7 +81,7 @@ static int gpencil_select_poll(bContext *C)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bGPDlayer *gpl = gpencil_layer_getactive(gpd);
-
+	
 	/* only if there's an active layer with an active frame */
 	return (gpl && gpl->actframe);
 }
@@ -136,11 +136,14 @@ static int gpencil_select_all_exec(bContext *C, wmOperator *op)
 					bGPDspoint *pt;
 					int i;
 					
-					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-						pt->flag &= ~GP_SPOINT_SELECT;
+					/* only edit strokes that are valid in this view... */
+					if (ED_gpencil_stroke_can_use(C, gps)) {
+						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+							pt->flag &= ~GP_SPOINT_SELECT;
+						}
+						
+						gps->flag &= ~GP_STROKE_SELECT;
 					}
-					
-					gps->flag &= ~GP_STROKE_SELECT;
 				}
 			}
 		}

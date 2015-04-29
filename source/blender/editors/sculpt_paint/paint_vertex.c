@@ -935,7 +935,7 @@ static float calc_vp_strength_col_dl(VPaint *vp, ViewContext *vc, const float co
 			else {
 				factor = 1.0f;
 			}
-			return factor * BKE_brush_curve_strength_clamp(brush, dist, brush_size_pressure);
+			return factor * BKE_brush_curve_strength(brush, dist, brush_size_pressure);
 		}
 	}
 	if (rgba)
@@ -1575,8 +1575,8 @@ static void enforce_locks(MDeformVert *odv, MDeformVert *ndv,
 			change_status[i] = 1; /* can be altered while redistributing */
 		}
 	}
-	/* if there was any change, redistribute it */
-	if (total_changed) {
+	/* if there was any change, and somewhere to redistribute it, do it */
+	if (total_changed && total_valid) {
 		/* auto normalize will allow weights to temporarily go above 1 in redistribution */
 		if (vgroup_validmap && total_changed < 0 && total_valid) {
 			totchange_allowed = total_valid;
@@ -1740,7 +1740,8 @@ static int apply_mp_locks_normalize(Mesh *me, const WeightPaintInfo *wpi,
 	}
 	clamp_weights(dv);
 
-	enforce_locks(&dv_test, dv, wpi->defbase_tot, wpi->defbase_sel, wpi->lock_flags, wpi->vgroup_validmap, wpi->do_auto_normalize, wpi->do_multipaint);
+	enforce_locks(&dv_test, dv, wpi->defbase_tot, wpi->defbase_sel, wpi->lock_flags, wpi->vgroup_validmap,
+	              wpi->do_auto_normalize, wpi->do_multipaint);
 
 	if (wpi->do_auto_normalize) {
 		/* XXX - should we pass the active group? - currently '-1' */
@@ -2072,7 +2073,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		paint_cursor_start(C, weight_paint_poll);
 
-		BKE_paint_init(&wp->paint, PAINT_CURSOR_WEIGHT_PAINT);
+		BKE_paint_init(&scene->toolsettings->unified_paint_settings, &wp->paint, PAINT_CURSOR_WEIGHT_PAINT);
 
 		/* weight paint specific */
 		ED_mesh_mirror_spatial_table(ob, NULL, NULL, 's');
@@ -2680,7 +2681,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		
 		paint_cursor_start(C, vertex_paint_poll);
 
-		BKE_paint_init(&vp->paint, PAINT_CURSOR_VERTEX_PAINT);
+		BKE_paint_init(&scene->toolsettings->unified_paint_settings, &vp->paint, PAINT_CURSOR_VERTEX_PAINT);
 	}
 	
 	/* update modifier stack for mapping requirements */
@@ -3215,7 +3216,7 @@ static void gradientVert_update(DMGradient_userData *grad_data, int index)
 	/* no need to clamp 'alpha' yet */
 
 	/* adjust weight */
-	alpha = BKE_brush_curve_strength_clamp(grad_data->brush, alpha, 1.0f);
+	alpha = BKE_brush_curve_strength(grad_data->brush, alpha, 1.0f);
 
 	if (alpha != 0.0f) {
 		MDeformVert *dv = &me->dvert[index];

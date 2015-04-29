@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 #include "background.h"
@@ -81,6 +81,8 @@ static void shade_background_pixels(Device *device, DeviceScene *dscene, int res
 
 	device->mem_free(d_input);
 	device->mem_free(d_output);
+
+	d_input.clear();
 
 	float4 *d_output_data = reinterpret_cast<float4*>(d_output.data_pointer);
 

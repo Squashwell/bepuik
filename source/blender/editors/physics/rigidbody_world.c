@@ -167,7 +167,7 @@ static int rigidbody_world_export_exec(bContext *C, wmOperator *op)
 static int rigidbody_world_export_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	if (!RNA_struct_property_is_set(op->ptr, "relative_path"))
-		RNA_boolean_set(op->ptr, "relative_path", (U.flag & USER_RELPATHS));
+		RNA_boolean_set(op->ptr, "relative_path", (U.flag & USER_RELPATHS) != 0);
 
 	if (RNA_struct_property_is_set(op->ptr, "filepath"))
 		return rigidbody_world_export_exec(C, op);
@@ -195,5 +195,5 @@ void RIGIDBODY_OT_world_export(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER|OPTYPE_UNDO;
 
 	/* properties */
-	WM_operator_properties_filesel(ot, FOLDERFILE, FILE_SPECIAL, FILE_SAVE, FILE_RELPATH, FILE_DEFAULTDISPLAY);
+	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER, FILE_SPECIAL, FILE_SAVE, FILE_RELPATH, FILE_DEFAULTDISPLAY);
 }

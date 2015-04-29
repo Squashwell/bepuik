@@ -371,7 +371,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, int resize, int mask_
 	float winx, winy;
 	rctf *cur, *tot;
 	
-	/* use mask as size of region that View2D resides in, as it takes into account scrollbars already  */
+	/* use mask as size of region that View2D resides in, as it takes into account
+	 * scrollbars already - keep in sync with zoomx/zoomy in view_zoomstep_apply_ex! */
 	winx = (float)(BLI_rcti_size_x(&v2d->mask) + 1);
 	winy = (float)(BLI_rcti_size_y(&v2d->mask) + 1);
 	
@@ -393,6 +394,7 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, int resize, int mask_
 	 */
 	totwidth  = BLI_rctf_size_x(tot);
 	totheight = BLI_rctf_size_y(tot);
+	/* keep in sync with zoomx/zoomy in view_zoomstep_apply_ex! */
 	curwidth  = width  = BLI_rctf_size_x(cur);
 	curheight = height = BLI_rctf_size_y(cur);
 	
@@ -1851,7 +1853,7 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 			/* draw vertical steps */
 			if (dfac > 0.0f) {
 				
-				BLF_rotation_default(M_PI / 2);
+				BLF_rotation_default(M_PI_2);
 				BLF_enable_default(BLF_ROTATION);
 
 				for (; fac < vert.ymax - 10; fac += dfac, val += grid->dy) {
@@ -2305,7 +2307,7 @@ void UI_view2d_text_cache_add(View2D *v2d, float x, float y,
 
 		BLI_LINKS_PREPEND(g_v2d_strings, v2s);
 
-		v2s->col.pack = *((int *)col);
+		v2s->col.pack = *((const int *)col);
 
 		memset(&v2s->rect, 0, sizeof(v2s->rect));
 
@@ -2336,7 +2338,7 @@ void UI_view2d_text_cache_add_rectf(View2D *v2d, const rctf *rect_view,
 
 		BLI_LINKS_PREPEND(g_v2d_strings, v2s);
 
-		v2s->col.pack = *((int *)col);
+		v2s->col.pack = *((const int *)col);
 
 		v2s->rect = rect;
 

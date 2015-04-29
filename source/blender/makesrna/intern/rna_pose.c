@@ -183,7 +183,7 @@ int rna_ActionGroup_is_custom_colorset_get(PointerRNA *ptr)
 {
 	bActionGroup *grp = ptr->data;
 	
-	return (bool)(grp->customCol < 0);
+	return (grp->customCol < 0);
 }
 
 static void rna_BoneGroup_name_set(PointerRNA *ptr, const char *value)
@@ -258,7 +258,7 @@ static void rna_PoseChannel_rotation_axis_angle_set(PointerRNA *ptr, const float
 	
 	/* for now, assume that rotation mode is axis-angle */
 	pchan->rotAngle = value[0];
-	copy_v3_v3(pchan->rotAxis, (float *)&value[1]);
+	copy_v3_v3(pchan->rotAxis, &value[1]);
 	
 	/* TODO: validate axis? */
 }

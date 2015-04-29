@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 CCL_NAMESPACE_BEGIN
@@ -26,8 +26,7 @@ ccl_device void svm_node_combine_hsv(KernelGlobals *kg, ShaderData *sd, float *s
 	float value = stack_load_float(stack, value_in);
 	
 	/* Combine, and convert back to RGB */
-	float3 color = color_srgb_to_scene_linear(
-	        hsv_to_rgb(make_float3(hue, saturation, value)));
+	float3 color = hsv_to_rgb(make_float3(hue, saturation, value));
 
 	if (stack_valid(color_out))
 		stack_store_float3(stack, color_out, color);
@@ -41,7 +40,7 @@ ccl_device void svm_node_separate_hsv(KernelGlobals *kg, ShaderData *sd, float *
 	float3 color = stack_load_float3(stack, color_in);
 	
 	/* Convert to HSV */
-	color = rgb_to_hsv(color_scene_linear_to_srgb(color));
+	color = rgb_to_hsv(color);
 
 	if (stack_valid(hue_out))
 		stack_store_float(stack, hue_out, color.x);

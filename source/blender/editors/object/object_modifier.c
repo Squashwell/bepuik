@@ -440,9 +440,9 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	for (a = 0; a < totpart; a++) {
 		key = cache[a];
 
-		if (key->steps > 0) {
-			totvert += key->steps + 1;
-			totedge += key->steps;
+		if (key->segments > 0) {
+			totvert += key->segments + 1;
+			totedge += key->segments;
 		}
 	}
 
@@ -450,9 +450,9 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	for (a = 0; a < totchild; a++) {
 		key = cache[a];
 
-		if (key->steps > 0) {
-			totvert += key->steps + 1;
-			totedge += key->steps;
+		if (key->segments > 0) {
+			totvert += key->segments + 1;
+			totedge += key->segments;
 		}
 	}
 
@@ -476,7 +476,7 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	cache = psys->pathcache;
 	for (a = 0; a < totpart; a++) {
 		key = cache[a];
-		kmax = key->steps;
+		kmax = key->segments;
 		for (k = 0; k <= kmax; k++, key++, cvert++, mvert++) {
 			copy_v3_v3(mvert->co, key->co);
 			if (k) {
@@ -495,7 +495,7 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	cache = psys->childcache;
 	for (a = 0; a < totchild; a++) {
 		key = cache[a];
-		kmax = key->steps;
+		kmax = key->segments;
 		for (k = 0; k <= kmax; k++, key++, cvert++, mvert++) {
 			copy_v3_v3(mvert->co, key->co);
 			if (k) {
@@ -808,7 +808,7 @@ void OBJECT_OT_modifier_add(wmOperatorType *ot)
 
 /************************ generic functions for operators using mod names and data context *********************/
 
-static int edit_modifier_poll_generic(bContext *C, StructRNA *rna_type, int obtype_flag)
+int edit_modifier_poll_generic(bContext *C, StructRNA *rna_type, int obtype_flag)
 {
 	PointerRNA ptr = CTX_data_pointer_get_type(C, "modifier", rna_type);
 	Object *ob = (ptr.id.data) ? ptr.id.data : ED_object_active_context(C);
@@ -820,17 +820,17 @@ static int edit_modifier_poll_generic(bContext *C, StructRNA *rna_type, int obty
 	return 1;
 }
 
-static int edit_modifier_poll(bContext *C)
+int edit_modifier_poll(bContext *C)
 {
 	return edit_modifier_poll_generic(C, &RNA_Modifier, 0);
 }
 
-static void edit_modifier_properties(wmOperatorType *ot)
+void edit_modifier_properties(wmOperatorType *ot)
 {
 	RNA_def_string(ot->srna, "modifier", NULL, MAX_NAME, "Modifier", "Name of the modifier to edit");
 }
 
-static int edit_modifier_invoke_properties(bContext *C, wmOperator *op)
+int edit_modifier_invoke_properties(bContext *C, wmOperator *op)
 {
 	ModifierData *md;
 	
@@ -849,7 +849,7 @@ static int edit_modifier_invoke_properties(bContext *C, wmOperator *op)
 	return false;
 }
 
-static ModifierData *edit_modifier_property_get(wmOperator *op, Object *ob, int type)
+ModifierData *edit_modifier_property_get(wmOperator *op, Object *ob, int type)
 {
 	char modifier_name[MAX_NAME];
 	ModifierData *md;
@@ -1354,7 +1354,7 @@ void OBJECT_OT_multires_external_save(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
 
-	WM_operator_properties_filesel(ot, FOLDERFILE | BTXFILE, FILE_SPECIAL, FILE_SAVE,
+	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_BTX, FILE_SPECIAL, FILE_SAVE,
 	                               WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH, FILE_DEFAULTDISPLAY);
 	edit_modifier_properties(ot);
 }
