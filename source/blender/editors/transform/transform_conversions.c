@@ -861,8 +861,8 @@ static void bepu_transpose_data_setup(TransInfo *t)
 				float view_origin[3];
 				float view_end[3];
 				int isect = 0;
-				float i1[2];
-				float i2[2];
+				float i1[3];
+				float i2[3];
 				float mval[2];
 		
 				float intersection[3];
