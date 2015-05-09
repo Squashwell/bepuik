@@ -471,7 +471,7 @@ static void test_constraints(Object *owner, bPoseChannel *pchan)
 								/* TODO: clear subtarget? */
 								curcon->flag |= CONSTRAINT_DISABLE;
 							}
-							else if (STRREQ(pchan->name, ct->subtarget) && !(ct->flag & CONSTRAINT_TAR_BEPUIK)) {
+							else if (STREQ(pchan->name, ct->subtarget) && !(ct->flag & CONSTRAINT_TAR_BEPUIK)) {
 								/* if this target provides information for a bepuik constraint, then it is OK if owner equals the target */
 								/* Example: a swing limit on Bone A has an axis paramter that references Bone A's Y Axis */
 									 
