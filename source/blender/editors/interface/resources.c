@@ -569,6 +569,13 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					cp = ts->paint_curve_pivot;
 					break;
 
+				case TH_METADATA_BG:
+					cp = ts->metadatabg;
+					break;
+				case TH_METADATA_TEXT:
+					cp = ts->metadatatext;
+					break;
+
 				case TH_UV_OTHERS:
 					cp = ts->uv_others;
 					break;
@@ -817,8 +824,9 @@ static void ui_theme_space_init_handles_color(ThemeSpace *theme_space)
 	rgba_char_args_set(theme_space->act_spline, 0xdb, 0x25, 0x12, 255);
 }
 
-/* initialize default theme
- * Note: when you add new colors, created & saved themes need initialized
+/**
+ * initialize default theme
+ * \note: when you add new colors, created & saved themes need initialized
  * use function below, init_userdef_do_versions()
  */
 void ui_theme_init_default(void)
@@ -1098,7 +1106,7 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->text.syntaxd,    50, 0, 140, 255);   /* Decorator/Preprocessor Dir.  Blue-purple */
 	rgba_char_args_set(btheme->text.syntaxr,    140, 60, 0, 255);   /* Reserved  Orange*/
 	rgba_char_args_set(btheme->text.syntaxb,    128, 0, 80, 255);   /* Builtin  Red-purple */
-	rgba_char_args_set(btheme->text.syntaxs,    76, 76, 76, 255);   /* Grey (mix between fg/bg) */
+	rgba_char_args_set(btheme->text.syntaxs,    76, 76, 76, 255);   /* Gray (mix between fg/bg) */
 	
 	/* space oops */
 	btheme->toops = btheme->tv3d;
@@ -1504,8 +1512,9 @@ void UI_GetColorPtrShade3ubv(const unsigned char cp[3], unsigned char col[3], in
 }
 
 /* get a 3 byte color, blended and shaded between two other char color pointers */
-void UI_GetColorPtrBlendShade3ubv(const unsigned char cp1[3], const unsigned char cp2[3], unsigned char col[3],
-                                  float fac, int offset)
+void UI_GetColorPtrBlendShade3ubv(
+        const unsigned char cp1[3], const unsigned char cp2[3], unsigned char col[3],
+        float fac, int offset)
 {
 	int r, g, b;
 
@@ -2351,7 +2360,7 @@ void init_userdef_do_versions(void)
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
 			rgba_char_args_set(btheme->text.syntaxd,    50, 0, 140, 255);   /* Decorator/Preprocessor Dir.  Blue-purple */
 			rgba_char_args_set(btheme->text.syntaxr,    140, 60, 0, 255);   /* Reserved  Orange */
-			rgba_char_args_set(btheme->text.syntaxs,    76, 76, 76, 255);   /* Grey (mix between fg/bg) */
+			rgba_char_args_set(btheme->text.syntaxs,    76, 76, 76, 255);   /* Gray (mix between fg/bg) */
 		}
 	}
 
@@ -2602,6 +2611,15 @@ void init_userdef_do_versions(void)
 			cp[3] = 255;
 		}
 	}
+
+	if (U.versionfile < 274 || (U.versionfile == 274 && U.subversionfile < 5)) {
+		bTheme *btheme;
+		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			copy_v4_v4_char(btheme->tima.metadatatext, btheme->tima.text_hi);
+			copy_v4_v4_char(btheme->tseq.metadatatext, btheme->tseq.text_hi);
+		}
+	}
+
 		
 	if (U.pixelsize == 0.0f)
 		U.pixelsize = 1.0f;

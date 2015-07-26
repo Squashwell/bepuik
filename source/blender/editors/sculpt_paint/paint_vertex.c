@@ -37,6 +37,7 @@
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
+#include "IMB_colormanagement.h"
 
 #include "DNA_armature_types.h"
 #include "DNA_mesh_types.h"
@@ -208,7 +209,7 @@ static void do_shared_vertex_tesscol(Mesh *me, bool *mfacetag)
 {
 	/* if no mcol: do not do */
 	/* if tface: only the involved faces, otherwise all */
-	const int use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL);
+	const bool use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	MFace *mface;
 	int a;
 	short *scolmain, *scol;
@@ -279,7 +280,7 @@ static void do_shared_vertex_tesscol(Mesh *me, bool *mfacetag)
 
 static void do_shared_vertexcol(Mesh *me, bool *mlooptag, bool *mfacetag, const bool do_tessface)
 {
-	const int use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL);
+	const bool use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	MPoly *mp;
 	int (*scol)[4];
 	int i, j;
@@ -768,7 +769,7 @@ BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int f
 
 	/* See if are lighter, if so mix, else don't do anything.
 	 * if the paint col is darker then the original, then ignore */
-	if (rgb_to_grayscale_byte(cp1) > rgb_to_grayscale_byte(cp2)) {
+	if (IMB_colormanagement_get_luminance_byte(cp1) > IMB_colormanagement_get_luminance_byte(cp2)) {
 		return col1;
 	}
 
@@ -801,7 +802,7 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 
 	/* See if were darker, if so mix, else don't do anything.
 	 * if the paint col is brighter then the original, then ignore */
-	if (rgb_to_grayscale_byte(cp1) < rgb_to_grayscale_byte(cp2)) {
+	if (IMB_colormanagement_get_luminance_byte(cp1) < IMB_colormanagement_get_luminance_byte(cp2)) {
 		return col1;
 	}
 
@@ -877,7 +878,7 @@ static int sample_backbuf_area(ViewContext *vc, int *indexar, int totface, int x
 	 * brushes with size > 64, why is this here? */
 	/*if (size > 64.0) size = 64.0;*/
 	
-	ibuf = view3d_read_backbuf(vc, x - size, y - size, x + size, y + size);
+	ibuf = ED_view3d_backbuf_read(vc, x - size, y - size, x + size, y + size);
 	if (ibuf) {
 		unsigned int *rt = ibuf->rect;
 
@@ -935,7 +936,7 @@ static float calc_vp_strength_col_dl(VPaint *vp, ViewContext *vc, const float co
 			else {
 				factor = 1.0f;
 			}
-			return factor * BKE_brush_curve_strength(brush, dist, brush_size_pressure);
+			return factor * BKE_brush_curve_strength_clamped(brush, dist, brush_size_pressure);
 		}
 	}
 	if (rgba)
@@ -1090,7 +1091,7 @@ static int weight_sample_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	me = BKE_mesh_from_object(vc.obact);
 
 	if (me && me->dvert && vc.v3d && vc.rv3d) {
-		const int use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+		const bool use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 		int v_idx_best = -1;
 		unsigned int index;
 
@@ -1176,7 +1177,7 @@ static EnumPropertyItem *weight_paint_sample_enum_itemf(bContext *C, PointerRNA 
 
 			if (me && me->dvert && vc.v3d && vc.rv3d && vc.obact->defbase.first) {
 				const int defbase_tot = BLI_listbase_count(&vc.obact->defbase);
-				const int use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+				const bool use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 				int *groups = MEM_callocN(defbase_tot * sizeof(int), "groups");
 				bool found = false;
 				unsigned int index;
@@ -3216,7 +3217,7 @@ static void gradientVert_update(DMGradient_userData *grad_data, int index)
 	/* no need to clamp 'alpha' yet */
 
 	/* adjust weight */
-	alpha = BKE_brush_curve_strength(grad_data->brush, alpha, 1.0f);
+	alpha = BKE_brush_curve_strength_clamped(grad_data->brush, alpha, 1.0f);
 
 	if (alpha != 0.0f) {
 		MDeformVert *dv = &me->dvert[index];

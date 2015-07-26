@@ -73,6 +73,10 @@ static GHOST_TButtonMask convertButton(int button)
 			return GHOST_kButtonMaskButton4;
 		case 4:
 			return GHOST_kButtonMaskButton5;
+		case 5:
+			return GHOST_kButtonMaskButton6;
+		case 6:
+			return GHOST_kButtonMaskButton7;
 		default:
 			return GHOST_kButtonMaskLeft;
 	}
@@ -882,7 +886,10 @@ GHOST_TSuccess GHOST_SystemCocoa::handleDraggingEvent(GHOST_TEventType eventType
 					if (!strArray) return GHOST_kFailure;
 					
 					strArray->count = [droppedArray count];
-					if (strArray->count == 0) return GHOST_kFailure;
+					if (strArray->count == 0) {
+						free(strArray);
+						return GHOST_kFailure;
+					}
 					
 					strArray->strings = (GHOST_TUns8**) malloc(strArray->count*sizeof(GHOST_TUns8*));
 					

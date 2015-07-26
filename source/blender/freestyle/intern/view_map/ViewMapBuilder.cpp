@@ -56,7 +56,7 @@ static const Global &_global = G;
 using namespace std;
 
 template <typename G, typename I>
-static void findOccludee(FEdge *fe, G& grid, I& occluders, real epsilon, WFace **oaWFace,
+static void findOccludee(FEdge *fe, G& /*grid*/, I& occluders, real epsilon, WFace **oaWFace,
                          Vec3r& u, Vec3r& A, Vec3r& origin, Vec3r& edge, vector<WVertex*>& faceVertices)
 {
 	WFace *face = NULL;
@@ -169,7 +169,7 @@ static void findOccludee(FEdge *fe, G& grid, I& occluders, real epsilon, WFace *
 }
 
 template <typename G, typename I>
-static void findOccludee(FEdge *fe, G& grid, real epsilon, ViewEdge *ve, WFace **oaFace)
+static void findOccludee(FEdge *fe, G& grid, real epsilon, ViewEdge * /*ve*/, WFace **oaFace)
 {
 	Vec3r A;
 	Vec3r edge;
@@ -205,7 +205,7 @@ static void findOccludee(FEdge *fe, G& grid, real epsilon, ViewEdge *ve, WFace *
 // computeVisibility takes a pointer to foundOccluders, instead of using a reference,
 // so that computeVeryFastVisibility can skip the AddOccluders step with minimal overhead.
 template <typename G, typename I>
-static int computeVisibility(ViewMap *viewMap, FEdge *fe, G& grid, real epsilon, ViewEdge *ve, WFace **oaWFace,
+static int computeVisibility(ViewMap *viewMap, FEdge *fe, G& grid, real epsilon, ViewEdge * /*ve*/, WFace **oaWFace,
                              set<ViewShape*> *foundOccluders)
 {
 	int qi = 0;
@@ -1300,8 +1300,8 @@ void ViewMapBuilder::computeCusps(ViewMap *ioViewMap)
 void ViewMapBuilder::ComputeCumulativeVisibility(ViewMap *ioViewMap, WingedEdge& we, const BBox<Vec3r>& bbox,
                                                  real epsilon, bool cull, GridDensityProviderFactory& factory)
 {
-	auto_ptr<GridHelpers::Transform> transform;
-	auto_ptr<OccluderSource> source;
+	AutoPtr<GridHelpers::Transform> transform;
+	AutoPtr<OccluderSource> source;
 
 	if (_orthographicProjection) {
 		transform.reset(new BoxGrid::Transform);
@@ -1317,7 +1317,7 @@ void ViewMapBuilder::ComputeCumulativeVisibility(ViewMap *ioViewMap, WingedEdge&
 		source.reset(new OccluderSource(*transform, we));
 	}
 
-	auto_ptr<GridDensityProvider> density(factory.newGridDensityProvider(*source, bbox, *transform));
+	AutoPtr<GridDensityProvider> density(factory.newGridDensityProvider(*source, bbox, *transform));
 
 	if (_orthographicProjection) {
 		BoxGrid grid(*source, *density, ioViewMap, _viewpoint, _EnableQI);
@@ -1332,8 +1332,8 @@ void ViewMapBuilder::ComputeCumulativeVisibility(ViewMap *ioViewMap, WingedEdge&
 void ViewMapBuilder::ComputeDetailedVisibility(ViewMap *ioViewMap, WingedEdge& we, const BBox<Vec3r>& bbox,
                                                real epsilon, bool cull, GridDensityProviderFactory& factory)
 {
-	auto_ptr<GridHelpers::Transform> transform;
-	auto_ptr<OccluderSource> source;
+	AutoPtr<GridHelpers::Transform> transform;
+	AutoPtr<OccluderSource> source;
 
 	if (_orthographicProjection) {
 		transform.reset(new BoxGrid::Transform);
@@ -1349,7 +1349,7 @@ void ViewMapBuilder::ComputeDetailedVisibility(ViewMap *ioViewMap, WingedEdge& w
 		source.reset(new OccluderSource(*transform, we));
 	}
 
-	auto_ptr<GridDensityProvider> density(factory.newGridDensityProvider(*source, bbox, *transform));
+	AutoPtr<GridDensityProvider> density(factory.newGridDensityProvider(*source, bbox, *transform));
 
 	if (_orthographicProjection) {
 		BoxGrid grid(*source, *density, ioViewMap, _viewpoint, _EnableQI);

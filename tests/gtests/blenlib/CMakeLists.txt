@@ -43,3 +43,8 @@ BLENDER_TEST(BLI_path_util "bf_blenlib;extern_wcwidth;${ZLIB_LIBRARIES}")
 BLENDER_TEST(BLI_polyfill2d "bf_blenlib")
 BLENDER_TEST(BLI_listbase "bf_blenlib")
 BLENDER_TEST(BLI_hash_mm2a "bf_blenlib")
+BLENDER_TEST(BLI_ghash "bf_blenlib")
+
+if(WITH_TESTS_PERFORMANCE)
+	BLENDER_TEST(BLI_ghash_performance "bf_blenlib")
+endif()

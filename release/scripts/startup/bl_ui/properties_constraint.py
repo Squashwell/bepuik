@@ -38,7 +38,8 @@ class ConstraintButtonsPanel:
             if con.type not in {'RIGID_BODY_JOINT', 'NULL'} and not con.is_bepuik:
                 box.prop(con, "influence")
 
-    def space_template(self, layout, con, target=True, owner=True):
+    @staticmethod
+    def space_template(layout, con, target=True, owner=True):
         if target or owner:
 
             split = layout.split(percentage=0.2)
@@ -55,7 +56,8 @@ class ConstraintButtonsPanel:
             if owner:
                 row.prop(con, "owner_space", text="")
 
-    def target_template(self, layout, con, subtargets=True):
+    @staticmethod
+    def target_template(layout, con, subtargets=True):
         layout.prop(con, "target")  # XXX limiting settings for only 'curves' or some type of object
 
         if con.target and subtargets:
@@ -69,7 +71,8 @@ class ConstraintButtonsPanel:
             elif con.target.type in {'MESH', 'LATTICE'}:
                 layout.prop_search(con, "subtarget", con.target, "vertex_groups", text="Vertex Group")
     
-    def bepuik_template_target(self, layout, con, propprefix="connection"):
+	@staticmethod
+    def bepuik_template_target(layout, con, propprefix="connection"):
         layout = layout.row(align=True)
         layout = layout.split(.5)
         target = con.connection_target
@@ -81,8 +84,8 @@ class ConstraintButtonsPanel:
                 layout.prop_search(con, "%s_subtarget" % propprefix, target.data, "bones",text="")
 
             
-                
-    def bepuik_template_axis(self, layout, con, axis, subtargets=True):
+    @staticmethod 
+    def bepuik_template_axis(layout, con, axis, subtargets=True):
         target_id = '%s_target' % axis
         subtarget_id = '%s_subtarget' % axis
         target = getattr(con,target_id)
@@ -99,8 +102,9 @@ class ConstraintButtonsPanel:
                 
                 
             layout.prop(con, axis, text = "")
-                    
-    def bepuik_template_location(self, layout, con, location, subtargets=True):
+    
+	@staticmethod                
+    def bepuik_template_location(layout, con, location, subtargets=True):
         target_id = '%s_target' % location
         subtarget_id = '%s_subtarget' % location
         head_tail_id = '%s_head_tail' % location
@@ -117,8 +121,8 @@ class ConstraintButtonsPanel:
                 
                 if getattr(con,subtarget_id):
                     layout.prop(con, head_tail_id, text="")
-                                
-    def ik_template(self, layout, con):
+
+	@staticmethod    def ik_template(self, layout, con):
         # only used for iTaSC
         layout.prop(con, "pole_target")
 
@@ -1083,7 +1087,7 @@ class OBJECT_PT_constraints(ConstraintButtonsPanel, Panel):
 
         obj = context.object
 
-        if obj.type == 'ARMATURE' and obj.mode in {'POSE'}:
+        if obj.type == 'ARMATURE' and obj.mode == 'POSE':
             box = layout.box()
             box.alert = True  # XXX: this should apply to the box background
             box.label(icon='INFO', text="Constraints for active bone do not live here")

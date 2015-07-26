@@ -61,6 +61,8 @@
 #include "bpy_traceback.h"
 #include "bpy_intern_string.h"
 
+#include "bpy_app_translations.h"
+
 #include "DNA_text_types.h"
 
 #include "BKE_appdir.h"
@@ -358,6 +360,9 @@ void BPY_python_end(void)
 
 	bpy_intern_string_exit();
 
+	/* bpy.app modules that need cleanup */
+	BPY_app_translations_end();
+
 #ifndef WITH_PYTHON_MODULE
 	BPY_atexit_unregister(); /* without this we get recursive calls to WM_exit */
 
@@ -590,7 +595,7 @@ int BPY_button_exec(bContext *C, const char *expr, double *value, const bool ver
 
 	if (error_ret) {
 		if (verbose) {
-			BPy_errors_to_report(CTX_wm_reports(C));
+			BPy_errors_to_report_ex(CTX_wm_reports(C), false, false);
 		}
 		else {
 			PyErr_Clear();
@@ -831,7 +836,7 @@ static void bpy_module_delay_init(PyObject *bpy_proxy)
 
 static void dealloc_obj_dealloc(PyObject *self);
 
-static PyTypeObject dealloc_obj_Type = {{{0}}};
+static PyTypeObject dealloc_obj_Type;
 
 /* use our own dealloc so we can free a property if we use one */
 static void dealloc_obj_dealloc(PyObject *self)

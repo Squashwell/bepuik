@@ -122,6 +122,7 @@ static pthread_mutex_t _nodes_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t _movieclip_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t _colormanage_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t _fftw_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t _view3d_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t mainid;
 static int thread_levels = 0;  /* threads can be invoked inside threads */
 static int num_threads_override = 0;
@@ -198,6 +199,7 @@ void BLI_init_threads(ListBase *threadbase, void *(*do_thread)(void *), int tot)
 		}
 	}
 	
+	BLI_spin_lock(&_malloc_lock);
 	if (thread_levels == 0) {
 		MEM_set_lock_callback(BLI_lock_malloc_thread, BLI_unlock_malloc_thread);
 
@@ -210,6 +212,7 @@ void BLI_init_threads(ListBase *threadbase, void *(*do_thread)(void *), int tot)
 	}
 
 	thread_levels++;
+	BLI_spin_unlock(&_malloc_lock);
 }
 
 /* amount of available threads */
@@ -328,9 +331,11 @@ void BLI_end_threads(ListBase *threadbase)
 		BLI_freelistN(threadbase);
 	}
 
+	BLI_spin_lock(&_malloc_lock);
 	thread_levels--;
 	if (thread_levels == 0)
 		MEM_set_lock_callback(NULL, NULL);
+	BLI_spin_unlock(&_malloc_lock);
 }
 
 /* System Information */
@@ -402,6 +407,8 @@ void BLI_lock_thread(int type)
 		pthread_mutex_lock(&_colormanage_lock);
 	else if (type == LOCK_FFTW)
 		pthread_mutex_lock(&_fftw_lock);
+	else if (type == LOCK_VIEW3D)
+		pthread_mutex_lock(&_view3d_lock);
 }
 
 void BLI_unlock_thread(int type)
@@ -426,6 +433,8 @@ void BLI_unlock_thread(int type)
 		pthread_mutex_unlock(&_colormanage_lock);
 	else if (type == LOCK_FFTW)
 		pthread_mutex_unlock(&_fftw_lock);
+	else if (type == LOCK_VIEW3D)
+		pthread_mutex_unlock(&_view3d_lock);
 }
 
 /* Mutex Locks */
@@ -797,10 +806,12 @@ void BLI_begin_threaded_malloc(void)
 	/* Used for debug only */
 	/* BLI_assert(thread_levels >= 0); */
 
+	BLI_spin_lock(&_malloc_lock);
 	if (thread_levels == 0) {
 		MEM_set_lock_callback(BLI_lock_malloc_thread, BLI_unlock_malloc_thread);
 	}
 	thread_levels++;
+	BLI_spin_unlock(&_malloc_lock);
 }
 
 void BLI_end_threaded_malloc(void)
@@ -808,8 +819,10 @@ void BLI_end_threaded_malloc(void)
 	/* Used for debug only */
 	/* BLI_assert(thread_levels >= 0); */
 
+	BLI_spin_lock(&_malloc_lock);
 	thread_levels--;
 	if (thread_levels == 0)
 		MEM_set_lock_callback(NULL, NULL);
+	BLI_spin_unlock(&_malloc_lock);
 }
 

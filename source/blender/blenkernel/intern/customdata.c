@@ -1091,7 +1091,7 @@ static void layerDefault_mcol(void *data, int count)
 
 static void layerDefault_origindex(void *data, int count)
 {
-	fill_vn_i((int *)data, count, ORIGINDEX_NONE);
+	copy_vn_i((int *)data, count, ORIGINDEX_NONE);
 }
 
 static void layerInterp_bweight(
@@ -1542,7 +1542,7 @@ static void CustomData_external_free(CustomData *data)
 void CustomData_reset(CustomData *data)
 {
 	memset(data, 0, sizeof(*data));
-	fill_vn_i(data->typemap, CD_NUMTYPES, -1);
+	copy_vn_i(data->typemap, CD_NUMTYPES, -1);
 }
 
 void CustomData_free(CustomData *data, int totelem)
@@ -1555,6 +1555,25 @@ void CustomData_free(CustomData *data, int totelem)
 	if (data->layers)
 		MEM_freeN(data->layers);
 	
+	CustomData_external_free(data);
+	CustomData_reset(data);
+}
+
+void CustomData_free_typemask(struct CustomData *data, int totelem, CustomDataMask mask)
+{
+	int i;
+
+	for (i = 0; i < data->totlayer; ++i) {
+		CustomDataLayer *layer = &data->layers[i];
+		if (!(mask & CD_TYPE_AS_MASK(layer->type))) {
+			continue;
+		}
+		customData_free_layer__internal(layer, totelem);
+	}
+
+	if (data->layers)
+		MEM_freeN(data->layers);
+
 	CustomData_external_free(data);
 	CustomData_reset(data);
 }
@@ -1810,7 +1829,13 @@ static CustomDataLayer *customData_add_layer__internal(CustomData *data, int typ
 		newlayerdata = layerdata;
 	}
 	else if (size > 0) {
-		newlayerdata = MEM_callocN(size, layerType_getName(type));
+		if (alloctype == CD_DUPLICATE && layerdata) {
+			newlayerdata = MEM_mallocN(size, layerType_getName(type));
+		}
+		else {
+			newlayerdata = MEM_callocN(size, layerType_getName(type));
+		}
+
 		if (!newlayerdata)
 			return NULL;
 	}
@@ -2269,7 +2294,7 @@ void CustomData_interp(const CustomData *source, CustomData *dest,
 		}
 	}
 
-	if (count > SOURCE_BUF_SIZE) MEM_freeN(sources);
+	if (count > SOURCE_BUF_SIZE) MEM_freeN((void *)sources);
 }
 
 void CustomData_swap(struct CustomData *data, int index, const int *corner_indices)
@@ -2867,6 +2892,17 @@ bool CustomData_has_interp(const struct CustomData *data)
 		}
 	}
 
+	return false;
+}
+
+bool CustomData_has_referenced(const struct CustomData *data)
+{
+	int i;
+	for (i = 0; i < data->totlayer; ++i) {
+		if (data->layers[i].flag & CD_FLAG_NOFREE) {
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -3816,7 +3852,7 @@ void CustomData_data_transfer(const MeshPairRemap *me_remap, const CustomDataTra
 		if (tmp_data_src) {
 			if (UNLIKELY(sources_num > tmp_buff_size)) {
 				tmp_buff_size = (size_t)sources_num;
-				tmp_data_src = MEM_reallocN(tmp_data_src, sizeof(*tmp_data_src) * tmp_buff_size);
+				tmp_data_src = MEM_reallocN((void *)tmp_data_src, sizeof(*tmp_data_src) * tmp_buff_size);
 			}
 
 			for (j = 0; j < sources_num; j++) {

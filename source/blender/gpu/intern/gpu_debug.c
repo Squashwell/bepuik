@@ -25,7 +25,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file source/blender/gpu/GPU_debug.h
+/** \file source/blender/gpu/intern/gpu_debug.c
  *  \ingroup gpu
  */
 
@@ -45,7 +45,7 @@
 
 static const char* gpu_gl_error_symbol(GLenum err)
 {
-	switch(err) {
+	switch (err) {
 		CASE_CODE_RETURN_STR(GL_NO_ERROR)
 		CASE_CODE_RETURN_STR(GL_INVALID_ENUM)
 		CASE_CODE_RETURN_STR(GL_INVALID_VALUE)
@@ -109,7 +109,7 @@ static bool gpu_report_gl_errors(const char *file, int line, const char *str)
 
 const char* gpuErrorString(GLenum err)
 {
-	switch(err) {
+	switch (err) {
 		case GL_NO_ERROR:
 			return "No Error";
 
@@ -356,6 +356,7 @@ void gpu_assert_no_gl_errors(const char* file, int line, const char* str)
 		GLboolean gl_ok = gpu_report_gl_errors(file, line, str);
 
 		BLI_assert(gl_ok);
+		(void) gl_ok;
 	}
 }
 

@@ -649,7 +649,7 @@ void BKE_deform_flip_side_name(char name[MAX_VGROUP_NAME], const char from_name[
 	BLI_strncpy(prefix, name, sizeof(prefix));
 
 	/* first case; separator . - _ with extensions r R l L  */
-	if (is_char_sep(name[len - 2])) {
+	if ((len > 1) && is_char_sep(name[len - 2])) {
 		is_set = true;
 		switch (name[len - 1]) {
 			case 'l':
@@ -982,7 +982,7 @@ void BKE_defvert_extract_vgroup_to_vertweights(
 		}
 	}
 	else {
-		fill_vn_fl(r_weights, invert_vgroup ? 1.0f : 0.0f, num_verts);
+		copy_vn_fl(r_weights, num_verts, invert_vgroup ? 1.0f : 0.0f);
 	}
 }
 
@@ -1008,7 +1008,7 @@ void BKE_defvert_extract_vgroup_to_edgeweights(
 		MEM_freeN(tmp_weights);
 	}
 	else {
-		fill_vn_fl(r_weights, 0.0f, num_edges);
+		copy_vn_fl(r_weights, num_edges, 0.0f);
 	}
 }
 
@@ -1031,7 +1031,7 @@ void BKE_defvert_extract_vgroup_to_loopweights(
 		MEM_freeN(tmp_weights);
 	}
 	else {
-		fill_vn_fl(r_weights, 0.0f, num_loops);
+		copy_vn_fl(r_weights, num_loops, 0.0f);
 	}
 }
 
@@ -1060,7 +1060,7 @@ void BKE_defvert_extract_vgroup_to_polyweights(
 		MEM_freeN(tmp_weights);
 	}
 	else {
-		fill_vn_fl(r_weights, 0.0f, num_polys);
+		copy_vn_fl(r_weights, num_polys, 0.0f);
 	}
 }
 

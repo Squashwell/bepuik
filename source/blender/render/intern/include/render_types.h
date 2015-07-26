@@ -58,7 +58,6 @@ struct MemArena;
 struct VertTableNode;
 struct VlakTableNode;
 struct GHash;
-struct RenderBuckets;
 struct ObjectInstanceRen;
 struct RayObject;
 struct RayFace;
@@ -123,8 +122,7 @@ enum {
 };
 
 /* controls state of render, everything that's read-only during render stage */
-struct Render
-{
+struct Render {
 	struct Render *next, *prev;
 	char name[RE_MAXNAME];
 	int slot;
@@ -194,6 +192,7 @@ struct Render
 	struct Object *camera_override;
 	unsigned int lay, layer_override;
 	
+	ThreadRWMutex partsmutex;
 	ListBase parts;
 	
 	/* render engine */
@@ -275,6 +274,9 @@ struct Render
 
 	struct ImagePool *pool;
 	struct EvaluationContext *eval_ctx;
+
+	void **movie_ctx_arr;
+	char viewname[MAX_NAME];
 };
 
 /* ------------------------------------------------------------------------- */
@@ -388,7 +390,6 @@ struct halosort {
 
 /* ------------------------------------------------------------------------- */
 struct Material;
-struct MTFace;
 struct ImagePool;
 
 typedef struct RadFace {

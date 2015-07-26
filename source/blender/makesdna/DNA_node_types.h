@@ -40,7 +40,6 @@
 
 struct ID;
 struct ListBase;
-struct SpaceNode;
 struct bNodeLink;
 struct bNodeType;
 struct bNodeTreeExec;
@@ -264,12 +263,12 @@ typedef struct bNode {
  */
 #define NODE_UPDATE			0xFFFF	/* generic update flag (includes all others) */
 #define NODE_UPDATE_ID		1		/* associated id data block has changed */
+#define NODE_UPDATE_OPERATOR		2		/* node update triggered from update operator */
 
 /* Unique hash key for identifying node instances
  * Defined as a struct because DNA does not support other typedefs.
  */
-typedef struct bNodeInstanceKey
-{
+typedef struct bNodeInstanceKey {
 	unsigned int value;
 } bNodeInstanceKey;
 
@@ -383,7 +382,7 @@ typedef struct bNodeTree {
 	
 	/* callbacks */
 	void (*progress)(void *, float progress);
-	void (*stats_draw)(void *, char *str);
+	void (*stats_draw)(void *, const char *str);
 	int (*test_break)(void *);
 	void (*update_draw)(void *);
 	void *tbh, *prh, *sdh, *udh;

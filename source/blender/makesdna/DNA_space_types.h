@@ -50,28 +50,21 @@
 struct ID;
 struct Text;
 struct Script;
-struct bSound;
-struct ImBuf;
 struct Image;
 struct Scopes;
 struct Histogram;
 struct SpaceIpo;
-struct BlendHandle;
 struct bNodeTree;
-struct uiBlock;
 struct FileList;
 struct bGPdata;
 struct bDopeSheet;
 struct FileSelectParams;
 struct FileLayout;
-struct bScreen;
-struct Scene;
 struct wmOperator;
 struct wmTimer;
 struct MovieClip;
 struct MovieClipScopes;
 struct Mask;
-struct GHash;
 struct BLI_mempool;
 
 
@@ -297,10 +290,13 @@ typedef enum eSpaceOutliner_Mode {
 
 /* SpaceOops->storeflag */
 typedef enum eSpaceOutliner_StoreFlag {
-	/* rebuild tree */
+	/* cleanup tree */
 	SO_TREESTORE_CLEANUP    = (1 << 0),
 	/* if set, it allows redraws. gets set for some allqueue events */
 	SO_TREESTORE_REDRAW     = (1 << 1),
+	/* rebuild the tree, similar to cleanup,
+	 * but defer a call to BKE_outliner_treehash_rebuild_from_treestore instead */
+	SO_TREESTORE_REBUILD    = (1 << 2),
 } eSpaceOutliner_StoreFlag;
 
 /* outliner search flags (SpaceOops->search_flags) */
@@ -507,6 +503,9 @@ typedef struct SpaceSeq {
 	struct bGPdata *gpd;        /* grease-pencil data */
 
 	struct SequencerScopes scopes;  /* different scoped displayed in space */
+
+	char multiview_eye;				/* multiview current eye - for internal use */
+	char pad2[7];
 } SpaceSeq;
 
 
@@ -538,6 +537,7 @@ typedef enum eSpaceSeq_Flag {
 	SEQ_ALL_WAVEFORMS           = (1 << 7), /* draw all waveforms */
 	SEQ_NO_WAVEFORMS            = (1 << 8), /* draw no waveforms */
 	SEQ_SHOW_SAFE_CENTER        = (1 << 9),
+	SEQ_SHOW_METADATA           = (1 << 10),
 } eSpaceSeq_Flag;
 
 /* sseq->view */
@@ -558,8 +558,7 @@ typedef enum eSpaceSeq_Proxy_RenderSize {
 	SEQ_PROXY_RENDER_SIZE_FULL      = 100
 } eSpaceSeq_Proxy_RenderSize;
 
-typedef struct MaskSpaceInfo
-{
+typedef struct MaskSpaceInfo {
 	/* **** mask editing **** */
 	struct Mask *mask;
 	/* draw options */
@@ -595,6 +594,8 @@ typedef struct FileSelectParams {
 	int active_file;
 	int sel_first;
 	int sel_last;
+	unsigned short thumbnail_size;
+	short pad;
 
 	/* short */
 	short type; /* XXXXX for now store type here, should be moved to the operator */
@@ -717,7 +718,7 @@ typedef enum eFileSel_File_Types {
 	FILE_TYPE_FTFONT            = (1 << 7),
 	FILE_TYPE_SOUND             = (1 << 8),
 	FILE_TYPE_TEXT              = (1 << 9),
-	FILE_TYPE_MOVIE_ICON        = (1 << 10), /* movie file that preview can't load */
+	/* 1 << 10 was FILE_TYPE_MOVIE_ICON, got rid of this so free slot for future type... */
 	FILE_TYPE_FOLDER            = (1 << 11), /* represents folders for filtering */
 	FILE_TYPE_BTX               = (1 << 12),
 	FILE_TYPE_COLLADA           = (1 << 13),
@@ -839,6 +840,7 @@ typedef enum eSpaceImage_Flag {
 	SI_COLOR_CORRECTION   = (1 << 24),
 
 	SI_NO_DRAW_TEXPAINT   = (1 << 25),
+	SI_DRAW_METADATA      = (1 << 26)
 } eSpaceImage_Flag;
 
 /* Text Editor ============================================ */

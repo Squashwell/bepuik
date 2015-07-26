@@ -577,6 +577,10 @@ static void initSnappingMode(TransInfo *t)
 			t->tsnap.mode = SCE_SNAP_MODE_INCREMENT;
 		}
 	}
+	else if (t->spacetype == SPACE_SEQ) {
+		/* We do our own snapping currently, so nothing here */
+		t->tsnap.mode = SCE_SNAP_MODE_GRID;  /* Dummy, should we rather add a NOP mode? */
+	}
 	else {
 		/* Always grid outside of 3D view */
 		t->tsnap.mode = SCE_SNAP_MODE_INCREMENT;
@@ -949,9 +953,9 @@ static void CalcSnapGeometry(TransInfo *t, float *UNUSED(vec))
 //				last_p = LAST_SNAP_POINT;
 //			}
 //			else
-//			{
+			{
 				last_p = t->tsnap.snapPoint;
-//			}
+			}
 			
 			
 			for (p1 = depth_peels.first; p1; p1 = p1->next) {
@@ -1396,11 +1400,8 @@ static bool snapArmature(short snap_mode, ARegion *ar, Object *ob, bArmature *ar
 
 	invert_m4_m4(imat, obmat);
 
-	copy_v3_v3(ray_start_local, ray_start);
-	copy_v3_v3(ray_normal_local, ray_normal);
-	
-	mul_m4_v3(imat, ray_start_local);
-	mul_mat3_m4_v3(imat, ray_normal_local);
+	mul_v3_m4v3(ray_start_local, imat, ray_start);
+	mul_v3_mat3_m4v3(ray_normal_local, imat, ray_normal);
 
 	if (arm->edbo) {
 		EditBone *eBone;
@@ -1758,11 +1759,8 @@ static bool snapEmpty(short snap_mode, ARegion *ar, Object *ob, float obmat[4][4
 
 	invert_m4_m4(imat, obmat);
 
-	copy_v3_v3(ray_start_local, ray_start);
-	copy_v3_v3(ray_normal_local, ray_normal);
-
-	mul_m4_v3(imat, ray_start_local);
-	mul_mat3_m4_v3(imat, ray_normal_local);
+	mul_v3_m4v3(ray_start_local, imat, ray_start);
+	mul_v3_mat3_m4v3(ray_normal_local, imat, ray_normal);
 
 	switch (snap_mode) {
 		case SCE_SNAP_MODE_VERTEX:
@@ -2107,12 +2105,8 @@ static bool peelDerivedMesh(Object *ob, DerivedMesh *dm, float obmat[4][4],
 
 		transpose_m3_m4(timat, imat);
 		
-		copy_v3_v3(ray_start_local, ray_start);
-		copy_v3_v3(ray_normal_local, ray_normal);
-		
-		mul_m4_v3(imat, ray_start_local);
-		mul_mat3_m4_v3(imat, ray_normal_local);
-		
+		mul_v3_m4v3(ray_start_local, imat, ray_start);
+		mul_v3_mat3_m4v3(ray_normal_local, imat, ray_normal);
 		
 		/* If number of vert is more than an arbitrary limit, 
 		 * test against boundbox first
@@ -2431,7 +2425,7 @@ void snapGridIncrement(TransInfo *t, float *val)
 	snapGridIncrementAction(t, val, action);
 }
 
-int snapSequenceBounds(TransInfo *t, const int mval[2])
+void snapSequenceBounds(TransInfo *t, const int mval[2])
 {
 	float xmouse, ymouse;
 	int frame;
@@ -2439,7 +2433,7 @@ int snapSequenceBounds(TransInfo *t, const int mval[2])
 	TransSeq *ts = t->customData;
 	/* reuse increment, strictly speaking could be another snap mode, but leave as is */
 	if (!(t->modifiers & MOD_SNAP_INVERT))
-		return 0;
+		return;
 
 	/* convert to frame range */
 	UI_view2d_region_to_view(&t->ar->v2d, mval[0], mval[1], &xmouse, &ymouse);
@@ -2450,7 +2444,7 @@ int snapSequenceBounds(TransInfo *t, const int mval[2])
 	if (!ts->snap_left)
 		frame = frame - (ts->max - ts->min);
 
-	return frame;
+	t->values[0] = frame - ts->min;
 }
 
 static void applyGridIncrement(TransInfo *t, float *val, int max_index, const float fac[3], GearsType action)

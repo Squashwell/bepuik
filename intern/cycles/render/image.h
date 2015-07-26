@@ -63,6 +63,7 @@ public:
 	bool is_float_image(const string& filename, void *builtin_data, bool& is_linear);
 
 	void device_update(Device *device, DeviceScene *dscene, Progress& progress);
+	void device_update_slot(Device *device, DeviceScene *dscene, int slot, Progress *progress);
 	void device_free(Device *device, DeviceScene *dscene);
 	void device_free_builtin(Device *device, DeviceScene *dscene);
 
@@ -73,9 +74,9 @@ public:
 
 	bool need_update;
 
-	boost::function<void(const string &filename, void *data, bool &is_float, int &width, int &height, int &depth, int &channels)> builtin_image_info_cb;
-	boost::function<bool(const string &filename, void *data, unsigned char *pixels)> builtin_image_pixels_cb;
-	boost::function<bool(const string &filename, void *data, float *pixels)> builtin_image_float_pixels_cb;
+	function<void(const string &filename, void *data, bool &is_float, int &width, int &height, int &depth, int &channels)> builtin_image_info_cb;
+	function<bool(const string &filename, void *data, unsigned char *pixels)> builtin_image_pixels_cb;
+	function<bool(const string &filename, void *data, float *pixels)> builtin_image_float_pixels_cb;
 
 	struct Image {
 		string filename;

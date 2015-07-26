@@ -470,7 +470,7 @@ static void cdDM_drawFacesSolid(DerivedMesh *dm,
 	int a;
 
 	if (cddm->pbvh && cddm->pbvh_draw) {
-		if (dm->numTessFaceData) {
+		if (BKE_pbvh_has_faces(cddm->pbvh)) {
 			float (*face_nors)[3] = CustomData_get_layer(&dm->faceData, CD_NORMAL);
 
 			BKE_pbvh_draw(cddm->pbvh, partial_redraw_planes, face_nors,
@@ -527,7 +527,7 @@ static void cdDM_drawFacesTex_common(DerivedMesh *dm,
 	 *       (the same as it'll display without UV maps in textured view)
 	 */
 	if (cddm->pbvh && cddm->pbvh_draw && BKE_pbvh_type(cddm->pbvh) == PBVH_BMESH) {
-		if (dm->numTessFaceData) {
+		if (BKE_pbvh_has_faces(cddm->pbvh)) {
 			GPU_set_tpage(NULL, false, false);
 			BKE_pbvh_draw(cddm->pbvh, NULL, NULL, NULL, false);
 		}
@@ -786,14 +786,14 @@ static void cdDM_drawMappedFaces(DerivedMesh *dm,
 		if (tottri == 0) {
 			/* avoid buffer problems in following code */
 		}
-		if (setDrawOptions == NULL) {
+		else if (setDrawOptions == NULL) {
 			/* just draw the entire face array */
 			glDrawArrays(GL_TRIANGLES, 0, (tottri) * 3);
 		}
 		else {
 			/* we need to check if the next material changes */
 			int next_actualFace = dm->drawObject->triangle_to_mface[0];
-			int prev_mat_nr = -1;
+			short prev_mat_nr = -1;
 			
 			for (i = 0; i < tottri; i++) {
 				//int actualFace = dm->drawObject->triangle_to_mface[i];
@@ -912,7 +912,7 @@ static void cdDM_drawMappedFacesGLSL(DerivedMesh *dm,
 	 *       works fine for matcap
 	 */
 	if (cddm->pbvh && cddm->pbvh_draw && BKE_pbvh_type(cddm->pbvh) == PBVH_BMESH) {
-		if (dm->numTessFaceData) {
+		if (BKE_pbvh_has_faces(cddm->pbvh)) {
 			setMaterial(1, &gattribs);
 			BKE_pbvh_draw(cddm->pbvh, NULL, NULL, NULL, false);
 		}
@@ -1246,7 +1246,7 @@ static void cdDM_drawMappedFacesMat(DerivedMesh *dm,
 	 *       works fine for matcap
 	 */
 	if (cddm->pbvh && cddm->pbvh_draw && BKE_pbvh_type(cddm->pbvh) == PBVH_BMESH) {
-		if (dm->numTessFaceData) {
+		if (BKE_pbvh_has_faces(cddm->pbvh)) {
 			setMaterial(userData, 1, &gattribs);
 			BKE_pbvh_draw(cddm->pbvh, NULL, NULL, NULL, false);
 		}
@@ -2545,16 +2545,16 @@ DerivedMesh *CDDM_merge_verts(DerivedMesh *dm, const int *vtargetmap, const int 
 		const unsigned int v1 = (vtargetmap[med->v1] != -1) ? vtargetmap[med->v1] : med->v1;
 		const unsigned int v2 = (vtargetmap[med->v2] != -1) ? vtargetmap[med->v2] : med->v2;
 		if (LIKELY(v1 != v2)) {
-			void **eh_p = BLI_edgehash_lookup_p(ehash, v1, v2);
+			void **val_p;
 
-			if (eh_p) {
-				newe[i] = GET_INT_FROM_POINTER(*eh_p);
+			if (BLI_edgehash_ensure_p(ehash, v1, v2, &val_p)) {
+				newe[i] = GET_INT_FROM_POINTER(*val_p);
 			}
 			else {
 				STACK_PUSH(olde, i);
 				STACK_PUSH(medge, *med);
 				newe[i] = c;
-				BLI_edgehash_insert(ehash, v1, v2, SET_INT_IN_POINTER(c));
+				*val_p = SET_INT_IN_POINTER(c);
 				c++;
 			}
 		}

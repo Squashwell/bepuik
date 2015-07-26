@@ -51,6 +51,8 @@
 #  include <Python.h>
 
 extern "C" {
+	#  include "BLI_utildefines.h"
+	#  include "python_utildefines.h"
 	#  include "bpy_internal_import.h"  /* from the blender python api, but we want to import text too! */
 	#  include "py_capi_utils.h"
 	#  include "mathutils.h" // 'mathutils' module copied here so the blenderlayer can use.
@@ -354,7 +356,7 @@ static PyObject *gPyLoadGlobalDict(PyObject *)
 {
 	char marshal_path[512];
 	char *marshal_buffer = NULL;
-	size_t marshal_length;
+	int marshal_length;
 	FILE *fp = NULL;
 	int result;
 
@@ -365,7 +367,12 @@ static PyObject *gPyLoadGlobalDict(PyObject *)
 	if (fp) {
 		// obtain file size:
 		fseek (fp, 0, SEEK_END);
-		marshal_length = (size_t)ftell(fp);
+		marshal_length = ftell(fp);
+		if (marshal_length == -1) {
+			printf("Warning: could not read position of '%s'\n", marshal_path);
+			fclose(fp);
+			Py_RETURN_NONE;
+		}
 		rewind(fp);
 
 		marshal_buffer = (char*)malloc (sizeof(char)*marshal_length);
@@ -1029,108 +1036,21 @@ static PyObject *gPyGetStereoEye(PyObject *, PyObject *, PyObject *)
 
 static PyObject *gPySetBackgroundColor(PyObject *, PyObject *value)
 {
-	
 	MT_Vector4 vec;
 	if (!PyVecTo(value, vec))
 		return NULL;
-	
-	if (gp_Canvas)
-	{
-		gp_Rasterizer->SetBackColor((float)vec[0], (float)vec[1], (float)vec[2], (float)vec[3]);
-	}
 
 	KX_WorldInfo *wi = gp_KetsjiScene->GetWorldInfo();
-	if (wi->hasWorld())
-		wi->setBackColor((float)vec[0], (float)vec[1], (float)vec[2]);
-
-	Py_RETURN_NONE;
-}
-
-
-
-static PyObject *gPySetMistColor(PyObject *, PyObject *value)
-{
-	
-	MT_Vector3 vec;
-	if (!PyVecTo(value, vec))
-		return NULL;
-	
-	if (!gp_Rasterizer) {
-		PyErr_SetString(PyExc_RuntimeError, "Rasterizer.setMistColor(color), Rasterizer not available");
+	if (!wi->hasWorld()) {
+		PyErr_SetString(PyExc_RuntimeError, "bge.render.SetBackgroundColor(color), World not available");
 		return NULL;
 	}
-	gp_Rasterizer->SetFogColor((float)vec[0], (float)vec[1], (float)vec[2]);
-	
+
+	ShowDeprecationWarning("setBackgroundColor()", "KX_WorldInfo.background_color");
+	wi->setBackColor((float)vec[0], (float)vec[1], (float)vec[2]);
+
 	Py_RETURN_NONE;
 }
-
-static PyObject *gPyDisableMist(PyObject *)
-{
-	
-	if (!gp_Rasterizer) {
-		PyErr_SetString(PyExc_RuntimeError, "Rasterizer.setMistColor(color), Rasterizer not available");
-		return NULL;
-	}
-	gp_Rasterizer->DisableFog();
-	
-	Py_RETURN_NONE;
-}
-
-static PyObject *gPySetMistStart(PyObject *, PyObject *args)
-{
-
-	float miststart;
-	if (!PyArg_ParseTuple(args,"f:setMistStart",&miststart))
-		return NULL;
-	
-	if (!gp_Rasterizer) {
-		PyErr_SetString(PyExc_RuntimeError, "Rasterizer.setMistStart(float), Rasterizer not available");
-		return NULL;
-	}
-	
-	gp_Rasterizer->SetFogStart(miststart);
-	
-	Py_RETURN_NONE;
-}
-
-
-
-static PyObject *gPySetMistEnd(PyObject *, PyObject *args)
-{
-
-	float mistend;
-	if (!PyArg_ParseTuple(args,"f:setMistEnd",&mistend))
-		return NULL;
-	
-	if (!gp_Rasterizer) {
-		PyErr_SetString(PyExc_RuntimeError, "Rasterizer.setMistEnd(float), Rasterizer not available");
-		return NULL;
-	}
-	
-	gp_Rasterizer->SetFogEnd(mistend);
-	
-	Py_RETURN_NONE;
-}
-
-
-static PyObject *gPySetAmbientColor(PyObject *, PyObject *value)
-{
-	
-	MT_Vector3 vec;
-	if (!PyVecTo(value, vec))
-		return NULL;
-	
-	if (!gp_Rasterizer) {
-		PyErr_SetString(PyExc_RuntimeError, "Rasterizer.setAmbientColor(color), Rasterizer not available");
-		return NULL;
-	}
-	gp_Rasterizer->SetAmbientColor((float)vec[0], (float)vec[1], (float)vec[2]);
-	
-	Py_RETURN_NONE;
-}
-
-
-
 
 static PyObject *gPyMakeScreenshot(PyObject *, PyObject *args)
 {
@@ -1490,6 +1410,21 @@ static PyObject *gPyClearDebugList(PyObject *)
 	Py_RETURN_NONE;
 }
 
+static PyObject *gPyGetDisplayDimensions(PyObject *)
+{
+	PyObject *result;
+	int width, height;
+
+	gp_Canvas->GetDisplayDimensions(width, height);
+
+	result = PyTuple_New(2);
+	PyTuple_SET_ITEMS(result,
+	        PyLong_FromLong(width),
+	        PyLong_FromLong(height));
+
+	return result;
+}
+
 PyDoc_STRVAR(Rasterizer_module_documentation,
 "This is the Python API for the game engine of Rasterizer"
 );
@@ -1508,11 +1443,6 @@ static struct PyMethodDef rasterizer_methods[] = {
 	{"setMousePosition",(PyCFunction) gPySetMousePosition,
 	 METH_VARARGS, "setMousePosition(int x,int y)"},
 	{"setBackgroundColor",(PyCFunction)gPySetBackgroundColor,METH_O,"set Background Color (rgb)"},
-	{"setAmbientColor",(PyCFunction)gPySetAmbientColor,METH_O,"set Ambient Color (rgb)"},
-	{"disableMist",(PyCFunction)gPyDisableMist,METH_NOARGS,"turn off mist"},
-	{"setMistColor",(PyCFunction)gPySetMistColor,METH_O,"set Mist Color (rgb)"},
-	{"setMistStart",(PyCFunction)gPySetMistStart,METH_VARARGS,"set Mist Start(rgb)"},
-	{"setMistEnd",(PyCFunction)gPySetMistEnd,METH_VARARGS,"set Mist End(rgb)"},
 	{"enableMotionBlur",(PyCFunction)gPyEnableMotionBlur,METH_VARARGS,"enable motion blur"},
 	{"disableMotionBlur",(PyCFunction)gPyDisableMotionBlur,METH_NOARGS,"disable motion blur"},
 
@@ -1538,6 +1468,8 @@ static struct PyMethodDef rasterizer_methods[] = {
 	{"setWindowSize", (PyCFunction) gPySetWindowSize, METH_VARARGS, ""},
 	{"setFullScreen", (PyCFunction) gPySetFullScreen, METH_O, ""},
 	{"getFullScreen", (PyCFunction) gPyGetFullScreen, METH_NOARGS, ""},
+	{"getDisplayDimensions", (PyCFunction) gPyGetDisplayDimensions, METH_NOARGS,
+	 "Get the actual dimensions, in pixels, of the physical display (e.g., the monitor)."},
 	{"setMipmapping", (PyCFunction) gPySetMipmapping, METH_VARARGS, ""},
 	{"getMipmapping", (PyCFunction) gPyGetMipmapping, METH_NOARGS, ""},
 	{"setVsync", (PyCFunction) gPySetVsync, METH_VARARGS, ""},
@@ -2149,14 +2081,14 @@ PyObject *initGamePlayerPythonScripting(Main *maggie, int argc, char** argv)
 	Py_SetProgramName(program_path_wchar);
 
 	/* Update, Py3.3 resolves attempting to parse non-existing header */
-	#if 0
+#if 0
 	/* Python 3.2 now looks for '2.xx/python/include/python3.2d/pyconfig.h' to
 	 * parse from the 'sysconfig' module which is used by 'site',
 	 * so for now disable site. alternatively we could copy the file. */
 	if (py_path_bundle != NULL) {
 		Py_NoSiteFlag = 1; /* inhibits the automatic importing of 'site' */
 	}
-	#endif
+#endif
 
 	Py_FrozenFlag = 1;
 

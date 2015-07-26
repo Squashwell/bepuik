@@ -327,17 +327,17 @@ static void init_editNurb_keyIndex(EditNurb *editnurb, ListBase *origBase)
 	editnurb->keyindex = gh;
 }
 
-static CVKeyIndex *getCVKeyIndex(EditNurb *editnurb, void *cv)
+static CVKeyIndex *getCVKeyIndex(EditNurb *editnurb, const void *cv)
 {
 	return BLI_ghash_lookup(editnurb->keyindex, cv);
 }
 
-static CVKeyIndex *popCVKeyIndex(EditNurb *editnurb, void *cv)
+static CVKeyIndex *popCVKeyIndex(EditNurb *editnurb, const void *cv)
 {
 	return BLI_ghash_popkey(editnurb->keyindex, cv, NULL);
 }
 
-static BezTriple *getKeyIndexOrig_bezt(EditNurb *editnurb, BezTriple *bezt)
+static BezTriple *getKeyIndexOrig_bezt(EditNurb *editnurb, const BezTriple *bezt)
 {
 	CVKeyIndex *index = getCVKeyIndex(editnurb, bezt);
 
@@ -370,7 +370,7 @@ static int getKeyIndexOrig_keyIndex(EditNurb *editnurb, void *cv)
 	return index->key_index;
 }
 
-static void keyIndex_delCV(EditNurb *editnurb, void *cv)
+static void keyIndex_delCV(EditNurb *editnurb, const void *cv)
 {
 	if (!editnurb->keyindex) {
 		return;
@@ -398,7 +398,7 @@ static void keyIndex_delNurb(EditNurb *editnurb, Nurb *nu)
 	}
 
 	if (nu->bezt) {
-		BezTriple *bezt = nu->bezt;
+		const BezTriple *bezt = nu->bezt;
 		a = nu->pntsu;
 
 		while (a--) {
@@ -407,7 +407,7 @@ static void keyIndex_delNurb(EditNurb *editnurb, Nurb *nu)
 		}
 	}
 	else {
-		BPoint *bp = nu->bp;
+		const BPoint *bp = nu->bp;
 		a = nu->pntsu * nu->pntsv;
 
 		while (a--) {
@@ -1188,7 +1188,7 @@ static int *initialize_index_map(Object *obedit, int *r_old_totvert)
 
 			while (a--) {
 				keyIndex = getCVKeyIndex(editnurb, bezt);
-				if (keyIndex) {
+				if (keyIndex && keyIndex->vertex_index + 2 < old_totvert) {
 					if (keyIndex->switched) {
 						old_to_new_map[keyIndex->vertex_index] = vertex_index + 2;
 						old_to_new_map[keyIndex->vertex_index + 1] = vertex_index + 1;
@@ -1538,6 +1538,7 @@ void CURVE_OT_separate(wmOperatorType *ot)
 	ot->description = "Separate selected points from connected unselected points into a new object";
 	
 	/* api callbacks */
+	ot->invoke = WM_operator_confirm;
 	ot->exec = separate_exec;
 	ot->poll = ED_operator_editsurfcurve;
 	
@@ -6142,7 +6143,7 @@ void CURVE_OT_select_random(wmOperatorType *ot)
 
 /********************* every nth number of point *******************/
 
-static void select_nth_bezt(Nurb *nu, BezTriple *bezt, int nth)
+static void select_nth_bezt(Nurb *nu, BezTriple *bezt, int nth, int skip, int offset)
 {
 	int a, start;
 
@@ -6151,7 +6152,8 @@ static void select_nth_bezt(Nurb *nu, BezTriple *bezt, int nth)
 	bezt = &nu->bezt[a - 1];
 
 	while (a--) {
-		if (abs(start - a) % nth) {
+		const int depth = abs(start - a);
+		if ((offset + depth) % (skip + nth) >= skip) {
 			select_beztriple(bezt, DESELECT, SELECT, HIDDEN);
 		}
 
@@ -6159,10 +6161,10 @@ static void select_nth_bezt(Nurb *nu, BezTriple *bezt, int nth)
 	}
 }
 
-static void select_nth_bp(Nurb *nu, BPoint *bp, int nth)
+static void select_nth_bp(Nurb *nu, BPoint *bp, int nth, int skip, int offset)
 {
 	int a, startrow, startpnt;
-	int dist, row, pnt;
+	int row, pnt;
 
 	startrow = (bp - nu->bp) / nu->pntsu;
 	startpnt = (bp - nu->bp) % nu->pntsu;
@@ -6173,8 +6175,8 @@ static void select_nth_bp(Nurb *nu, BPoint *bp, int nth)
 	pnt = nu->pntsu - 1;
 
 	while (a--) {
-		dist = abs(pnt - startpnt) + abs(row - startrow);
-		if (dist % nth) {
+		const int depth = abs(pnt - startpnt) + abs(row - startrow);
+		if ((offset + depth) % (skip + nth) >= skip) {
 			select_bpoint(bp, DESELECT, SELECT, HIDDEN);
 		}
 
@@ -6188,7 +6190,7 @@ static void select_nth_bp(Nurb *nu, BPoint *bp, int nth)
 	}
 }
 
-bool ED_curve_select_nth(Curve *cu, int nth)
+bool ED_curve_select_nth(Curve *cu, int nth, int skip, int offset)
 {
 	Nurb *nu = NULL;
 	void *vert = NULL;
@@ -6197,10 +6199,10 @@ bool ED_curve_select_nth(Curve *cu, int nth)
 		return false;
 
 	if (nu->bezt) {
-		select_nth_bezt(nu, vert, nth);
+		select_nth_bezt(nu, vert, nth, skip, offset);
 	}
 	else {
-		select_nth_bp(nu, vert, nth);
+		select_nth_bp(nu, vert, nth, skip, offset);
 	}
 
 	return true;
@@ -6209,9 +6211,14 @@ bool ED_curve_select_nth(Curve *cu, int nth)
 static int select_nth_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
-	int nth = RNA_int_get(op->ptr, "nth");
+	const int nth = RNA_int_get(op->ptr, "nth") - 1;
+	const int skip = RNA_int_get(op->ptr, "skip");
+	int offset = RNA_int_get(op->ptr, "offset");
 
-	if (!ED_curve_select_nth(obedit->data, nth)) {
+	/* so input of offset zero ends up being (nth - 1) */
+	offset = mod_i(offset, nth + skip);
+
+	if (!ED_curve_select_nth(obedit->data, nth, skip, offset)) {
 		if (obedit->type == OB_SURF) {
 			BKE_report(op->reports, RPT_ERROR, "Surface has not got active point");
 		}
@@ -6242,6 +6249,8 @@ void CURVE_OT_select_nth(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	RNA_def_int(ot->srna, "nth", 2, 2, INT_MAX, "Nth Selection", "", 2, 100);
+	RNA_def_int(ot->srna, "skip", 1, 1, INT_MAX, "Skip", "", 1, 100);
+	RNA_def_int(ot->srna, "offset", 0, INT_MIN, INT_MAX, "Offset", "", -100, 100);
 }
 
 /********************** add duplicate operator *********************/

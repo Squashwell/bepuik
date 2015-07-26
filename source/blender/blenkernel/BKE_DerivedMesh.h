@@ -97,7 +97,6 @@ struct ColorBand;
 struct GPUVertexAttribs;
 struct GPUDrawObject;
 struct BMEditMesh;
-struct ListBase;
 struct PBVH;
 
 /* number of sub-elements each mesh element has (for interpolation) */
@@ -114,11 +113,6 @@ typedef struct DMCoNo {
 	float co[3];
 	float no[3];
 } DMCoNo;
-
-typedef struct DMGridAdjacency {
-	int index[4];
-	int rotation[4];
-} DMGridAdjacency;
 
 /* keep in sync with MFace/MPoly types */
 typedef struct DMFlagMat {
@@ -290,7 +284,6 @@ struct DerivedMesh {
 	int (*getNumGrids)(DerivedMesh *dm);
 	int (*getGridSize)(DerivedMesh *dm);
 	struct CCGElem **(*getGridData)(DerivedMesh * dm);
-	DMGridAdjacency *(*getGridAdjacency)(DerivedMesh * dm);
 	int *(*getGridOffset)(DerivedMesh * dm);
 	void (*getGridKey)(DerivedMesh *dm, struct CCGKey *key);
 	DMFlagMat *(*getGridFlagMats)(DerivedMesh * dm);
@@ -503,7 +496,7 @@ int DM_release(DerivedMesh *dm);
 
 /** utility function to convert a DerivedMesh to a Mesh
  */
-void DM_to_mesh(DerivedMesh *dm, struct Mesh *me, struct Object *ob, CustomDataMask mask);
+void DM_to_mesh(DerivedMesh *dm, struct Mesh *me, struct Object *ob, CustomDataMask mask, bool take_ownership);
 
 struct BMEditMesh *DM_to_editbmesh(struct DerivedMesh *dm,
                                    struct BMEditMesh *existing, const bool do_tessellate);

@@ -59,7 +59,6 @@ bool file_draw_check_exists(SpaceFile *sfile);
 /* file_ops.h */
 struct wmOperatorType;
 struct wmOperator;
-struct wmEvent;
 void FILE_OT_highlight(struct wmOperatorType *ot);
 void FILE_OT_select(struct wmOperatorType *ot);
 void FILE_OT_select_all_toggle(struct wmOperatorType *ot);
@@ -102,7 +101,6 @@ void file_operator_to_sfile(struct SpaceFile *sfile, struct wmOperator *op);
 
 
 /* filesel.c */
-float file_shorten_string(char *string, float w, int front);
 float file_string_width(const char *str);
 
 float file_font_pointsize(void);

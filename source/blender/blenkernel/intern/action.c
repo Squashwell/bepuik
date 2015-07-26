@@ -54,6 +54,7 @@
 #include "BKE_animsys.h"
 #include "BKE_constraint.h"
 #include "BKE_deform.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
@@ -934,6 +935,12 @@ void BKE_pose_update_constraint_flags(bPose *pose)
 				pchan->constflag |= PCHAN_HAS_CONST;
 		}
 	}
+	pose->flag &= ~POSE_CONSTRAINTS_NEED_UPDATE_FLAGS;
+}
+
+void BKE_pose_tag_update_constraint_flags(bPose *pose)
+{
+	pose->flag |= POSE_CONSTRAINTS_NEED_UPDATE_FLAGS;
 }
 
 /* Clears all BONE_UNKEYED flags for every pose channel in every pose 
@@ -1314,6 +1321,16 @@ bool BKE_pose_copy_result(bPose *to, bPose *from)
 		}
 	}
 	return true;
+}
+
+/* Tag pose for recalc. Also tag all related data to be recalc. */
+void BKE_pose_tag_recalc(Main *bmain, bPose *pose)
+{
+	pose->flag |= POSE_RECALC;
+	/* Depsgraph components depends on actual pose state,
+	 * if pose was changed depsgraph is to be updated as well.
+	 */
+	DAG_relations_tag_update(bmain);
 }
 
 /* For the calculation of the effects of an Action at the given frame on an object 

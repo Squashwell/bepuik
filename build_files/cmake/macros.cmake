@@ -321,6 +321,9 @@ macro(setup_liblinks
 		endif()
 	endif()
 
+	if(WITH_LZO AND WITH_SYSTEM_LZO)
+		target_link_libraries(${target} ${LZO_LIBRARIES})
+	endif()
 	if(WITH_SYSTEM_GLEW)
 		target_link_libraries(${target} ${BLENDER_GLEW_LIBRARIES})
 	endif()
@@ -513,14 +516,15 @@ macro(SETUP_BLENDER_SORTED_LIBS)
 		bf_ikplugin
 		bf_modifiers
 		bf_bmesh
+		bf_gpu
 		bf_blenkernel
 		bf_physics
 		bf_nodes
 		bf_rna
-		bf_gpu
 		bf_blenloader
 		bf_imbuf
 		bf_blenlib
+		bf_depsgraph
 		bf_intern_ghost
 		bf_intern_string
 		bf_avi
@@ -539,7 +543,6 @@ macro(SETUP_BLENDER_SORTED_LIBS)
 		ge_phys_dummy
 		ge_phys_bullet
 		bf_intern_smoke
-		extern_minilzo
 		extern_lzma
 		extern_colamd
 		ge_logic_ketsji
@@ -591,6 +594,10 @@ macro(SETUP_BLENDER_SORTED_LIBS)
 
 	if(WITH_MOD_CLOTH_ELTOPO)
 		list(APPEND BLENDER_SORTED_LIBS extern_eltopo)
+	endif()
+
+	if(NOT WITH_SYSTEM_LZO)
+		list(APPEND BLENDER_SORTED_LIBS extern_minilzo)
 	endif()
 
 	if(NOT WITH_SYSTEM_GLEW)
@@ -953,6 +960,20 @@ macro(remove_strict_flags)
 		# TODO
 	endif()
 
+endmacro()
+
+macro(remove_extra_strict_flags)
+	if(CMAKE_COMPILER_IS_GNUCC)
+		remove_cc_flag("-Wunused-parameter")
+	endif()
+
+	if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+		remove_cc_flag("-Wunused-parameter")
+	endif()
+
+	if(MSVC)
+		# TODO
+	endif()
 endmacro()
 
 # note, we can only append flags on a single file so we need to negate the options.

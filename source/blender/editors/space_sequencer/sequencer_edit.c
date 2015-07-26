@@ -180,8 +180,6 @@ static void seq_proxy_build_job(const bContext *C)
 	Scene *scene = CTX_data_scene(C);
 	Editing *ed = BKE_sequencer_editing_get(scene, false);
 	ScrArea *sa = CTX_wm_area(C);
-	struct SeqIndexBuildContext *context;
-	LinkData *link;
 	Sequence *seq;
 	GSet *file_list;
 	
@@ -209,9 +207,7 @@ static void seq_proxy_build_job(const bContext *C)
 	SEQP_BEGIN (ed, seq)
 	{
 		if ((seq->flag & SELECT)) {
-			context = BKE_sequencer_proxy_rebuild_context(pj->main, pj->scene, seq, file_list);
-			link = BLI_genericNodeN(context);
-			BLI_addtail(&pj->queue, link);
+			BKE_sequencer_proxy_rebuild_context(pj->main, pj->scene, seq, file_list, &pj->queue);
 		}
 	}
 	SEQ_END
@@ -3165,7 +3161,7 @@ static void seq_copy_del_sound(Scene *scene, Sequence *seq)
 		}
 	}
 	else if (seq->scene_sound) {
-		sound_remove_scene_sound(scene, seq->scene_sound);
+		BKE_sound_remove_scene_sound(scene, seq->scene_sound);
 		seq->scene_sound = NULL;
 	}
 }
@@ -3322,10 +3318,10 @@ static int sequencer_swap_data_exec(bContext *C, wmOperator *op)
 	}
 
 	if (seq_act->scene_sound)
-		sound_remove_scene_sound(scene, seq_act->scene_sound);
+		BKE_sound_remove_scene_sound(scene, seq_act->scene_sound);
 
 	if (seq_other->scene_sound)
-		sound_remove_scene_sound(scene, seq_other->scene_sound);
+		BKE_sound_remove_scene_sound(scene, seq_other->scene_sound);
 
 	seq_act->scene_sound = NULL;
 	seq_other->scene_sound = NULL;
@@ -3333,8 +3329,8 @@ static int sequencer_swap_data_exec(bContext *C, wmOperator *op)
 	BKE_sequence_calc(scene, seq_act);
 	BKE_sequence_calc(scene, seq_other);
 
-	if (seq_act->sound) sound_add_scene_sound_defaults(scene, seq_act);
-	if (seq_other->sound) sound_add_scene_sound_defaults(scene, seq_other);
+	if (seq_act->sound) BKE_sound_add_scene_sound_defaults(scene, seq_act);
+	if (seq_other->sound) BKE_sound_add_scene_sound_defaults(scene, seq_other);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
 
@@ -3442,12 +3438,18 @@ static int sequencer_rebuild_proxy_exec(bContext *C, wmOperator *UNUSED(op))
 	SEQP_BEGIN(ed, seq)
 	{
 		if ((seq->flag & SELECT)) {
-			struct SeqIndexBuildContext *context;
+			ListBase queue = {NULL, NULL};
+			LinkData *link;
 			short stop = 0, do_update;
 			float progress;
-			context = BKE_sequencer_proxy_rebuild_context(bmain, scene, seq, file_list);
-			BKE_sequencer_proxy_rebuild(context, &stop, &do_update, &progress);
-			BKE_sequencer_proxy_rebuild_finish(context, 0);
+
+			BKE_sequencer_proxy_rebuild_context(bmain, scene, seq, file_list, &queue);
+
+			for (link = queue.first; link; link = link->next) {
+				struct SeqIndexBuildContext *context = link->data;
+				BKE_sequencer_proxy_rebuild(context, &stop, &do_update, &progress);
+				BKE_sequencer_proxy_rebuild_finish(context, 0);
+			}
 			BKE_sequencer_free_imbuf(scene, &ed->seqbase, false);
 		}
 	}
@@ -3692,12 +3694,21 @@ static int sequencer_change_path_exec(bContext *C, wmOperator *op)
 	Editing *ed = BKE_sequencer_editing_get(scene, false);
 	Sequence *seq = BKE_sequencer_active_get(scene);
 	const bool is_relative_path = RNA_boolean_get(op->ptr, "relative_path");
+	const bool use_placeholders = RNA_boolean_get(op->ptr, "use_placeholders");
+	int minframe, numdigits;
 
 	if (seq->type == SEQ_TYPE_IMAGE) {
 		char directory[FILE_MAX];
-		const int len = RNA_property_collection_length(op->ptr, RNA_struct_find_property(op->ptr, "files"));
+		int len;
 		StripElem *se;
 
+		/* need to find min/max frame for placeholders */
+		if (use_placeholders) {
+			len = sequencer_image_seq_get_minmax_frame(op, seq->sfra, &minframe, &numdigits);
+		}
+		else {
+			len = RNA_property_collection_length(op->ptr, RNA_struct_find_property(op->ptr, "files"));
+		}
 		if (len == 0)
 			return OPERATOR_CANCELLED;
 
@@ -3715,14 +3726,19 @@ static int sequencer_change_path_exec(bContext *C, wmOperator *op)
 		}
 		seq->strip->stripdata = se = MEM_callocN(len * sizeof(StripElem), "stripelem");
 
-		RNA_BEGIN (op->ptr, itemptr, "files")
-		{
-			char *filename = RNA_string_get_alloc(&itemptr, "name", NULL, 0);
-			BLI_strncpy(se->name, filename, sizeof(se->name));
-			MEM_freeN(filename);
-			se++;
+		if (use_placeholders) {
+			sequencer_image_seq_reserve_frames(op, se, len, minframe, numdigits);
 		}
-		RNA_END;
+		else {
+			RNA_BEGIN (op->ptr, itemptr, "files")
+			{
+				char *filename = RNA_string_get_alloc(&itemptr, "name", NULL, 0);
+				BLI_strncpy(se->name, filename, sizeof(se->name));
+				MEM_freeN(filename);
+				se++;
+			}
+			RNA_END;
+		}
 
 		/* reset these else we wont see all the images */
 		seq->anim_startofs = seq->anim_endofs = 0;
@@ -3797,4 +3813,5 @@ void SEQUENCER_OT_change_path(struct wmOperatorType *ot)
 	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE, FILE_SPECIAL, FILE_OPENFILE,
 	                               WM_FILESEL_DIRECTORY | WM_FILESEL_RELPATH | WM_FILESEL_FILEPATH | WM_FILESEL_FILES,
 	                               FILE_DEFAULTDISPLAY);
+	RNA_def_boolean(ot->srna, "use_placeholders", false, "Use Placeholders", "Use placeholders for missing frames of the strip");
 }

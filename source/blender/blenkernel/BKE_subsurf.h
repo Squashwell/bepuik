@@ -41,17 +41,14 @@ struct DerivedMesh;
 struct MeshElemMap;
 struct Mesh;
 struct MPoly;
-struct MultiresSubsurf;
 struct Object;
 struct PBVH;
 struct SubsurfModifierData;
 struct CCGEdge;
 struct CCGFace;
-struct CCGSubsurf;
 struct CCGVert;
 struct EdgeHash;
 struct PBVH;
-struct DMGridAdjacency;
 
 /**************************** External *****************************/
 
@@ -120,7 +117,6 @@ typedef struct CCGDerivedMesh {
 	int *pmap_mem;
 
 	struct CCGElem **gridData;
-	struct DMGridAdjacency *gridAdjacency;
 	int *gridOffset;
 	struct CCGFace **gridFaces;
 	struct DMFlagMat *gridFlagMats;

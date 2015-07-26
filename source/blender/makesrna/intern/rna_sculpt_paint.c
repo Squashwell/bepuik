@@ -361,49 +361,6 @@ static int rna_ImaPaint_detect_data(ImagePaintSettings *imapaint)
 }
 #else
 
-static void rna_def_palettecolor(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-
-	srna = RNA_def_struct(brna, "PaletteColor", NULL);
-	RNA_def_struct_ui_text(srna, "Palette Color", "");
-
-	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR_GAMMA);
-	RNA_def_property_range(prop, 0.0, 1.0);
-	RNA_def_property_float_sdna(prop, NULL, "rgb");
-	RNA_def_property_ui_text(prop, "Color", "");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-
-	prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, 0.0, 1.0);
-	RNA_def_property_float_sdna(prop, NULL, "value");
-	RNA_def_property_ui_text(prop, "Value", "");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-
-	prop = RNA_def_property(srna, "weight", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, 0.0, 1.0);
-	RNA_def_property_float_sdna(prop, NULL, "value");
-	RNA_def_property_ui_text(prop, "Weight", "");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-}
-
-
-static void rna_def_palette(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-
-	srna = RNA_def_struct(brna, "Palette", "ID");
-	RNA_def_struct_ui_text(srna, "Palette", "");
-	RNA_def_struct_ui_icon(srna, ICON_COLOR);
-
-	prop = RNA_def_property(srna, "colors", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_struct_type(prop, "PaletteColor");
-	RNA_def_property_ui_text(prop, "Palette Color", "Colors that are part of this palette");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-}
-
 static void rna_def_paint_curve(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -505,6 +462,8 @@ static void rna_def_sculpt(BlenderRNA  *brna)
 		 "Relative Detail", "Mesh detail is relative to the brush size and detail size"},
 		{SCULPT_DYNTOPO_DETAIL_CONSTANT, "CONSTANT", 0,
 		 "Constant Detail", "Mesh detail is constant in object space according to detail size"},
+	    {SCULPT_DYNTOPO_DETAIL_BRUSH, "BRUSH", 0,
+		 "Brush Detail", "Mesh detail is relative to brush radius"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -560,6 +519,11 @@ static void rna_def_sculpt(BlenderRNA  *brna)
 	prop = RNA_def_property(srna, "detail_size", PROP_FLOAT, PROP_PIXEL);
 	RNA_def_property_ui_range(prop, 0.5, 40.0, 10, 2);
 	RNA_def_property_ui_text(prop, "Detail Size", "Maximum edge length for dynamic topology sculpting (in pixels)");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	prop = RNA_def_property(srna, "detail_percent", PROP_FLOAT, PROP_PERCENTAGE);
+	RNA_def_property_ui_range(prop, 0.5, 100.0, 10, 2);
+	RNA_def_property_ui_text(prop, "Detail Percentage", "Maximum edge length for dynamic topology sculpting (in brush percenage)");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "constant_detail", PROP_FLOAT, PROP_PERCENTAGE);
@@ -907,6 +871,7 @@ static void rna_def_particle_edit(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "shape_object", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Shape Object", "Outer shape to use for tools");
+	RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_Mesh_object_poll");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_ParticleEdit_redo");
 
 	/* brush */
@@ -918,7 +883,7 @@ static void rna_def_particle_edit(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "size", PROP_INT, PROP_PIXEL);
 	RNA_def_property_range(prop, 1, SHRT_MAX);
-	RNA_def_property_ui_range(prop, 1, 100, 10, 3);
+	RNA_def_property_ui_range(prop, 1, MAX_BRUSH_PIXEL_RADIUS, 10, 3);
 	RNA_def_property_ui_text(prop, "Radius", "Radius of the brush in pixels");
 
 	prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_FACTOR);
@@ -962,8 +927,6 @@ void RNA_def_sculpt_paint(BlenderRNA *brna)
 {
 	/* *** Non-Animated *** */
 	RNA_define_animate_sdna(false);
-	rna_def_palettecolor(brna);
-	rna_def_palette(brna);
 	rna_def_paint_curve(brna);
 	rna_def_paint(brna);
 	rna_def_sculpt(brna);

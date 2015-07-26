@@ -43,6 +43,8 @@
 #include "BKE_texture.h"          /* Texture masking. */
 
 #include "depsgraph_private.h"
+#include "DEG_depsgraph_build.h"
+
 #include "MEM_guardedalloc.h"
 #include "MOD_weightvg_util.h"
 
@@ -191,7 +193,9 @@ static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void 
 	walk(userData, ob, md, "mask_texture");
 }
 
-static void updateDepgraph(ModifierData *md, DagForest *forest, struct Scene *UNUSED(scene),
+static void updateDepgraph(ModifierData *md, DagForest *forest,
+                           struct Main *UNUSED(bmain),
+                           struct Scene *UNUSED(scene),
                            Object *UNUSED(ob), DagNode *obNode)
 {
 	WeightVGMixModifierData *wmd = (WeightVGMixModifierData *) md;
@@ -207,6 +211,21 @@ static void updateDepgraph(ModifierData *md, DagForest *forest, struct Scene *UN
 	if (wmd->mask_tex_mapping == MOD_DISP_MAP_GLOBAL)
 		dag_add_relation(forest, obNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA,
 		                 "WeightVGMix Modifier");
+}
+
+static void updateDepsgraph(ModifierData *md,
+                            struct Main *UNUSED(bmain),
+                            struct Scene *UNUSED(scene),
+                            Object *ob,
+                            struct DepsNodeHandle *node)
+{
+	WeightVGMixModifierData *wmd = (WeightVGMixModifierData *) md;
+	if (wmd->mask_tex_map_obj != NULL && wmd->mask_tex_mapping == MOD_DISP_MAP_OBJECT) {
+		DEG_add_object_relation(node, wmd->mask_tex_map_obj, DEG_OB_COMP_TRANSFORM, "WeightVGMix Modifier");
+	}
+	if (wmd->mask_tex_mapping == MOD_DISP_MAP_GLOBAL) {
+		DEG_add_object_relation(node, ob, DEG_OB_COMP_TRANSFORM, "WeightVGMix Modifier");
+	}
 }
 
 static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
@@ -232,7 +251,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *der
 	int i;
 	/* Flags. */
 #if 0
-	int do_prev = (wmd->modifier.mode & eModifierMode_DoWeightPreview);
+	const bool do_prev = (wmd->modifier.mode & eModifierMode_DoWeightPreview) != 0;
 #endif
 
 	/* Get number of verts. */
@@ -420,6 +439,7 @@ ModifierTypeInfo modifierType_WeightVGMix = {
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
 	/* updateDepgraph */    updateDepgraph,
+	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */  NULL,
 	/* foreachObjectLink */ foreachObjectLink,

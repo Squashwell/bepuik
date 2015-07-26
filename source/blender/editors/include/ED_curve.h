@@ -31,13 +31,10 @@
 #ifndef __ED_CURVE_H__
 #define __ED_CURVE_H__
 
-struct Base;
 struct bContext;
 struct Nurb;
 struct Object;
-struct Scene;
 struct Text;
-struct View3D;
 struct wmOperator;
 struct wmKeyConfig;
 struct Curve;
@@ -79,7 +76,7 @@ void    free_editText(struct Object *obedit);
 
 void    ED_text_to_object(struct bContext *C, struct Text *text, const bool split_lines);
 
-bool ED_curve_select_nth(struct Curve *cu, int nth);
+bool ED_curve_select_nth(struct Curve *cu, int nth, int skip, int offset);
 
 void ED_curve_beztcpy(struct EditNurb *editnurb, struct BezTriple *dst, struct BezTriple *src, int count);
 void ED_curve_bpcpy(struct EditNurb *editnurb, struct BPoint *dst, struct BPoint *src, int count);

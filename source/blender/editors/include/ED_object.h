@@ -35,33 +35,17 @@
 extern "C" {
 #endif
 
-struct BMEdge;
-struct BMFace;
-struct BMVert;
-struct BPoint;
 struct Base;
-struct BezTriple;
-struct Curve;
-struct EditBone;
 struct EnumPropertyItem;
 struct ID;
-struct KeyBlock;
-struct Lattice;
 struct Main;
-struct Mesh;
-struct MetaElem;
 struct ModifierData;
-struct HookModifierData;
-struct Nurb;
 struct Object;
 struct ReportList;
 struct Scene;
-struct View3D;
-struct ViewContext;
 struct bConstraint;
 struct bContext;
 struct bPoseChannel;
-struct wmEvent;
 struct wmKeyConfig;
 struct wmKeyMap;
 struct wmOperator;
@@ -154,8 +138,10 @@ bool ED_object_add_generic_get_opts(struct bContext *C, struct wmOperator *op, c
                                     bool *enter_editmode, unsigned int *layer, bool *is_view_aligned);
 
 struct Object *ED_object_add_type(
-        struct bContext *C, int type, const float loc[3], const float rot[3],
-        bool enter_editmode, unsigned int layer) ATTR_RETURNS_NONNULL;
+        struct bContext *C,
+        int type, const char *name, const float loc[3], const float rot[3],
+        bool enter_editmode, unsigned int layer)
+        ATTR_NONNULL(1) ATTR_RETURNS_NONNULL;
 
 void ED_object_single_users(struct Main *bmain, struct Scene *scene, const bool full, const bool copy_groups);
 void ED_object_single_user(struct Main *bmain, struct Scene *scene, struct Object *ob);
@@ -174,6 +160,9 @@ void object_test_constraints(struct Object *ob);
 void ED_object_constraint_set_active(struct Object *ob, struct bConstraint *con);
 void ED_object_constraint_update(struct Object *ob);
 void ED_object_constraint_dependency_update(struct Main *bmain, struct Object *ob);
+
+void ED_object_constraint_tag_update(struct Object *ob, struct bConstraint *con);
+void ED_object_constraint_dependency_tag_update(struct Main *bmain, struct Object *ob, struct bConstraint *con);
 
 /* object_lattice.c */
 bool mouse_lattice(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);

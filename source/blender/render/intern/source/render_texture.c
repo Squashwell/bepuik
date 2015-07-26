@@ -116,7 +116,7 @@ static void init_render_texture(Render *re, Tex *tex)
 			if (G.is_rendering && re) {
 				if (re->r.mode & R_ENVMAP)
 					if (tex->env->stype==ENV_ANIM)
-						BKE_free_envmapdata(tex->env);
+						BKE_texture_envmap_free_data(tex->env);
 			}
 		}
 	}
@@ -1348,7 +1348,7 @@ int multitex_ext_safe(Tex *tex, float texvec[3], TexResult *texres, struct Image
 /* fact = texture strength, facg = button strength value */
 void texture_rgb_blend(float in[3], const float tex[3], const float out[3], float fact, float facg, int blendtype)
 {
-	float facm, col;
+	float facm;
 	
 	switch (blendtype) {
 	case MTEX_BLEND:
@@ -1435,13 +1435,10 @@ void texture_rgb_blend(float in[3], const float tex[3], const float out[3], floa
 
 	case MTEX_LIGHT:
 		fact*= facg;
-		
-		col= fact*tex[0];
-		if (col > out[0]) in[0]= col; else in[0]= out[0];
-		col= fact*tex[1];
-		if (col > out[1]) in[1]= col; else in[1]= out[1];
-		col= fact*tex[2];
-		if (col > out[2]) in[2]= col; else in[2]= out[2];
+
+		in[0] = max_ff(fact * tex[0], out[0]);
+		in[1] = max_ff(fact * tex[1], out[1]);
+		in[2] = max_ff(fact * tex[2], out[2]);
 		break;
 		
 	case MTEX_BLEND_HUE:
@@ -1982,14 +1979,14 @@ static int ntap_bump_compute(NTapBump *ntap_bump, ShadeInput *shi, MTex *mtex, T
 
 		/* use texres for the center sample, set rgbnor */
 		rgbnor = multitex_mtex(shi, mtex, STll, dxt, dyt, texres, pool, skip_load_image);
-		Hll = (fromrgb) ? rgb_to_grayscale(&texres->tr) : texres->tin;
+		Hll = (fromrgb) ? IMB_colormanagement_get_luminance(&texres->tr) : texres->tin;
 
 		/* use ttexr for the other 2 taps */
 		multitex_mtex(shi, mtex, STlr, dxt, dyt, &ttexr, pool, skip_load_image);
-		Hlr = (fromrgb) ? rgb_to_grayscale(&ttexr.tr) : ttexr.tin;
+		Hlr = (fromrgb) ? IMB_colormanagement_get_luminance(&ttexr.tr) : ttexr.tin;
 
 		multitex_mtex(shi, mtex, STul, dxt, dyt, &ttexr, pool, skip_load_image);
-		Hul = (fromrgb) ? rgb_to_grayscale(&ttexr.tr) : ttexr.tin;
+		Hul = (fromrgb) ? IMB_colormanagement_get_luminance(&ttexr.tr) : ttexr.tin;
 
 		dHdx = Hscale*(Hlr - Hll);
 		dHdy = Hscale*(Hul - Hll);
@@ -2020,17 +2017,17 @@ static int ntap_bump_compute(NTapBump *ntap_bump, ShadeInput *shi, MTex *mtex, T
 
 		/* use texres for the center sample, set rgbnor */
 		rgbnor = multitex_mtex(shi, mtex, STc, dxt, dyt, texres, pool, skip_load_image);
-		/* Hc = (fromrgb) ? rgb_to_grayscale(&texres->tr) : texres->tin; */ /* UNUSED */
+		/* Hc = (fromrgb) ? IMB_colormanagement_get_luminance(&texres->tr) : texres->tin; */ /* UNUSED */
 
 		/* use ttexr for the other taps */
 		multitex_mtex(shi, mtex, STl, dxt, dyt, &ttexr, pool, skip_load_image);
-		Hl = (fromrgb) ? rgb_to_grayscale(&ttexr.tr) : ttexr.tin;
+		Hl = (fromrgb) ? IMB_colormanagement_get_luminance(&ttexr.tr) : ttexr.tin;
 		multitex_mtex(shi, mtex, STr, dxt, dyt, &ttexr, pool, skip_load_image);
-		Hr = (fromrgb) ? rgb_to_grayscale(&ttexr.tr) : ttexr.tin;
+		Hr = (fromrgb) ? IMB_colormanagement_get_luminance(&ttexr.tr) : ttexr.tin;
 		multitex_mtex(shi, mtex, STd, dxt, dyt, &ttexr, pool, skip_load_image);
-		Hd = (fromrgb) ? rgb_to_grayscale(&ttexr.tr) : ttexr.tin;
+		Hd = (fromrgb) ? IMB_colormanagement_get_luminance(&ttexr.tr) : ttexr.tin;
 		multitex_mtex(shi, mtex, STu, dxt, dyt, &ttexr, pool, skip_load_image);
-		Hu = (fromrgb) ? rgb_to_grayscale(&ttexr.tr) : ttexr.tin;
+		Hu = (fromrgb) ? IMB_colormanagement_get_luminance(&ttexr.tr) : ttexr.tin;
 
 		dHdx = Hscale*(Hr - Hl);
 		dHdy = Hscale*(Hu - Hd);
@@ -2328,7 +2325,7 @@ void do_material_tex(ShadeInput *shi, Render *re)
 			/* texture output */
 
 			if ((rgbnor & TEX_RGB) && (mtex->texflag & MTEX_RGBTOINT)) {
-				texres.tin = rgb_to_grayscale(&texres.tr);
+				texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				rgbnor -= TEX_RGB;
 			}
 			if (mtex->texflag & MTEX_NEGATIVE) {
@@ -2434,7 +2431,7 @@ void do_material_tex(ShadeInput *shi, Render *re)
 
 					BKE_image_pool_release_ibuf(ima, ibuf, re->pool);
 				}
-				
+
 				if (mtex->mapto & MAP_COL) {
 					float colfac= mtex->colfac*stencilTin;
 					texture_rgb_blend(&shi->r, tcol, &shi->r, texres.tin, colfac, mtex->blendtype);
@@ -2568,7 +2565,7 @@ void do_material_tex(ShadeInput *shi, Render *re)
 				}
 				
 				if (rgbnor & TEX_RGB) {
-					texres.tin = rgb_to_grayscale(&texres.tr);
+					texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				}
 
 				factt= (0.5f-texres.tin)*mtex->dispfac*stencilTin; facmm= 1.0f-factt;
@@ -2596,7 +2593,7 @@ void do_material_tex(ShadeInput *shi, Render *re)
 				
 				if (rgbnor & TEX_RGB) {
 					if (texres.talpha) texres.tin = texres.ta;
-					else               texres.tin = rgb_to_grayscale(&texres.tr);
+					else               texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				}
 
 				if (mtex->mapto & MAP_REF) {
@@ -2767,7 +2764,7 @@ void do_volume_tex(ShadeInput *shi, const float *xyz, int mapto_flag, float col_
 			/* texture output */
 
 			if ((rgbnor & TEX_RGB) && (mtex->texflag & MTEX_RGBTOINT)) {
-				texres.tin = rgb_to_grayscale(&texres.tr);
+				texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				rgbnor -= TEX_RGB;
 			}
 			if (mtex->texflag & MTEX_NEGATIVE) {
@@ -2836,7 +2833,7 @@ void do_volume_tex(ShadeInput *shi, const float *xyz, int mapto_flag, float col_
 				/* convert RGB to intensity if intensity info isn't provided */
 				if (rgbnor & TEX_RGB) {
 					if (texres.talpha)  texres.tin = texres.ta;
-					else                texres.tin = rgb_to_grayscale(&texres.tr);
+					else                texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				}
 				
 				if ((mapto_flag & MAP_EMISSION) && (mtex->mapto & MAP_EMISSION)) {
@@ -2934,7 +2931,7 @@ void do_halo_tex(HaloRen *har, float xn, float yn, float col_r[4])
 
 	/* texture output */
 	if (rgb && (mtex->texflag & MTEX_RGBTOINT)) {
-		texres.tin = rgb_to_bw(&texres.tr);
+		texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 		rgb= 0;
 	}
 	if (mtex->texflag & MTEX_NEGATIVE) {
@@ -3006,7 +3003,7 @@ void do_halo_tex(HaloRen *har, float xn, float yn, float col_r[4])
 				texres.tin = texres.ta;
 			}
 			else {
-				texres.tin = rgb_to_bw(&texres.tr);
+				texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 			}
 		}
 
@@ -3140,7 +3137,7 @@ void do_sky_tex(const float rco[3], float lo[3], const float dxyview[2], float h
 			
 			/* texture output */
 			if (rgb && (mtex->texflag & MTEX_RGBTOINT)) {
-				texres.tin = rgb_to_bw(&texres.tr);
+				texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				rgb= 0;
 			}
 			if (mtex->texflag & MTEX_NEGATIVE) {
@@ -3215,7 +3212,7 @@ void do_sky_tex(const float rco[3], float lo[3], const float dxyview[2], float h
 				}
 			}
 			if (mtex->mapto & WOMAP_BLEND) {
-				if (rgb) texres.tin = rgb_to_bw(&texres.tr);
+				if (rgb) texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				
 				*blend= texture_value_blend(mtex->def_var, *blend, texres.tin, mtex->blendfac, mtex->blendtype);
 			}
@@ -3356,7 +3353,7 @@ void do_lamp_tex(LampRen *la, const float lavec[3], ShadeInput *shi, float col_r
 
 			/* texture output */
 			if (rgb && (mtex->texflag & MTEX_RGBTOINT)) {
-				texres.tin = rgb_to_bw(&texres.tr);
+				texres.tin = IMB_colormanagement_get_luminance(&texres.tr);
 				rgb= 0;
 			}
 			if (mtex->texflag & MTEX_NEGATIVE) {
@@ -3455,7 +3452,7 @@ int externtex(MTex *mtex, const float vec[3], float *tin, float *tr, float *tg, 
 	rgb = multitex(tex, texvec, dxt, dyt, 0, &texr, thread, mtex->which_output, pool, skip_load_image);
 	
 	if (rgb) {
-		texr.tin = rgb_to_bw(&texr.tr);
+		texr.tin = IMB_colormanagement_get_luminance(&texr.tr);
 	}
 	else {
 		texr.tr= mtex->r;
@@ -3493,7 +3490,7 @@ void render_realtime_texture(ShadeInput *shi, Image *ima)
 		if (firsttime) {
 			for (a=0; a<BLENDER_MAX_THREADS; a++) {
 				memset(&imatex[a], 0, sizeof(Tex));
-				default_tex(&imatex[a]);
+				BKE_texture_default(&imatex[a]);
 				imatex[a].type= TEX_IMAGE;
 			}
 
@@ -3614,7 +3611,7 @@ Material *RE_init_sample_material(Material *orig_mat, Scene *scene)
 			}
 
 			/* copy texture */
-			tex= mtex->tex = localize_texture(cur_tex);
+			tex= mtex->tex = BKE_texture_localize(cur_tex);
 
 			/* update texture anims */
 			BKE_animsys_evaluate_animdata(scene, &tex->id, tex->adt, BKE_scene_frame_get(scene), ADT_RECALC_ANIM);
@@ -3631,7 +3628,7 @@ Material *RE_init_sample_material(Material *orig_mat, Scene *scene)
 				unit_m4(dummy_re.viewmat);
 				unit_m4(dummy_re.winmat);
 				dummy_re.winx = dummy_re.winy = 128;
-				cache_pointdensity(&dummy_re, tex);
+				cache_pointdensity(&dummy_re, tex->pd);
 			}
 
 			/* update image sequences and movies */
