@@ -1517,7 +1517,8 @@ static uiBlock *wm_block_create_redo(bContext *C, ARegion *ar, void *arg_op)
 
 	block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
 	UI_block_flag_disable(block, UI_BLOCK_LOOP);
-	UI_block_flag_enable(block, UI_BLOCK_KEEP_OPEN | UI_BLOCK_MOVEMOUSE_QUIT);
+	/* UI_BLOCK_NUMSELECT for layer buttons */
+	UI_block_flag_enable(block, UI_BLOCK_NUMSELECT | UI_BLOCK_KEEP_OPEN | UI_BLOCK_MOVEMOUSE_QUIT);
 
 	/* if register is not enabled, the operator gets freed on OPERATOR_FINISHED
 	 * ui_apply_but_funcs_after calls ED_undo_operator_repeate_cb and crashes */
@@ -1956,7 +1957,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	if (version_suffix != NULL && version_suffix[0]) {
 		/* placed after the version number in the image,
 		 * placing y is tricky to match baseline */
-		int x = 260 - (2 * UI_DPI_WINDOW_FAC);
+		int x = 254 - (2 * UI_DPI_WINDOW_FAC);
 		int y = 242 + (4 * UI_DPI_WINDOW_FAC);
 		int w = 240;
 
@@ -4255,8 +4256,7 @@ static int radial_control_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 {
 	wmWindowManager *wm;
 	RadialControl *rc;
-	int min_value_int, max_value_int, step_int;
-	float step_float, precision;
+
 
 	if (!(op->customdata = rc = MEM_callocN(sizeof(RadialControl), "RadialControl")))
 		return OPERATOR_CANCELLED;
@@ -4269,17 +4269,29 @@ static int radial_control_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 	/* get type, initial, min, and max values of the property */
 	switch ((rc->type = RNA_property_type(rc->prop))) {
 		case PROP_INT:
-			rc->initial_value = RNA_property_int_get(&rc->ptr, rc->prop);
-			RNA_property_int_ui_range(&rc->ptr, rc->prop, &min_value_int,
-			                          &max_value_int, &step_int);
-			rc->min_value = min_value_int;
-			rc->max_value = max_value_int;
+		{
+			int value, min, max, step;
+
+			value = RNA_property_int_get(&rc->ptr, rc->prop);
+			RNA_property_int_ui_range(&rc->ptr, rc->prop, &min, &max, &step);
+
+			rc->initial_value = value;
+			rc->min_value = min_ii(value, min);
+			rc->max_value = max_ii(value, max);
 			break;
+		}
 		case PROP_FLOAT:
-			rc->initial_value = RNA_property_float_get(&rc->ptr, rc->prop);
-			RNA_property_float_ui_range(&rc->ptr, rc->prop, &rc->min_value,
-			                            &rc->max_value, &step_float, &precision);
+		{
+			float value, min, max, step, precision;
+
+			value = RNA_property_float_get(&rc->ptr, rc->prop);
+			RNA_property_float_ui_range(&rc->ptr, rc->prop, &min, &max, &step, &precision);
+
+			rc->initial_value = value;
+			rc->min_value = min_ff(value, min);
+			rc->max_value = max_ff(value, max);
 			break;
+		}
 		default:
 			BKE_report(op->reports, RPT_ERROR, "Property must be an integer or a float");
 			MEM_freeN(rc);
@@ -4777,6 +4789,7 @@ static void WM_OT_dependency_relations(wmOperatorType *ot)
 /* *************************** Mat/tex/etc. previews generation ************* */
 
 typedef struct PreviewsIDEnsureStack {
+	bContext *C;
 	Scene *scene;
 
 	BLI_LINKSTACK_DECLARE(id_stack, ID *);
@@ -4801,7 +4814,7 @@ static bool previews_id_ensure_callback(void *todo_v, ID **idptr, int UNUSED(cd_
 
 	if (id && (id->flag & LIB_DOIT)) {
 		if (ELEM(GS(id->name), ID_MA, ID_TE, ID_IM, ID_WO, ID_LA)) {
-			previews_id_ensure(NULL, todo->scene, id);
+			previews_id_ensure(todo->C, todo->scene, id);
 		}
 		id->flag &= ~LIB_DOIT;  /* Tag the ID as done in any case. */
 		BLI_LINKSTACK_PUSH(todo->id_stack, id);
@@ -4826,6 +4839,7 @@ static int previews_ensure_exec(bContext *C, wmOperator *UNUSED(op))
 
 	for (scene = bmain->scene.first; scene; scene = scene->id.next) {
 		preview_id_stack.scene = scene;
+		preview_id_stack.C = C;
 		id = (ID *)scene;
 
 		do {

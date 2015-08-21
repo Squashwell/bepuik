@@ -5429,11 +5429,36 @@ static void slide_origdata_interp_data_vert(
 
 		/* weight the loop */
 		if (do_loop_weight) {
-			const float *v_prev = slide_origdata_orig_vert_co(sod, l->prev->v);
-			const float *v_next = slide_origdata_orig_vert_co(sod, l->next->v);
-			const float dist = dist_signed_squared_to_corner_v3v3v3(sv->v->co, v_prev, sv->co_orig_3d, v_next, f_copy->no);
 			const float eps = 0.00001f;
-			loop_weights[j] = (dist >= 0.0f) ? 1.0f : ((dist <= -eps) ? 0.0f : (1.0f + (dist / eps)));
+			const BMLoop *l_prev = l->prev;
+			const BMLoop *l_next = l->next;
+			const float *co_prev = slide_origdata_orig_vert_co(sod, l_prev->v);
+			const float *co_next = slide_origdata_orig_vert_co(sod, l_next->v);
+			bool co_prev_ok;
+			bool co_next_ok;
+
+			/* In the unlikely case that we're next to a zero length edge - walk around the to the next.
+			 * Since we only need to check if the vertex is in this corner,
+			 * its not important _which_ loop - as long as its not overlapping 'sv->co_orig_3d', see: T45096. */
+			while (UNLIKELY(((co_prev_ok = (len_squared_v3v3(sv->co_orig_3d, co_prev) > eps)) == false) &&
+			                ((l_prev = l_prev->prev) != l->next)))
+			{
+				co_prev = slide_origdata_orig_vert_co(sod, l_prev->v);
+			}
+			while (UNLIKELY(((co_next_ok = (len_squared_v3v3(sv->co_orig_3d, co_next) > eps)) == false) &&
+			                ((l_next = l_next->next) != l->prev)))
+			{
+				co_next = slide_origdata_orig_vert_co(sod, l_next->v);
+			}
+
+			if (co_prev_ok && co_next_ok && (area_squared_tri_v3(co_prev, sv->co_orig_3d, co_next) > eps)) {
+				const float dist = dist_signed_squared_to_corner_v3v3v3(
+				        sv->v->co, co_prev, sv->co_orig_3d, co_next, f_copy->no);
+				loop_weights[j] = (dist >= 0.0f) ? 1.0f : ((dist <= -eps) ? 0.0f : (1.0f + (dist / eps)));
+			}
+			else {
+				loop_weights[j] = 0.0f;
+			}
 		}
 	}
 
@@ -6659,13 +6684,13 @@ static void calcVertSlideMouseActiveEdges(struct TransInfo *t, const int mval[2]
 	TransDataVertSlideVert *sv;
 	int i;
 
+	/* note: we could save a matrix-multiply for each vertex
+	 * by finding the closest edge in local-space.
+	 * However this skews the outcome with non-uniform-scale. */
+
 	/* first get the direction of the original mouse position */
 	sub_v2_v2v2(dir, imval_fl, mval_fl);
 	ED_view3d_win_to_delta(t->ar, dir, dir, t->zfac);
-
-	invert_m4_m4(t->obedit->imat, t->obedit->obmat);
-	mul_mat3_m4_v3(t->obedit->imat, dir);
-
 	normalize_v3(dir);
 
 	for (i = 0, sv = sld->sv; i < sld->totsv; i++, sv++) {
@@ -6679,6 +6704,7 @@ static void calcVertSlideMouseActiveEdges(struct TransInfo *t, const int mval[2]
 				float dir_dot;
 
 				sub_v3_v3v3(tdir, sv->co_orig_3d, sv->co_link_orig_3d[j]);
+				mul_mat3_m4_v3(t->obedit->obmat, tdir);
 				project_plane_v3_v3v3(tdir, tdir, t->viewinv[2]);
 
 				normalize_v3(tdir);
@@ -7013,12 +7039,16 @@ static void drawVertSlide(TransInfo *t)
 			if ((t->mval[0] != t->imval[0]) ||
 			    (t->mval[1] != t->imval[1]))
 			{
-				float zfac = ED_view3d_calc_zfac(t->ar->regiondata, curr_sv->co_orig_3d, NULL);
+				float zfac;
 				float mval_ofs[2];
+				float co_orig_3d[3];
 				float co_dest_3d[3];
 
 				mval_ofs[0] = t->mval[0] - t->imval[0];
 				mval_ofs[1] = t->mval[1] - t->imval[1];
+
+				mul_v3_m4v3(co_orig_3d, t->obedit->obmat, curr_sv->co_orig_3d);
+				zfac = ED_view3d_calc_zfac(t->ar->regiondata, co_orig_3d, NULL);
 
 				ED_view3d_win_to_delta(t->ar, mval_ofs, co_dest_3d, zfac);
 

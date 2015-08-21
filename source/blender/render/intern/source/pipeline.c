@@ -121,17 +121,6 @@
  *
  */
 
-/* Freestyle needs the whole frame to be merged into memory prior to
- * doing stroke rendering. This conflicts a bit with multiview save
- * buffers behavior which does a merge of exr files after all the
- * views are rendered.
- *
- * For until a proper solution is implemented we'll just merge single
- * view image prior to freestyle stroke rendering, which is how this
- * worked prior to multiview. Multiview+freestyle+save buffers are
- * considered unsupported for the time being.
- */
-#define FREESTYLR_SAVEBUFFERS_WORKAROUND
 
 /* ********* globals ******** */
 
@@ -192,6 +181,9 @@ static void stats_background(void *UNUSED(arg), RenderStats *rs)
 		else
 			fprintf(stdout, IFACE_("Sce: %s Ve:%d Fa:%d La:%d"), rs->scene_name, rs->totvert, rs->totface, rs->totlamp);
 	}
+
+	/* Flush stdout to be sure python callbacks are printing stuff after blender. */
+	fflush(stdout);
 
 	BLI_callback_exec(G.main, NULL, BLI_CB_EVT_RENDER_STATS);
 
@@ -341,8 +333,6 @@ void RE_AcquireResultImageViews(Render *re, RenderResult *rr)
 
 			rv = rr->views.first;
 
-			rr->have_combined = (rv->rectf != NULL);
-
 			/* active layer */
 			rl = render_get_active_layer(re, re->result);
 
@@ -360,6 +350,7 @@ void RE_AcquireResultImageViews(Render *re, RenderResult *rr)
 				}
 			}
 
+			rr->have_combined = (rv->rectf != NULL);
 			rr->layers = re->result->layers;
 			rr->xof = re->disprect.xmin;
 			rr->yof = re->disprect.ymin;
@@ -1393,7 +1384,13 @@ static void threaded_tile_processor(Render *re)
 
 	BLI_thread_queue_free(donequeue);
 	BLI_thread_queue_free(workqueue);
-	
+
+	if (re->result->do_exr_tile) {
+		BLI_rw_mutex_lock(&re->resultmutex, THREAD_LOCK_WRITE);
+		render_result_save_empty_result_tiles(re);
+		BLI_rw_mutex_unlock(&re->resultmutex);
+	}
+
 	/* unset threadsafety */
 	g_break = 0;
 	BLI_rw_mutex_lock(&re->partsmutex, THREAD_LOCK_WRITE);
@@ -1437,9 +1434,6 @@ void RE_TileProcessor(Render *re)
 
 static void do_render_3d(Render *re)
 {
-#ifdef FREESTYLR_SAVEBUFFERS_WORKAROUND
-	const bool do_early_result_merge = (re->r.scemode & R_MULTIVIEW) == 0;
-#endif
 	RenderView *rv;
 	int cfra_backup;
 
@@ -1487,13 +1481,7 @@ static void do_render_3d(Render *re)
 			re->draw_lock(re->dlh, 0);
 	
 		threaded_tile_processor(re);
-
-#ifdef FREESTYLR_SAVEBUFFERS_WORKAROUND
-		if (do_early_result_merge) {
-			main_render_result_end(re);
-		}
-#endif
-
+	
 #ifdef WITH_FREESTYLE
 		/* Freestyle */
 		if (re->r.mode & R_EDGE_FRS)
@@ -1510,13 +1498,7 @@ static void do_render_3d(Render *re)
 		RE_Database_Free(re);
 	}
 
-#ifdef FREESTYLR_SAVEBUFFERS_WORKAROUND
-	if (!do_early_result_merge) {
-		main_render_result_end(re);
-	}
-#else
 	main_render_result_end(re);
-#endif
 
 	re->scene->r.cfra = cfra_backup;
 	re->scene->r.subframe = 0.f;
@@ -2513,6 +2495,8 @@ static void do_render_composite_fields_blur_3d(Render *re)
 				/* in case it was never initialized */
 				R.sdh = re->sdh;
 				R.stats_draw = re->stats_draw;
+				R.i.starttime = re->i.starttime;
+				R.i.cfra = re->i.cfra;
 				
 				if (update_newframe)
 					BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, re->lay);
@@ -2955,13 +2939,6 @@ bool RE_is_rendering_allowed(Scene *scene, Object *camera_override, ReportList *
 			BKE_report(reports, RPT_ERROR, "Fields not supported in Freestyle");
 			return false;
 		}
-
-#  ifdef FREESTYLR_SAVEBUFFERS_WORKAROUND
-		if ((scene->r.scemode & R_MULTIVIEW) != 0 && (scene->r.scemode & R_EXR_TILE_FILE) != 0) {
-			BKE_report(reports, RPT_ERROR, "Multiview combined with Save Buffers not supported in Freestyle");
-			return false;
-		}
-#  endif
 	}
 #endif
 
@@ -3436,7 +3413,10 @@ static int do_write_image_or_movie(Render *re, Main *bmain, Scene *scene, bMovie
 	
 	BLI_timestr(re->i.lastframetime, name, sizeof(name));
 	printf(" Time: %s", name);
-	
+
+	/* Flush stdout to be sure python callbacks are printing stuff after blender. */
+	fflush(stdout);
+
 	BLI_callback_exec(G.main, NULL, BLI_CB_EVT_RENDER_STATS);
 
 	BLI_timestr(re->i.lastframetime - render_time, name, sizeof(name));

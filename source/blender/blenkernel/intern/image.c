@@ -3439,7 +3439,9 @@ static ImBuf *load_image_single(
 				ibuf = NULL;
 			}
 		}
-		else {
+		else
+#endif
+		{
 			image_initialize_after_load(ima, ibuf);
 			*r_assign = true;
 
@@ -3455,10 +3457,6 @@ static ImBuf *load_image_single(
 				imapf->packedfile = newPackedFile(NULL, filepath, ID_BLEND_PATH(G.main, &ima->id));
 			}
 		}
-#else
-		image_initialize_after_load(ima, ibuf);
-		*r_assign = true;
-#endif
 	}
 	else {
 		ima->ok = 0;
@@ -3501,16 +3499,20 @@ static ImBuf *image_load_image_file(Image *ima, ImageUser *iuser, int cfra)
 		const size_t totviews = BLI_listbase_count(&ima->views);
 		BLI_assert(totviews > 0);
 
-		ibuf_arr = MEM_mallocN(sizeof(ImBuf *) * totviews, "Image Views Imbufs");
+		ibuf_arr = MEM_callocN(sizeof(ImBuf *) * totviews, "Image Views Imbufs");
 
 		for (i = 0; i < totfiles; i++)
 			ibuf_arr[i] = load_image_single(ima, iuser, cfra, i, has_packed, &assign);
 
-		if ((ima->flag & IMA_IS_STEREO) && ima->views_format == R_IMF_VIEWS_STEREO_3D)
+		/* multi-views/multi-layers OpenEXR files directly populate ima, and return NULL ibuf... */
+		if ((ima->flag & IMA_IS_STEREO) && ima->views_format == R_IMF_VIEWS_STEREO_3D &&
+		    ibuf_arr[0] && totfiles == 1 && totviews >= 2)
+		{
 			IMB_ImBufFromStereo3d(ima->stereo3d_format, ibuf_arr[0], &ibuf_arr[0], &ibuf_arr[1]);
+		}
 
 		/* return the original requested ImBuf */
-		i = iuser && iuser->multi_index < totviews ? iuser->multi_index : 0;
+		i = (iuser && iuser->multi_index < totviews) ? iuser->multi_index : 0;
 		ibuf = ibuf_arr[i];
 
 		if (assign) {
@@ -3674,18 +3676,20 @@ static ImBuf *image_get_render_result(Image *ima, ImageUser *iuser, void **r_loc
 			}
 
 			if (rpass) {
-				channels = rpass->channels;
 				rectf = rpass->rect;
-
-				if (!rectf) {
-					/* Happens when Save Buffers is enabled.
-					 * Use display buffer stored in the render layer.
-					 */
-					rect = (unsigned int *) rl->display_buffer;
-					byte_buffer_in_display_space = true;
+				if (passtype == SCE_PASS_COMBINED) {
+					if (rectf == NULL) {
+						/* Happens when Save Buffers is enabled.
+						 * Use display buffer stored in the render layer.
+						 */
+						rect = (unsigned int *) rl->display_buffer;
+						byte_buffer_in_display_space = true;
+					}
 				}
-
-				dither = 0.0f; /* don't dither passes */
+				else {
+					channels = rpass->channels;
+					dither = 0.0f; /* don't dither passes */
+				}
 			}
 
 			for (rpass = rl->passes.first; rpass; rpass = rpass->next)

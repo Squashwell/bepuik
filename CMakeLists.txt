@@ -656,17 +656,19 @@ endif()
 # auto enable openimageio for cycles
 if(WITH_CYCLES)
 	set(WITH_OPENIMAGEIO ON)
+
+	# auto enable llvm for cycles_osl
+	if(WITH_CYCLES_OSL)
+		set(WITH_LLVM ON CACHE BOOL "" FORCE)
+	endif()
+else()
+	set(WITH_CYCLES_OSL OFF)
 endif()
 
 # auto enable openimageio linking dependencies
 if(WITH_OPENIMAGEIO)
 	set(WITH_IMAGE_OPENEXR ON)
 	set(WITH_IMAGE_TIFF ON)
-endif()
-
-# auto enable llvm for cycles_osl
-if(WITH_CYCLES_OSL)
-	set(WITH_LLVM ON CACHE BOOL "" FORCE)
 endif()
 
 # don't store paths to libs for portable distribution

@@ -324,6 +324,7 @@ static int print_help(int UNUSED(argc), const char **UNUSED(argv), void *data)
 	BLI_argsPrintArgDoc(ba, "--debug-depsgraph");
 	BLI_argsPrintArgDoc(ba, "--debug-depsgraph-no-threads");
 
+	BLI_argsPrintArgDoc(ba, "--debug-gpumem");
 	BLI_argsPrintArgDoc(ba, "--debug-wm");
 	BLI_argsPrintArgDoc(ba, "--debug-all");
 
@@ -335,7 +336,6 @@ static int print_help(int UNUSED(argc), const char **UNUSED(argv), void *data)
 	printf("Misc Options:\n");
 	BLI_argsPrintArgDoc(ba, "--factory-startup");
 	printf("\n");
-	BLI_argsPrintArgDoc(ba, "--env-system-config");
 	BLI_argsPrintArgDoc(ba, "--env-system-datafiles");
 	BLI_argsPrintArgDoc(ba, "--env-system-scripts");
 	BLI_argsPrintArgDoc(ba, "--env-system-python");
@@ -1303,11 +1303,18 @@ static int set_addons(int argc, const char **argv, void *data)
 	/* workaround for scripts not getting a bpy.context.scene, causes internal errors elsewhere */
 	if (argc > 1) {
 #ifdef WITH_PYTHON
-		const int slen = strlen(argv[1]) + 128;
+		const char script_str[] =
+		        "from addon_utils import check, enable\n"
+		        "for m in '%s'.split(','):\n"
+		        "    if check(m)[1] is False:\n"
+		        "        enable(m, persistent=True)";
+		const int slen = strlen(argv[1]) + (sizeof(script_str) - 2);
 		char *str = malloc(slen);
 		bContext *C = data;
-		BLI_snprintf(str, slen, "[__import__('addon_utils').enable(i, default_set=False) for i in '%s'.split(',')]", argv[1]);
-		BPY_CTX_SETUP(BPY_string_exec(C, str));
+		BLI_snprintf(str, slen, script_str, argv[1]);
+
+		BLI_assert(strlen(str) + 1 == slen);
+		BPY_CTX_SETUP(BPY_string_exec_ex(C, str, false));
 		free(str);
 #else
 		UNUSED_VARS(argv, data);
@@ -1517,7 +1524,7 @@ static void setupArguments(bContext *C, bArgs *ba, SYS_SystemHandle *syshandle)
 
 	BLI_argsAdd(ba, 1, NULL, "--verbose", "<verbose>\n\tSet logging verbosity level.", set_verbosity, NULL);
 
-	BLI_argsAdd(ba, 1, NULL, "--factory-startup", "\n\tSkip reading the "STRINGIFY (BLENDER_STARTUP_FILE)" in the users home directory", set_factory_startup, NULL);
+	BLI_argsAdd(ba, 1, NULL, "--factory-startup", "\n\tSkip reading the " STRINGIFY(BLENDER_STARTUP_FILE) " in the users home directory", set_factory_startup, NULL);
 
 	/* TODO, add user env vars? */
 	BLI_argsAdd(ba, 1, NULL, "--env-system-datafiles",  "\n\tSet the "STRINGIFY_ARG (BLENDER_SYSTEM_DATAFILES)" environment variable", set_env, NULL);
