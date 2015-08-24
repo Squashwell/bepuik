@@ -71,7 +71,7 @@ class ConstraintButtonsPanel:
             elif con.target.type in {'MESH', 'LATTICE'}:
                 layout.prop_search(con, "subtarget", con.target, "vertex_groups", text="Vertex Group")
     
-	@staticmethod
+    @staticmethod
     def bepuik_template_target(layout, con, propprefix="connection"):
         layout = layout.row(align=True)
         layout = layout.split(.5)
@@ -83,7 +83,6 @@ class ConstraintButtonsPanel:
             if con.connection_target.type == 'ARMATURE':
                 layout.prop_search(con, "%s_subtarget" % propprefix, target.data, "bones",text="")
 
-            
     @staticmethod 
     def bepuik_template_axis(layout, con, axis, subtargets=True):
         target_id = '%s_target' % axis
@@ -99,11 +98,10 @@ class ConstraintButtonsPanel:
             if target.type == 'ARMATURE':
                 layout = layout.split(.75)
                 layout.prop_search(con, subtarget_id, target.data, "bones",text="")
-                
-                
+
             layout.prop(con, axis, text = "")
     
-	@staticmethod                
+    @staticmethod
     def bepuik_template_location(layout, con, location, subtargets=True):
         target_id = '%s_target' % location
         subtarget_id = '%s_subtarget' % location
@@ -122,7 +120,8 @@ class ConstraintButtonsPanel:
                 if getattr(con,subtarget_id):
                     layout.prop(con, head_tail_id, text="")
 
-	@staticmethod    def ik_template(self, layout, con):
+    @staticmethod
+    def ik_template(self, layout, con):
         # only used for iTaSC
         layout.prop(con, "pole_target")
 
