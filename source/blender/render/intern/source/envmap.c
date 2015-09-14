@@ -37,7 +37,7 @@
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"        /* for rectcpy */
@@ -498,7 +498,8 @@ static void render_envmap(Render *re, EnvMap *env)
 			float *alpha;
 			float *rect;
 
-			rect = RE_RenderLayerGetPass(rl, SCE_PASS_COMBINED, re->viewname);
+			/* envmap is rendered independently of multiview  */
+			rect = RE_RenderLayerGetPass(rl, SCE_PASS_COMBINED, "");
 			ibuf = IMB_allocImBuf(envre->rectx, envre->recty, 24, IB_rect | IB_rectfloat);
 			memcpy(ibuf->rect_float, rect, ibuf->channels * ibuf->x * ibuf->y * sizeof(float));
 			

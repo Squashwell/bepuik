@@ -59,7 +59,7 @@
 #include "BIF_gl.h"
 
 #include "BLF_api.h"
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "UI_interface.h"
 
@@ -215,6 +215,23 @@ void ui_region_to_window(const ARegion *ar, int *x, int *y)
 	*x += ar->winrct.xmin;
 	*y += ar->winrct.ymin;
 }
+
+/**
+ * Popups will add a margin to #ARegion.winrct for shadow,
+ * for interactivity (point-inside tests for eg), we want the winrct without the margin added.
+ */
+void ui_region_winrct_get_no_margin(const struct ARegion *ar, struct rcti *r_rect)
+{
+	uiBlock *block = ar->uiblocks.first;
+	if (block && (block->flag & UI_BLOCK_LOOP) && (block->flag & UI_BLOCK_RADIAL) == 0) {
+		BLI_rcti_rctf_copy_floor(r_rect, &block->rect);
+		BLI_rcti_translate(r_rect, ar->winrct.xmin, ar->winrct.ymin);
+	}
+	else {
+		*r_rect = ar->winrct;
+	}
+}
+
 /* ******************* block calc ************************* */
 
 void ui_block_translate(uiBlock *block, int x, int y)
@@ -753,6 +770,10 @@ static bool ui_but_update_from_old_block(const bContext *C, uiBlock *block, uiBu
 			BLI_strncpy(oldbut->strdata, but->strdata, sizeof(oldbut->strdata));
 		}
 
+		if (but->dragpoin && (but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
+			SWAP(void *, but->dragpoin, oldbut->dragpoin);
+		}
+
 		BLI_remlink(&block->buttons, but);
 		ui_but_free(C, but);
 
@@ -960,9 +981,7 @@ static bool ui_but_event_operator_string(const bContext *C, uiBut *but, char *bu
 	if (but->optype) {
 		IDProperty *prop = (but->opptr) ? but->opptr->data : NULL;
 
-		if (WM_key_event_operator_string(C, but->optype->idname, but->opcontext, prop, true,
-		                                 buf, buf_len))
-		{
+		if (WM_key_event_operator_string(C, but->optype->idname, but->opcontext, prop, true, buf_len, buf)) {
 			found = true;
 		}
 	}
@@ -977,8 +996,8 @@ static bool ui_but_event_operator_string(const bContext *C, uiBut *but, char *bu
 
 		IDP_AssignString(prop_menu_name, mt->idname, sizeof(mt->idname));
 
-		if (WM_key_event_operator_string(C, "WM_OT_call_menu", WM_OP_INVOKE_REGION_WIN, prop_menu, true,
-		                                 buf, buf_len))
+		if (WM_key_event_operator_string(C, "WM_OT_call_menu", WM_OP_INVOKE_REGION_WIN, prop_menu,
+		                                 true, buf_len, buf))
 		{
 			found = true;
 		}
@@ -1083,7 +1102,7 @@ static bool ui_but_event_property_operator_string(const bContext *C, uiBut *but,
 			for (i = 0; (i < num_ops) && (ctx_toggle_opnames[i]); i++) {
 				//printf("\t%s\n", ctx_toggle_opnames[i]);
 				if (WM_key_event_operator_string(C, ctx_toggle_opnames[i], WM_OP_INVOKE_REGION_WIN, prop_path, false,
-				                                 buf, buf_len))
+				                                 buf_len, buf))
 				{
 					found = true;
 					break;
@@ -1311,16 +1330,8 @@ static void ui_but_to_pixelrect(rcti *rect, const ARegion *ar, uiBlock *block, u
 	rctf rectf;
 
 	ui_block_to_window_rctf(ar, block, &rectf, (but) ? &but->rect : &block->rect);
-
-	rectf.xmin -= ar->winrct.xmin;
-	rectf.ymin -= ar->winrct.ymin;
-	rectf.xmax -= ar->winrct.xmin;
-	rectf.ymax -= ar->winrct.ymin;
-
-	rect->xmin = floorf(rectf.xmin);
-	rect->ymin = floorf(rectf.ymin);
-	rect->xmax = floorf(rectf.xmax);
-	rect->ymax = floorf(rectf.ymax);
+	BLI_rcti_rctf_copy_floor(rect, &rectf);
+	BLI_rcti_translate(rect, -ar->winrct.xmin, -ar->winrct.ymin);
 }
 
 /* uses local copy of style, to scale things down, and allow widgets to change stuff */
@@ -1794,6 +1805,16 @@ bool ui_but_is_rna_valid(uiBut *but)
 	}
 }
 
+/**
+ * Checks if the button supports ctrl+mousewheel cycling
+ */
+bool ui_but_supports_cycling(const uiBut *but)
+{
+	return ((ELEM(but->type, UI_BTYPE_ROW, UI_BTYPE_NUM, UI_BTYPE_NUM_SLIDER, UI_BTYPE_LISTBOX)) ||
+	        (but->type == UI_BTYPE_MENU && ui_but_menu_step_poll(but)) ||
+	        (but->type == UI_BTYPE_COLOR && but->a1 != -1));
+}
+
 double ui_but_value_get(uiBut *but)
 {
 	PropertyRNA *prop;
@@ -2073,7 +2094,7 @@ static float ui_get_but_step_unit(uiBut *but, float step_default)
 	/* -1 is an error value */
 	if (step != -1.0) {
 		BLI_assert(step > 0.0);
-		return (float)(step / ui_get_but_scale_unit(but, 1.0)) * 100.0f;
+		return (float)(step / ui_get_but_scale_unit(but, 1.0));
 	}
 	else {
 		return step_default;
@@ -2522,6 +2543,10 @@ static void ui_but_free(const bContext *C, uiBut *but)
 		IMB_freeImBuf((struct ImBuf *)but->poin);
 	}
 
+	if (but->dragpoin && (but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
+		MEM_freeN(but->dragpoin);
+	}
+
 	BLI_assert(UI_butstore_is_registered(but->block, but) == false);
 
 	MEM_freeN(but);
@@ -2825,7 +2850,7 @@ void ui_but_update(uiBut *but)
 			}
 			else {
 				UI_GET_BUT_VALUE_INIT(but, value);
-				str = WM_key_event_string((short)value);
+				str = WM_key_event_string((short)value, false);
 			}
 			BLI_snprintf(but->drawstr, UI_MAX_DRAW_STR, "%s%s", but->str, str);
 			break;
@@ -4048,24 +4073,43 @@ int UI_but_return_value_get(uiBut *but)
 void UI_but_drag_set_id(uiBut *but, ID *id)
 {
 	but->dragtype = WM_DRAG_ID;
+	if ((but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
+		MEM_SAFE_FREE(but->dragpoin);
+		but->dragflag &= ~UI_BUT_DRAGPOIN_FREE;
+	}
 	but->dragpoin = (void *)id;
 }
 
 void UI_but_drag_set_rna(uiBut *but, PointerRNA *ptr)
 {
 	but->dragtype = WM_DRAG_RNA;
+	if ((but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
+		MEM_SAFE_FREE(but->dragpoin);
+		but->dragflag &= ~UI_BUT_DRAGPOIN_FREE;
+	}
 	but->dragpoin = (void *)ptr;
 }
 
-void UI_but_drag_set_path(uiBut *but, const char *path)
+void UI_but_drag_set_path(uiBut *but, const char *path, const bool use_free)
 {
 	but->dragtype = WM_DRAG_PATH;
+	if ((but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
+		MEM_SAFE_FREE(but->dragpoin);
+		but->dragflag &= ~UI_BUT_DRAGPOIN_FREE;
+	}
 	but->dragpoin = (void *)path;
+	if (use_free) {
+		but->dragflag |= UI_BUT_DRAGPOIN_FREE;
+	}
 }
 
 void UI_but_drag_set_name(uiBut *but, const char *name)
 {
 	but->dragtype = WM_DRAG_NAME;
+	if ((but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
+		MEM_SAFE_FREE(but->dragpoin);
+		but->dragflag &= ~UI_BUT_DRAGPOIN_FREE;
+	}
 	but->dragpoin = (void *)name;
 }
 
@@ -4075,11 +4119,18 @@ void UI_but_drag_set_value(uiBut *but)
 	but->dragtype = WM_DRAG_VALUE;
 }
 
-void UI_but_drag_set_image(uiBut *but, const char *path, int icon, struct ImBuf *imb, float scale)
+void UI_but_drag_set_image(uiBut *but, const char *path, int icon, struct ImBuf *imb, float scale, const bool use_free)
 {
 	but->dragtype = WM_DRAG_PATH;
 	ui_def_but_icon(but, icon, 0);  /* no flag UI_HAS_ICON, so icon doesnt draw in button */
+	if ((but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
+		MEM_SAFE_FREE(but->dragpoin);
+		but->dragflag &= ~UI_BUT_DRAGPOIN_FREE;
+	}
 	but->dragpoin = (void *)path;
+	if (use_free) {
+		but->dragflag |= UI_BUT_DRAGPOIN_FREE;
+	}
 	but->imb = imb;
 	but->imb_scale = scale;
 }
@@ -4536,7 +4587,7 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
 			}
 		}
 		else if (type == BUT_GET_RNA_LABEL_CONTEXT) {
-			const char *_tmp = BLF_I18NCONTEXT_DEFAULT;
+			const char *_tmp = BLT_I18NCONTEXT_DEFAULT;
 			if (but->rnaprop)
 				_tmp = RNA_property_translation_context(but->rnaprop);
 			else if (but->optype)
@@ -4546,8 +4597,8 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
 				if (mt)
 					_tmp = RNA_struct_translation_context(mt->ext.srna);
 			}
-			if (BLF_is_default_context(_tmp)) {
-				_tmp = BLF_I18NCONTEXT_DEFAULT_BPYRNA;
+			if (BLT_is_default_context(_tmp)) {
+				_tmp = BLT_I18NCONTEXT_DEFAULT_BPYRNA;
 			}
 			tmp = BLI_strdup(_tmp);
 		}

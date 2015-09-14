@@ -121,7 +121,7 @@ class ConstraintButtonsPanel:
                     layout.prop(con, head_tail_id, text="")
 
     @staticmethod
-    def ik_template(self, layout, con):
+    def ik_template(layout, con):
         # only used for iTaSC
         layout.prop(con, "pole_target")
 

@@ -144,10 +144,24 @@ void Pass::add(PassType type, vector<Pass>& passes)
 			pass.exposure = false;
 			break;
 		case PASS_LIGHT:
-			/* ignores */
+			/* This isn't a real pass, used by baking to see whether
+			 * light data is needed or not.
+			 *
+			 * Set components to 0 so pass sort below happens in a
+			 * determined way.
+			 */
+			pass.components = 0;
 			break;
 #ifdef WITH_CYCLES_DEBUG
 		case PASS_BVH_TRAVERSAL_STEPS:
+			pass.components = 1;
+			pass.exposure = false;
+			break;
+		case PASS_BVH_TRAVERSED_INSTANCES:
+			pass.components = 1;
+			pass.exposure = false;
+			break;
+		case PASS_RAY_BOUNCES:
 			pass.components = 1;
 			pass.exposure = false;
 			break;
@@ -398,6 +412,12 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 #ifdef WITH_CYCLES_DEBUG
 			case PASS_BVH_TRAVERSAL_STEPS:
 				kfilm->pass_bvh_traversal_steps = kfilm->pass_stride;
+				break;
+			case PASS_BVH_TRAVERSED_INSTANCES:
+				kfilm->pass_bvh_traversed_instances = kfilm->pass_stride;
+				break;
+			case PASS_RAY_BOUNCES:
+				kfilm->pass_ray_bounces = kfilm->pass_stride;
 				break;
 #endif
 

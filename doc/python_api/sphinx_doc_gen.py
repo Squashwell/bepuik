@@ -234,6 +234,7 @@ else:
     EXCLUDE_MODULES = [
         "aud",
         "bge",
+        "bge.app"
         "bge.constraints",
         "bge.events",
         "bge.logic",
@@ -262,6 +263,7 @@ else:
         "gpu",
         "mathutils",
         "mathutils.geometry",
+        "mathutils.bvhtree",
         "mathutils.kdtree",
         "mathutils.noise",
         "freestyle",
@@ -630,7 +632,7 @@ def pyfunc2sphinx(ident, fw, module_name, type_name, identifier, py_func, is_cla
     if type(py_func) == MethodType:
         return
 
-    arg_str = inspect.formatargspec(*inspect.getargspec(py_func))
+    arg_str = inspect.formatargspec(*inspect.getfullargspec(py_func))
 
     if not is_class:
         func_type = "function"
@@ -1598,7 +1600,7 @@ def write_rst_contents(basepath):
     fw("\n")
 
     # fw("`A PDF version of this document is also available <%s>`_\n" % BLENDER_PDF_FILENAME)
-    fw("`A compressed ZIP file of this site is available <%s>`_\n" % BLENDER_ZIP_FILENAME)
+    fw("This site can be downloaded for offline use `Download the full Documentation (zipped HTML files) <%s>`_\n" % BLENDER_ZIP_FILENAME)
 
     fw("\n")
 
@@ -1643,7 +1645,7 @@ def write_rst_contents(basepath):
 
     standalone_modules = (
         # mathutils
-        "mathutils", "mathutils.geometry", "mathutils.kdtree", "mathutils.noise",
+        "mathutils", "mathutils.geometry", "mathutils.bvhtree", "mathutils.kdtree", "mathutils.noise",
         # misc
         "freestyle", "bgl", "blf", "gpu", "aud", "bpy_extras",
         # bmesh, submodules are in own page
@@ -1669,6 +1671,7 @@ def write_rst_contents(basepath):
         fw("   bge.texture.rst\n\n")
         fw("   bge.events.rst\n\n")
         fw("   bge.constraints.rst\n\n")
+        fw("   bge.app.rst\n\n")
 
     # rna generated change log
     fw(title_string("API Info", "=", double=True))
@@ -1794,6 +1797,7 @@ def write_rst_importable_modules(basepath):
         "bpy.props"            : "Property Definitions",
         "mathutils"            : "Math Types & Utilities",
         "mathutils.geometry"   : "Geometry Utilities",
+        "mathutils.bvhtree"    : "BVHTree Utilities",
         "mathutils.kdtree"     : "KDTree Utilities",
         "mathutils.noise"      : "Noise Utilities",
         "freestyle"            : "Freestyle Module",
@@ -1825,6 +1829,7 @@ def copy_handwritten_rsts(basepath):
         "bge.texture",
         "bge.events",
         "bge.constraints",
+        "bge.app",
         "bgl",  # "Blender OpenGl wrapper"
         "gpu",  # "GPU Shader Module"
 

@@ -879,8 +879,20 @@ void assign_material(Object *ob, Material *ma, short act, int assign_type)
 		*totcolp = act;
 	}
 
+	if (act > ob->totcol) {
+		/* Need more space in the material arrays */
+		ob->mat = MEM_recallocN_id(ob->mat, sizeof(void *) * act, "matarray2");
+		ob->matbits = MEM_recallocN_id(ob->matbits, sizeof(char) * act, "matbits1");
+		ob->totcol = act;
+	}
+
 	/* Determine the object/mesh linking */
-	if (assign_type == BKE_MAT_ASSIGN_USERPREF && ob->totcol && ob->actcol) {
+	if (assign_type == BKE_MAT_ASSIGN_EXISTING) {
+		/* keep existing option (avoid confusion in scripts),
+		 * intentionally ignore userpref (default to obdata). */
+		bit = ob->matbits[act - 1];
+	}
+	else if (assign_type == BKE_MAT_ASSIGN_USERPREF && ob->totcol && ob->actcol) {
 		/* copy from previous material */
 		bit = ob->matbits[ob->actcol - 1];
 	}
@@ -897,13 +909,6 @@ void assign_material(Object *ob, Material *ma, short act, int assign_type)
 				bit = (U.flag & USER_MAT_ON_OB) ? 1 : 0;
 				break;
 		}
-	}
-
-	if (act > ob->totcol) {
-		/* Need more space in the material arrays */
-		ob->mat = MEM_recallocN_id(ob->mat, sizeof(void *) * act, "matarray2");
-		ob->matbits = MEM_recallocN_id(ob->matbits, sizeof(char) * act, "matbits1");
-		ob->totcol = act;
 	}
 	
 	/* do it */
@@ -1127,7 +1132,7 @@ void init_render_material(Material *mat, int r_mode, float *amb)
 	}
 }
 
-void init_render_materials(Main *bmain, int r_mode, float *amb)
+void init_render_materials(Main *bmain, int r_mode, float *amb, bool do_default_material)
 {
 	Material *ma;
 	
@@ -1148,8 +1153,10 @@ void init_render_materials(Main *bmain, int r_mode, float *amb)
 		if (ma->id.us) 
 			init_render_material(ma, r_mode, amb);
 	}
-	
-	init_render_material(&defmaterial, r_mode, amb);
+
+	if (do_default_material) {
+		init_render_material(&defmaterial, r_mode, amb);
+	}
 }
 
 /* only needed for nodes now */

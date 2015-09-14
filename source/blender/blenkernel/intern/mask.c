@@ -41,7 +41,7 @@
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
@@ -49,6 +49,7 @@
 #include "DNA_space_types.h"
 #include "DNA_sequence_types.h"
 
+#include "BKE_animsys.h"
 #include "BKE_curve.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
@@ -179,6 +180,16 @@ void BKE_mask_layer_unique_name(Mask *mask, MaskLayer *masklay)
 {
 	BLI_uniquename(&mask->masklayers, masklay, DATA_("MaskLayer"), '.', offsetof(MaskLayer, name),
 	               sizeof(masklay->name));
+}
+
+void BKE_mask_layer_rename(Mask *mask, MaskLayer *masklay, char *oldname, char *newname)
+{
+	BLI_strncpy(masklay->name, newname, sizeof(masklay->name));
+
+	BKE_mask_layer_unique_name(mask, masklay);
+
+	/* now fix animation paths */
+	BKE_animdata_fix_paths_rename_all(&mask->id, "layers", oldname, masklay->name);
 }
 
 MaskLayer *BKE_mask_layer_copy(MaskLayer *masklay)

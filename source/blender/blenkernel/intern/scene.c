@@ -58,7 +58,7 @@
 #include "BLI_threads.h"
 #include "BLI_task.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "BKE_anim.h"
 #include "BKE_animsys.h"
@@ -72,6 +72,7 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_group.h"
+#include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
@@ -89,6 +90,11 @@
 #include "BKE_unit.h"
 #include "BKE_world.h"
 #include "BKE_armature.h"
+
+#ifdef WITH_OPENSUBDIV
+#  include "BKE_modifier.h"
+#  include "CCGSubSurf.h"
+#endif
 
 #include "DEG_depsgraph.h"
 
@@ -342,6 +348,10 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 		}
 	}
 
+	if (sce->preview) {
+		scen->preview = BKE_previewimg_copy(sce->preview);
+	}
+
 	return scen;
 }
 
@@ -451,6 +461,8 @@ void BKE_scene_free(Scene *sce)
 	BKE_sound_destroy_scene(sce);
 
 	BKE_color_managed_view_settings_free(&sce->view_settings);
+
+	BKE_previewimg_free(&sce->preview);
 }
 
 Scene *BKE_scene_add(Main *bmain, const char *name)
@@ -565,6 +577,7 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 
 	sce->toolsettings = MEM_callocN(sizeof(struct ToolSettings), "Tool Settings Struct");
 	sce->toolsettings->doublimit = 0.001;
+	sce->toolsettings->vgroup_weight = 1.0f;
 	sce->toolsettings->uvcalc_margin = 0.001f;
 	sce->toolsettings->unwrapper = 1;
 	sce->toolsettings->select_thresh = 0.01f;
@@ -730,6 +743,8 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 	copy_v2_fl2(sce->safe_areas.title_center, 17.5f / 100.0f, 5.0f / 100.0f);
 	copy_v2_fl2(sce->safe_areas.action_center, 15.0f / 100.0f, 5.0f / 100.0f);
 
+	sce->preview = NULL;
+
 	return sce;
 }
 
@@ -751,6 +766,11 @@ Base *BKE_scene_base_find(Scene *scene, Object *ob)
 	return BLI_findptr(&scene->base, ob, offsetof(Base, object));
 }
 
+/**
+ * Sets the active scene, mainly used when running in background mode (``--scene`` command line argument).
+ * This is also called to set the scene directly, bypassing windowing code.
+ * Otherwise #ED_screen_set_scene is used when changing scenes by the user.
+ */
 void BKE_scene_set_background(Main *bmain, Scene *scene)
 {
 	Scene *sce;
@@ -1341,9 +1361,14 @@ static void scene_do_rb_simulation_recursive(Scene *scene, float ctime)
  *
  * Ideally Mballs shouldn't do such an iteration and use DAG
  * queries instead. For the time being we've got new DAG
- * let's keep it simple and update mballs in a ingle thread.
+ * let's keep it simple and update mballs in a single thread.
  */
 #define MBALL_SINGLETHREAD_HACK
+
+/* Need this because CCFDM holds some OpenGL resources. */
+#ifdef WITH_OPENSUBDIV
+#  define OPENSUBDIV_GL_WORKAROUND
+#endif
 
 #ifdef WITH_LEGACY_DEPSGRAPH
 typedef struct StatisicsEntry {
@@ -1546,6 +1571,47 @@ static bool scene_need_update_objects(Main *bmain)
 		DAG_id_type_tagged(bmain, ID_AR);     /* Armature */
 }
 
+#ifdef OPENSUBDIV_GL_WORKAROUND
+/* CCG DrivedMesh currently hold some OpenGL handles, which could only be
+ * released from the main thread.
+ *
+ * Ideally we need to use gpu_buffer_free, but it's a bit tricky because
+ * some buffers are only accessible from OpenSubdiv side.
+ */
+static void scene_free_unused_opensubdiv_cache(Scene *scene)
+{
+	Base *base;
+	for (base = scene->base.first; base; base = base->next) {
+		Object *object = base->object;
+		if (object->type == OB_MESH && object->recalc & OB_RECALC_DATA) {
+			ModifierData *md = object->modifiers.last;
+			if (md != NULL && md->type == eModifierType_Subsurf) {
+				SubsurfModifierData *smd = (SubsurfModifierData *) md;
+				bool object_in_editmode = object->mode == OB_MODE_EDIT;
+				if (!smd->use_opensubdiv ||
+				    DAG_get_eval_flags_for_object(scene, object) & DAG_EVAL_NEED_CPU)
+				{
+					if (smd->mCache != NULL) {
+						ccgSubSurf_free_osd_mesh(smd->mCache);
+					}
+					if (smd->emCache != NULL) {
+						ccgSubSurf_free_osd_mesh(smd->emCache);
+					}
+				}
+				if (object_in_editmode && smd->mCache != NULL) {
+					ccgSubSurf_free(smd->mCache);
+					smd->mCache = NULL;
+				}
+				if (!object_in_editmode && smd->emCache != NULL) {
+					ccgSubSurf_free(smd->emCache);
+					smd->emCache = NULL;
+				}
+			}
+		}
+	}
+}
+#endif
+
 static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Scene *scene_parent)
 {
 	TaskScheduler *task_scheduler = BLI_task_scheduler_get();
@@ -1563,6 +1629,10 @@ static void scene_update_objects(EvaluationContext *eval_ctx, Main *bmain, Scene
 	if (!scene_need_update_objects(bmain)) {
 		return;
 	}
+
+#ifdef OPENSUBDIV_GL_WORKAROUND
+	scene_free_unused_opensubdiv_cache(scene);
+#endif
 
 	state.eval_ctx = eval_ctx;
 	state.scene = scene;
@@ -1733,15 +1803,21 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	 * in the future this should handle updates for all datablocks, not
 	 * only objects and scenes. - brecht */
 #ifdef WITH_LEGACY_DEPSGRAPH
-	if (use_new_eval) {
-		DEG_evaluate_on_refresh(eval_ctx, scene->depsgraph, scene);
-	}
-	else {
+	if (!use_new_eval) {
 		scene_update_tagged_recursive(eval_ctx, bmain, scene, scene);
 	}
-#else
-	DEG_evaluate_on_refresh(eval_ctx, scene->depsgraph, scene);
+	else
 #endif
+	{
+#ifdef OPENSUBDIV_GL_WORKAROUND
+		if (DEG_needs_eval(scene->depsgraph)) {
+			scene_free_unused_opensubdiv_cache(scene);
+		}
+#endif
+		DEG_evaluate_on_refresh(eval_ctx, scene->depsgraph, scene);
+		/* TODO(sergey): This is to beocme a node in new depsgraph. */
+		BKE_mask_update_scene(bmain, scene);
+	}
 
 	/* update sound system animation (TODO, move to depsgraph) */
 	BKE_sound_update_scene(bmain, scene);
@@ -1818,6 +1894,8 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 	/* TODO(sergey): Pass to evaluation routines instead of storing layer in the graph? */
 	(void) do_invisible_flush;
 #endif
+
+	DAG_editors_update_pre(bmain, sce, true);
 
 	/* keep this first */
 	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_FRAME_CHANGE_PRE);
@@ -2430,11 +2508,11 @@ const char *BKE_scene_multiview_view_id_suffix_get(const RenderData *rd, const s
 	}
 }
 
-void BKE_scene_multiview_view_prefix_get(Scene *scene, const char *name, char *rprefix, char **rext)
+void BKE_scene_multiview_view_prefix_get(Scene *scene, const char *name, char *rprefix, const char **rext)
 {
 	SceneRenderView *srv;
 	size_t index_act;
-	char *suf_act;
+	const char *suf_act;
 	const char delims[] = {'.', '\0'};
 
 	rprefix[0] = '\0';
@@ -2442,6 +2520,7 @@ void BKE_scene_multiview_view_prefix_get(Scene *scene, const char *name, char *r
 	/* begin of extension */
 	index_act = BLI_str_rpartition(name, delims, rext, &suf_act);
 	BLI_assert(index_act > 0);
+	UNUSED_VARS_NDEBUG(index_act);
 
 	for (srv = scene->r.views.first; srv; srv = srv->next) {
 		if (BKE_scene_multiview_is_render_view_active(&scene->r, srv)) {

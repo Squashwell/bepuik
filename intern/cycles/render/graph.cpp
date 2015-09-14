@@ -336,6 +336,8 @@ void ShaderGraph::remove_unneeded_nodes()
 	vector<bool> removed(num_node_ids, false);
 	bool any_node_removed = false;
 
+	ShaderNode *geom = NULL;
+
 	/* find and unlink proxy nodes */
 	foreach(ShaderNode *node, nodes) {
 		if(node->special_type == SHADER_SPECIAL_TYPE_PROXY) {
@@ -419,6 +421,28 @@ void ShaderGraph::remove_unneeded_nodes()
 				}
 			}
 		}
+		else if(node->special_type == SHADER_SPECIAL_TYPE_BUMP) {
+			BumpNode *bump = static_cast<BumpNode*>(node);
+
+			if(bump->outputs[0]->links.size()) {
+				/* Height inputs is not connected. */
+				/* TODO(sergey): Ignore bump with zero strength. */
+				if(bump->inputs[0]->link == NULL) {
+					vector<ShaderInput*> inputs = bump->outputs[0]->links;
+					if(bump->inputs[4]->link == NULL) {
+						if(geom == NULL) {
+							geom = new GeometryNode();
+						}
+						relink(bump->inputs, inputs, geom->output("Normal"));
+					}
+					else {
+						relink(bump->inputs, inputs, bump->input("Normal")->link);
+					}
+					removed[bump->id] = true;
+					any_node_removed = true;
+				}
+			}
+		}
 		else if(node->special_type == SHADER_SPECIAL_TYPE_MIX_CLOSURE) {
 			MixClosureNode *mix = static_cast<MixClosureNode*>(node);
 
@@ -496,6 +520,10 @@ void ShaderGraph::remove_unneeded_nodes()
 
 		nodes = newnodes;
 	}
+
+	if(geom != NULL) {
+		add(geom);
+	}
 }
 
 void ShaderGraph::break_cycles(ShaderNode *node, vector<bool>& visited, vector<bool>& on_stack)
@@ -560,7 +588,7 @@ void ShaderGraph::clean()
 		else
 			delete node;
 	}
-	
+
 	nodes = newnodes;
 }
 

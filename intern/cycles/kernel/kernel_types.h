@@ -105,7 +105,14 @@ CCL_NAMESPACE_BEGIN
 
 #ifdef __KERNEL_OPENCL_APPLE__
 #  define __KERNEL_SHADING__
-//#define __KERNEL_ADV_SHADING__
+#  define __KERNEL_ADV_SHADING__
+/* TODO(sergey): Currently experimental section is ignored here,
+ * this is because megakernel in device_opencl does not support
+ * custom cflags depending on the scene features.
+ */
+#  ifdef __KERNEL_EXPERIMENTAL__
+#    define __CMJ__
+#  endif
 #endif
 
 #ifdef __KERNEL_OPENCL_AMD__
@@ -119,7 +126,9 @@ CCL_NAMESPACE_BEGIN
 #  define __CAMERA_MOTION__
 #  define __OBJECT_MOTION__
 #  define __HAIR__
-//#define __TRANSPARENT_SHADOWS__
+#  ifdef __KERNEL_EXPERIMENTAL__
+#    define __TRANSPARENT_SHADOWS__
+#  endif
 #endif
 
 #ifdef __KERNEL_OPENCL_INTEL_CPU__
@@ -337,6 +346,8 @@ typedef enum PassType {
 	PASS_LIGHT = (1 << 25), /* no real pass, used to force use_light_pass */
 #ifdef __KERNEL_DEBUG__
 	PASS_BVH_TRAVERSAL_STEPS = (1 << 26),
+	PASS_BVH_TRAVERSED_INSTANCES = (1 << 27),
+	PASS_RAY_BOUNCES = (1 << 28),
 #endif
 } PassType;
 
@@ -498,6 +509,7 @@ typedef ccl_addr_space struct Intersection {
 
 #ifdef __KERNEL_DEBUG__
 	int num_traversal_steps;
+	int num_traversed_instances;
 #endif
 } Intersection;
 
@@ -708,7 +720,6 @@ typedef struct PathState {
 
 	/* random number generator state */
 	int rng_offset;    		/* dimension offset */
-	int rng_offset_bsdf;  	/* dimension offset for picking bsdf */
 	int sample;        		/* path sample number */
 	int num_samples;		/* total number of times this path will be sampled */
 
@@ -766,7 +777,7 @@ typedef struct KernelCamera {
 
 	/* motion blur */
 	float shuttertime;
-	int have_motion;
+	int have_motion, have_perspective_motion;
 
 	/* clipping */
 	float nearclip;
@@ -784,7 +795,6 @@ typedef struct KernelCamera {
 	float inv_aperture_ratio;
 
 	int is_inside_volume;
-	int pad2;
 
 	/* more matrices */
 	Transform screentoworld;
@@ -798,6 +808,11 @@ typedef struct KernelCamera {
 	Transform worldtocamera;
 
 	MotionTransform motion;
+
+	/* Denotes changes in the projective matrix, namely in rastertocamera.
+	 * Used for camera zoom motion blur,
+	 */
+	PerspectiveMotionTransform perspective_motion;
 } KernelCamera;
 
 typedef struct KernelFilm {
@@ -848,7 +863,9 @@ typedef struct KernelFilm {
 
 #ifdef __KERNEL_DEBUG__
 	int pass_bvh_traversal_steps;
-	int pass_pad3, pass_pad4, pass_pad5;
+	int pass_bvh_traversed_instances;
+	int pass_ray_bounces;
+	int pass_pad3;
 #endif
 } KernelFilm;
 
@@ -987,6 +1004,8 @@ typedef ccl_addr_space struct DebugData {
 	// Total number of BVH node traversal steps and primitives intersections
 	// for the camera rays.
 	int num_bvh_traversal_steps;
+	int num_bvh_traversed_instances;
+	int num_ray_bounces;
 } DebugData;
 #endif
 
@@ -1006,16 +1025,19 @@ typedef ccl_addr_space struct DebugData {
 
 /* Queue names */
 enum QueueNumber {
-	QUEUE_ACTIVE_AND_REGENERATED_RAYS,         /* All active rays and regenerated rays are enqueued here */
-	QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,      /* All
-	                                            * 1.Background-hit rays,
-	                                            * 2.Rays that has exited path-iteration but needs to update output buffer
-	                                            * 3.Rays to be regenerated
-	                                            * are enqueued here */
-	QUEUE_SHADOW_RAY_CAST_AO_RAYS,             /* All rays for which a shadow ray should be cast to determine radiance
-	                                              contribution for AO are enqueued here */
-	QUEUE_SHADOW_RAY_CAST_DL_RAYS,             /* All rays for which a shadow ray should be cast to determine radiance
-	                                              contributuin for direct lighting are enqueued here */
+	QUEUE_ACTIVE_AND_REGENERATED_RAYS = 0,     /* All active rays and regenerated rays are enqueued here. */
+	QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS = 1,  /* All
+	                                            * 1. Background-hit rays,
+	                                            * 2. Rays that has exited path-iteration but needs to update output buffer
+	                                            * 3. Rays to be regenerated
+	                                            * are enqueued here.
+	                                            */
+	QUEUE_SHADOW_RAY_CAST_AO_RAYS = 2,         /* All rays for which a shadow ray should be cast to determine radiance
+	                                            * contribution for AO are enqueued here.
+	                                            */
+	QUEUE_SHADOW_RAY_CAST_DL_RAYS = 3,         /* All rays for which a shadow ray should be cast to determine radiance
+	                                            * contributing for direct lighting are enqueued here.
+	                                            */
 };
 
 /* We use RAY_STATE_MASK to get ray_state (enums 0 to 5) */

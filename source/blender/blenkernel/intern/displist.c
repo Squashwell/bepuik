@@ -517,7 +517,7 @@ void BKE_displist_fill(ListBase *dispbase, ListBase *to, const float normal_proj
 			dl = dl->next;
 		}
 
-		/* XXX (obedit && obedit->actcol) ? (obedit->actcol-1) : 0)) { */
+		/* XXX (obedit && obedit->actcol) ? (obedit->actcol - 1) : 0)) { */
 		if (totvert && (tot = BLI_scanfill_calc_ex(&sf_ctx,
 		                                           scanfill_flag,
 		                                           normal_proj)))
@@ -1600,7 +1600,7 @@ static void do_makeDispListCurveTypes(Scene *scene, Object *ob, ListBase *dispba
 						float bottom_no[3] = {0.0f};
 						float top_no[3] = {0.0f};
 						float firstblend = 0.0f, lastblend = 0.0f;
-						int i, start, steps;
+						int i, start, steps = 0;
 
 						if (nu->flagu & CU_NURB_CYCLIC) {
 							calc_bevfac_mapping_default(bl,

@@ -135,6 +135,7 @@ extern EnumPropertyItem object_axis_unsigned_items[];
 extern EnumPropertyItem controller_type_items[];
 
 extern EnumPropertyItem render_pass_type_items[];
+extern EnumPropertyItem render_pass_debug_type_items[];
 
 extern EnumPropertyItem keymap_propvalue_items[];
 
@@ -155,6 +156,8 @@ extern EnumPropertyItem gameproperty_type_items[];
 extern EnumPropertyItem viewport_shade_items[];
 
 extern EnumPropertyItem navigation_mode_items[];
+
+extern EnumPropertyItem file_sort_items[];
 
 int rna_node_tree_type_to_enum(struct bNodeTreeType *typeinfo);
 int rna_node_tree_idname_to_enum(const char *idname);

@@ -34,7 +34,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "BKE_font.h"
 
@@ -45,9 +45,6 @@
 #include "rna_internal.h"
 
 #include "WM_types.h"
-
-#include "BKE_curve.h"
-#include "ED_curve.h"
 
 #ifndef RNA_RUNTIME
 static EnumPropertyItem beztriple_handle_type_items[] = {
@@ -123,8 +120,6 @@ static const EnumPropertyItem curve2d_fill_mode_items[] = {
 #endif
 
 #ifdef RNA_RUNTIME
-
-#include "BLI_math.h"
 
 #include "DNA_object_types.h"
 

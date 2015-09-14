@@ -160,6 +160,28 @@ static BMOpDefine bmo_recalc_face_normals_def = {
 };
 
 /*
+ * Planar Faces.
+ *
+ * Iteratively flatten faces.
+ */
+static BMOpDefine bmo_planar_faces_def = {
+	"planar_faces",
+	/* slots_in */
+	{{"faces", BMO_OP_SLOT_ELEMENT_BUF, {BM_FACE}},    /* input geometry. */
+	 {"iterations", BMO_OP_SLOT_INT},
+	 {"factor", BMO_OP_SLOT_FLT},           /* planar factor */
+	 {{'\0'}},
+	},
+	/* slots_out */
+	{{"geom.out", BMO_OP_SLOT_ELEMENT_BUF, {BM_VERT | BM_EDGE | BM_FACE}}, /* output slot, computed boundary geometry. */
+	 {{'\0'}},
+	},
+	bmo_planar_faces_exec,
+	(BMO_OPTYPE_FLAG_SELECT_FLUSH |
+	 BMO_OPTYPE_FLAG_SELECT_VALIDATE),
+};
+
+/*
  * Region Extend.
  *
  * used to implement the select more/less tools.
@@ -1705,6 +1727,7 @@ static BMOpDefine bmo_bevel_def = {
 	 {"vertex_only", BMO_OP_SLOT_BOOL},     /* only bevel vertices, not edges */
 	 {"clamp_overlap", BMO_OP_SLOT_BOOL},   /* do not allow beveled edges/vertices to overlap each other */
 	 {"material", BMO_OP_SLOT_INT},         /* material for bevel faces, -1 means get from adjacent faces */
+	 {"loop_slide", BMO_OP_SLOT_BOOL},      /* prefer to slide along edges to having even widths */
 	 {{'\0'}},
 	},
 	/* slots_out */
@@ -1839,6 +1862,27 @@ static BMOpDefine bmo_inset_region_def = {
 	 {{'\0'}},
 	},
 	bmo_inset_region_exec,
+	(BMO_OPTYPE_FLAG_NORMALS_CALC |
+	 BMO_OPTYPE_FLAG_SELECT_FLUSH),
+};
+
+/*
+ * Edgeloop Offset.
+ *
+ * Creates edge loops based on simple edge-outset method.
+ */
+static BMOpDefine bmo_offset_edgeloops_def = {
+	"offset_edgeloops",
+	/* slots_in */
+	{{"edges", BMO_OP_SLOT_ELEMENT_BUF, {BM_EDGE}},    /* input faces */
+	 {"use_cap_endpoint", BMO_OP_SLOT_BOOL},
+	 {{'\0'}},
+	},
+	/* slots_out */
+	{{"edges.out", BMO_OP_SLOT_ELEMENT_BUF, {BM_EDGE}}, /* output faces */
+	 {{'\0'}},
+	},
+	bmo_offset_edgeloops_exec,
 	(BMO_OPTYPE_FLAG_NORMALS_CALC |
 	 BMO_OPTYPE_FLAG_SELECT_FLUSH),
 };
@@ -1999,6 +2043,7 @@ const BMOpDefine *bmo_opdefines[] = {
 	&bmo_duplicate_def,
 	&bmo_holes_fill_def,
 	&bmo_face_attribute_fill_def,
+	&bmo_offset_edgeloops_def,
 	&bmo_edgeloop_fill_def,
 	&bmo_edgenet_fill_def,
 	&bmo_edgenet_prepare_def,
@@ -2018,6 +2063,7 @@ const BMOpDefine *bmo_opdefines[] = {
 	&bmo_pointmerge_facedata_def,
 	&bmo_poke_def,
 	&bmo_recalc_face_normals_def,
+	&bmo_planar_faces_def,
 	&bmo_region_extend_def,
 	&bmo_remove_doubles_def,
 	&bmo_reverse_colors_def,

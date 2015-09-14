@@ -123,13 +123,16 @@ ccl_device void kernel_scene_intersect(
 #ifdef __KERNEL_DEBUG__
 	if(state.flag & PATH_RAY_CAMERA) {
 		debug_data->num_bvh_traversal_steps += isect->num_traversal_steps;
+		debug_data->num_bvh_traversed_instances += isect->num_traversed_instances;
 	}
+	debug_data->num_ray_bounces++;
 #endif
 
 	if(!hit) {
 		/* Change the state of rays that hit the background;
 		 * These rays undergo special processing in the
-		 * background_bufferUpdate kernel*/
+		 * background_bufferUpdate kernel.
+		 */
 		ASSIGN_RAY_STATE(ray_state, ray_index, RAY_HIT_BACKGROUND);
 	}
 }
