@@ -4291,7 +4291,7 @@ static int ui_do_but_NUM(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 			if (mx < (but->rect.xmin + handlewidth)) {
 				button_activate_state(C, but, BUTTON_STATE_NUM_EDITING);
 
-				tempf = (float)data->value - 0.01f * but->a1;
+				tempf = (float)data->value - (UI_PRECISION_FLOAT_SCALE * but->a1);
 				if (tempf < softmin) tempf = softmin;
 				data->value = tempf;
 
@@ -4300,7 +4300,7 @@ static int ui_do_but_NUM(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 			else if (mx > but->rect.xmax - handlewidth) {
 				button_activate_state(C, but, BUTTON_STATE_NUM_EDITING);
 
-				tempf = (float)data->value + 0.01f * but->a1;
+				tempf = (float)data->value + (UI_PRECISION_FLOAT_SCALE * but->a1);
 				if (tempf > softmax) tempf = softmax;
 				data->value = tempf;
 
@@ -5200,11 +5200,16 @@ static bool ui_numedit_but_HSVCUBE(
 			hsv[2] = y;
 			break;
 		case UI_GRAD_V_ALT:
+		{
 			/* vertical 'value' strip */
-
+			float min = but->softmin, max = but->softmax;
+			if (use_display_colorspace) {
+				ui_block_cm_to_display_space_range(but->block, &min, &max);
+			}
 			/* exception only for value strip - use the range set in but->min/max */
-			hsv[2] = y * (but->softmax - but->softmin) + but->softmin;
+			hsv[2] = y * (max - min) + min;
 			break;
+		}
 		default:
 			BLI_assert(0);
 			break;

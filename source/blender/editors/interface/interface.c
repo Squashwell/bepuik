@@ -2087,14 +2087,32 @@ static void ui_get_but_string_unit(uiBut *but, char *str, int len_max, double va
 static float ui_get_but_step_unit(uiBut *but, float step_default)
 {
 	int unit_type = RNA_SUBTYPE_UNIT_VALUE(UI_but_unit_type_get(but));
-	double step;
-
-	step = bUnit_ClosestScalar(ui_get_but_scale_unit(but, step_default), but->block->unit->system, unit_type);
+	const double step_orig = step_default * UI_PRECISION_FLOAT_SCALE;
+	/* Scaling up 'step_origg ' here is a bit arbitrary, its just giving better scales from user POV */
+	const double scale_step = ui_get_but_scale_unit(but, step_orig * 10);
+	const double step = bUnit_ClosestScalar(scale_step, but->block->unit->system, unit_type);
 
 	/* -1 is an error value */
 	if (step != -1.0) {
+		const double scale_unit = ui_get_but_scale_unit(but, 1.0);
+		const double step_unit = bUnit_ClosestScalar(scale_unit, but->block->unit->system, unit_type);
+		double step_final;
+
 		BLI_assert(step > 0.0);
-		return (float)(step / ui_get_but_scale_unit(but, 1.0));
+
+		step_final = (step / scale_unit) / UI_PRECISION_FLOAT_SCALE;
+
+		if (step == step_unit) {
+			/* Logic here is to scale by the original 'step_orig'
+			 * only when the unit step matches the scaled step.
+			 *
+			 * This is needed for units that don't have a wide range of scales (degrees for eg.).
+			 * Without this we can't select between a single degree, or a 10th of a degree.
+			 */
+			step_final *= step_orig;
+		}
+
+		return (float)step_final;
 	}
 	else {
 		return step_default;
@@ -3121,6 +3139,20 @@ void ui_block_cm_to_scene_linear_v3(uiBlock *block, float pixel[3])
 	struct ColorManagedDisplay *display = ui_block_cm_display_get(block);
 
 	IMB_colormanagement_display_to_scene_linear_v3(pixel, display);
+}
+
+void ui_block_cm_to_display_space_range(uiBlock *block, float *min, float *max)
+{
+	struct ColorManagedDisplay *display = ui_block_cm_display_get(block);
+	float pixel[3];
+
+	copy_v3_fl(pixel, *min);
+	IMB_colormanagement_scene_linear_to_display_v3(pixel, display);
+	*min = min_fff(UNPACK3(pixel));
+
+	copy_v3_fl(pixel, *max);
+	IMB_colormanagement_scene_linear_to_display_v3(pixel, display);
+	*max = max_fff(UNPACK3(pixel));
 }
 
 /**
