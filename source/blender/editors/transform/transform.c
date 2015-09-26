@@ -1724,7 +1724,7 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				glVertex2fv(cent);
 				glEnd();
 
-				glTranslatef(mval[0], mval[1], 0);
+				glTranslate2fv((const float *)mval);
 				glRotatef(-RAD2DEGF(atan2f(cent[0] - t->mval[0], cent[1] - t->mval[1])), 0, 0, 1);
 
 				setlinestyle(0);
@@ -1736,7 +1736,7 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 			case HLP_HARROW:
 				UI_ThemeColor(TH_VIEW_OVERLAY);
 
-				glTranslatef(mval[0], mval[1], 0);
+				glTranslate2fv((const float *)mval);
 
 				glLineWidth(3.0);
 				drawArrow(RIGHT, 5, 10, 5);
@@ -1746,7 +1746,7 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 			case HLP_VARROW:
 				UI_ThemeColor(TH_VIEW_OVERLAY);
 
-				glTranslatef(mval[0], mval[1], 0);
+				glTranslate2fv((const float *)mval);
 
 				glLineWidth(3.0);
 				drawArrow(UP, 5, 10, 5);
@@ -1797,7 +1797,7 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				unsigned char col[3], col2[3];
 				UI_GetThemeColor3ubv(TH_GRID, col);
 
-				glTranslatef(mval[0], mval[1], 0);
+				glTranslate2fv((const float *)mval);
 
 				glLineWidth(3.0);
 
