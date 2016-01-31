@@ -342,7 +342,7 @@ namespace BEPUmath
 					if (std::abs(Z) < limit)
 						return true;
 		
-		false;
+		return false;
 	}
 
 }
